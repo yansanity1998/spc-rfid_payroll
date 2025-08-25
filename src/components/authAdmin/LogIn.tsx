@@ -17,12 +17,14 @@ export const LogIn = () => {
       password,
     });
 
+    console.log(data);
+
     if (error) {
       setErrorMsg(error.message);
     } else {
       localStorage.setItem("user", JSON.stringify(data.session));
 
-      navigate("/dashboard");
+      navigate("/hrAdmin/dashboard");
     }
   };
 

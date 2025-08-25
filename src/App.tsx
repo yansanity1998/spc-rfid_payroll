@@ -26,12 +26,16 @@ function AppContent() {
 
         <Routes>
           <Route path="/" element={<LogIn />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/userManagement" element={<UserManagement />} />
-          <Route path="/attendance" element={<Attendance />} />
-          <Route path="/payroll" element={<Payroll />} />
-          <Route path="/requests" element={<Requests />} />
-          <Route path="/reports" element={<Reports />} />
+
+          {/* HR ADMIN */}
+          <Route path="/hrAdmin/dashboard" element={<Dashboard />} />
+          <Route path="/hrAdmin/userManagement" element={<UserManagement />} />
+          <Route path="/hrAdmin/attendance" element={<Attendance />} />
+          <Route path="/hrAdmin/payroll" element={<Payroll />} />
+          <Route path="/hrAdmin/requests" element={<Requests />} />
+          <Route path="/hrAdmin/reports" element={<Reports />} />
+
+          {/* ACCOUNTING */}
         </Routes>
       </main>
     </>

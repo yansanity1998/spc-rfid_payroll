@@ -13,7 +13,22 @@ export const UserManagement = () => {
     role: "Faculty",
   });
 
-  // Fetch users from Supabase
+  const handleToggleStatus = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
+
+    const { error } = await supabase
+      .from("users")
+      .update({ status: newStatus })
+      .eq("id", id);
+
+    if (error) {
+      console.error(error.message);
+      alert("Failed to update user status");
+    } else {
+      fetchUsers(); // refresh the list
+    }
+  };
+
   const fetchUsers = async () => {
     const { data, error } = await supabase
       .from("users")
@@ -53,7 +68,7 @@ export const UserManagement = () => {
     <div className="flex h-screen w-[87%] justify-end relative py-5 roboto pl-5">
       <main className="flex flex-col w-full p-6 bg-white shadow rounded-l-xl overflow-y-auto">
         <section className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl">User Management</h1>
+          <h1 className="text-2xl font-bold text-gray-800">User Management</h1>
           <button
             onClick={() => showCreate(true)}
             className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
@@ -94,9 +109,21 @@ export const UserManagement = () => {
                     <button className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 mr-2">
                       Edit
                     </button>
-                    <button className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700">
-                      Deactivate
-                    </button>
+                    {user.status === "Active" ? (
+                      <button
+                        onClick={() => handleToggleStatus(user.id, user.status)}
+                        className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                      >
+                        Deactivate
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleToggleStatus(user.id, user.status)}
+                        className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                      >
+                        Activate
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

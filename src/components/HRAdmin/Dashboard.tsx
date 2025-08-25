@@ -54,25 +54,25 @@ const Dashboard = () => {
       <main className="flex flex-col w-full p-6 bg-white shadow-xs/20 justify-between rounded-l-xl overflow-y-auto">
         {/* Dashboard Header */}
         <section className="space-y-10">
-          <div className="flex justify-between h-7">
-            <h1 className="text-2xl mb-4">Dashboard</h1>
+          <div className="flex h-7">
+            <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4">
-            <div className="p-6 bg-white rounded-lg shadow flex items-center justify-between">
+            <div className="p-6 bg-white rounded-lg border-1 border-gray-100 shadow flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold">Employees</h2>
                 <p className="text-2xl">{employees.length}</p>
               </div>
             </div>
-            <div className="p-6 bg-white rounded-lg shadow flex items-center justify-between">
+            <div className="p-6 bg-white rounded-lg border-1 border-gray-100 shadow flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold">Active Today</h2>
                 <p className="text-2xl">87</p>
               </div>
             </div>
-            <div className="p-6 bg-white rounded-lg shadow flex items-center justify-between">
+            <div className="p-6 bg-white rounded-lg border-1 border-gray-100 shadow flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold">Pending Requests</h2>
                 <p className="text-2xl">5</p>
@@ -82,7 +82,7 @@ const Dashboard = () => {
         </section>
 
         {/* Employee List */}
-        <div className="p-2 shadow-xs/20 rounded-lg mt-10">
+        <div className="flex-1 p-2 shadow-xs/20 border-1 border-gray-100 rounded-lg mt-10">
           <h1 className="text-md mb-6 mt-2 font-medium mx-4">Employee List</h1>
           <div className="overflow-x-auto">
             <table className="min-w-full border border-gray-200 bg-white rounded-lg shadow">
@@ -125,7 +125,7 @@ const Dashboard = () => {
         </div>
 
         {/* Payroll Records */}
-        <div className="p-2 shadow-xs/20 rounded-lg mt-10">
+        <div className="flex-1 p-2 shadow-xs/20 border-1 border-gray-100 rounded-lg mt-10">
           <h1 className="text-md mb-6 mt-2 font-medium mx-4">
             Payroll Records
           </h1>
