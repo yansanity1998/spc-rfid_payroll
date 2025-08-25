@@ -3,7 +3,7 @@ import { useState } from "react";
 
 export const UserManagement = () => {
   // Mock users (later connect to DB)
-  const [users, setUsers] = useState([
+  const [users] = useState([
     { id: 1, name: "Admin User", role: "Administrator", status: "Active" },
     { id: 2, name: "Jane Smith", role: "HR Personnel", status: "Active" },
     { id: 3, name: "Mark Reyes", role: "Faculty", status: "Inactive" },
