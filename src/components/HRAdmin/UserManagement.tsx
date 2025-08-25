@@ -5,7 +5,6 @@ import supabase from "../../utils/supabase";
 export const UserManagement = () => {
   const [create, showCreate] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // Form state for new user
   const [newUser, setNewUser] = useState({
@@ -16,7 +15,6 @@ export const UserManagement = () => {
 
   // Fetch users from Supabase
   const fetchUsers = async () => {
-    setLoading(true);
     const { data, error } = await supabase
       .from("users")
       .select("*")
@@ -26,7 +24,6 @@ export const UserManagement = () => {
     } else {
       setUsers(data || []);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -35,16 +32,14 @@ export const UserManagement = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase
-      .from("users")
-      .insert([
-        {
-          name: newUser.name,
-          email: newUser.email,
-          role: newUser.role,
-          status: "Active",
-        },
-      ]);
+    const { error } = await supabase.from("users").insert([
+      {
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        status: "Active",
+      },
+    ]);
     if (error) {
       alert(error.message);
     } else {
@@ -111,65 +106,62 @@ export const UserManagement = () => {
       </main>
 
       {create && (
-          <div className="absolute flex backdrop-blur-xs bg-gray-50/40 items-center -translate-y-5 justify-center h-full w-full">
-            <form
-              onSubmit={handleCreate}
-              className="w-[70%]  rounded"
-            >
-              <div className="flex flex-col p-4 bg-white shadow-xs/60 rounded-lg gap-3">
-                <input
-                  type="text"
-                  placeholder="Full Name"
-                  value={newUser.name}
-                  onChange={(e) =>
-                    setNewUser({ ...newUser, name: e.target.value })
-                  }
-                  className="border px-3 py-2 rounded"
-                  required
-                />
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={newUser.email}
-                  onChange={(e) =>
-                    setNewUser({ ...newUser, email: e.target.value })
-                  }
-                  className="border px-3 py-2 rounded"
-                  required
-                />
-                <select
-                  value={newUser.role}
-                  onChange={(e) =>
-                    setNewUser({ ...newUser, role: e.target.value })
-                  }
-                  className="border px-3 py-2 rounded"
+        <div className="absolute flex backdrop-blur-xs bg-gray-50/40 items-center -translate-y-5 justify-center h-full w-full">
+          <form onSubmit={handleCreate} className="w-[70%]  rounded">
+            <div className="flex flex-col p-4 bg-white shadow-xs/60 rounded-lg gap-3">
+              <input
+                type="text"
+                placeholder="Full Name"
+                value={newUser.name}
+                onChange={(e) =>
+                  setNewUser({ ...newUser, name: e.target.value })
+                }
+                className="border px-3 py-2 rounded"
+                required
+              />
+              <input
+                type="email"
+                placeholder="Email"
+                value={newUser.email}
+                onChange={(e) =>
+                  setNewUser({ ...newUser, email: e.target.value })
+                }
+                className="border px-3 py-2 rounded"
+                required
+              />
+              <select
+                value={newUser.role}
+                onChange={(e) =>
+                  setNewUser({ ...newUser, role: e.target.value })
+                }
+                className="border px-3 py-2 rounded"
+              >
+                <option>Administrator</option>
+                <option>HR Personnel</option>
+                <option>Accounting</option>
+                <option>Faculty</option>
+                <option>Staff</option>
+                <option>SA</option>
+              </select>
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
                 >
-                  <option>Administrator</option>
-                  <option>HR Personnel</option>
-                  <option>Accounting</option>
-                  <option>Faculty</option>
-                  <option>Staff</option>
-                  <option>SA</option>
-                </select>
-                <div className="flex gap-3">
-                  <button
-                    type="submit"
-                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                  >
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => showCreate(false)}
-                    className="px-4 py-2 border rounded"
-                  >
-                    Cancel
-                  </button>
-                </div>
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => showCreate(false)}
+                  className="px-4 py-2 border rounded"
+                >
+                  Cancel
+                </button>
               </div>
-            </form>
-          </div>
-        )}
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 };
