@@ -11,7 +11,7 @@ export const NavBar = () => {
     { key: "reports", label: "Reports", link: "reports" },
   ];
   return (
-    <div className="w-70 absolute left-0 h-full pr-2 py-10">
+    <div className="w-70 h-screen pr-2 py-10">
       <div className="flex items-center justify-center gap-10">
         <img src={spclogo} alt="" className="h-10" />
         <svg height="30" className="hover:bg-gray-100 transition cursor-pointer hover:border-1 border-gray-200 rounded-full p-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -37,6 +37,7 @@ export const NavBar = () => {
           {menu.map((item) => (
             <Link
               to={item.link}
+              reloadDocument
               className="hover:bg-red-800 block w-full text-left px-3 py-2 rounded-md hover:text-white transition"
             >
               {item.label}
