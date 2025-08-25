@@ -48,41 +48,40 @@ export const Payroll = () => {
 
   // Flatten payrolls or create a placeholder if none
   const payrolls = users
-    .map((user) => {
-      if (user.payrolls && user.payrolls.length > 0) {
-        return user.payrolls.map((pr: any) => ({
-          ...pr,
-          userId: user.id,
-          name: user.name,
-          role: user.role,
-        }));
-      }
-      return [
-        {
-          id: `no-payroll-${user.id}`,
-          userId: user.id,
-          name: user.name,
-          role: user.role,
-          period: "--",
-          gross: 0,
-          deductions: 0,
-          net: 0,
-          status: "No Record",
-        },
-      ];
-    })
+    .map((user) =>
+      user.payrolls?.length
+        ? user.payrolls.map((pr: any) => ({
+            ...pr,
+            userId: user.id,
+            name: user.name,
+            role: user.role,
+          }))
+        : [
+            {
+              id: `no-payroll-${user.id}`,
+              userId: user.id,
+              name: user.name,
+              role: user.role,
+              period: "--",
+              gross: 0,
+              deductions: 0,
+              net: 0,
+              status: "No Record",
+            },
+          ]
+    )
     .flat();
 
   return (
-    <div className="flex h-screen w-[87%] justify-end py-5 roboto pl-5">
-      <main className="flex flex-col w-full p-6 bg-white shadow rounded-l-xl overflow-y-auto">
+    <div className="flex h-screen w-full lg:w-[87%] justify-end py-5 px-3 sm:px-5 roboto">
+      <main className="flex flex-col w-full p-4 sm:p-6 bg-white shadow rounded-lg lg:rounded-l-xl overflow-y-auto">
         {/* Header */}
-        <section className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">
+        <section className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-3">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
             Payroll Management
           </h1>
           <button
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+            className="w-full sm:w-auto bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
             onClick={fetchPayrolls}
           >
             Refresh
@@ -90,9 +89,9 @@ export const Payroll = () => {
         </section>
 
         {/* Payroll Table */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full border border-gray-200 rounded-lg">
-            <thead className="bg-gray-100">
+        <div className="overflow-x-auto border rounded-lg">
+          <table className="min-w-full border-collapse bg-white text-sm sm:text-base">
+            <thead className="bg-gray-100 sticky top-0 z-10">
               <tr>
                 <th className="px-4 py-2 text-left border-b">ID</th>
                 <th className="px-4 py-2 text-left border-b">Employee</th>
@@ -112,9 +111,9 @@ export const Payroll = () => {
                     Loading...
                   </td>
                 </tr>
-              ) : (
+              ) : payrolls.length > 0 ? (
                 payrolls.map((pr) => (
-                  <tr key={pr.id} className="hover:bg-gray-50">
+                  <tr key={pr.id} className="hover:bg-gray-50 transition">
                     <td className="px-4 py-2 border-b">{pr.userId}</td>
                     <td className="px-4 py-2 border-b">{pr.name}</td>
                     <td className="px-4 py-2 border-b">{pr.role}</td>
@@ -141,7 +140,7 @@ export const Payroll = () => {
                     >
                       {pr.status}
                     </td>
-                    <td className="px-4 py-2 border-b flex gap-2">
+                    <td className="px-4 py-2 border-b flex flex-col sm:flex-row gap-2">
                       <button className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">
                         View
                       </button>
@@ -159,6 +158,12 @@ export const Payroll = () => {
                     </td>
                   </tr>
                 ))
+              ) : (
+                <tr>
+                  <td colSpan={9} className="text-center py-4">
+                    No payroll records found
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>

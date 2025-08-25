@@ -9,28 +9,28 @@ export const Requests = () => {
   ]);
 
   return (
-    <div className="flex h-screen w-[87%] justify-end py-5 roboto pl-5">
-      <main className="flex flex-col w-full p-6 bg-white shadow rounded-l-xl overflow-y-auto">
+    <div className="flex h-screen w-full lg:w-[87%] justify-end py-5 roboto px-3 sm:px-5">
+      <main className="flex flex-col w-full p-4 sm:p-6 bg-white shadow rounded-lg lg:rounded-l-xl overflow-y-auto">
         {/* Header */}
-        <section className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">Employee Requests</h1>
-          <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+        <section className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-3">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Employee Requests</h1>
+          <button className="w-full sm:w-auto bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">
             + New Request
           </button>
         </section>
 
         {/* Tabs */}
-        <div className="flex gap-4 mb-6">
-          <button className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300">All</button>
+        <div className="flex flex-wrap gap-2 mb-6">
+          <button className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition">All</button>
           <button className="px-4 py-2 rounded-lg bg-yellow-100 text-yellow-800">Pending</button>
           <button className="px-4 py-2 rounded-lg bg-green-100 text-green-800">Approved</button>
           <button className="px-4 py-2 rounded-lg bg-red-100 text-red-800">Rejected</button>
         </div>
 
         {/* Requests Table */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full border border-gray-200 rounded-lg">
-            <thead className="bg-gray-100">
+        <div className="overflow-x-auto border rounded-lg">
+          <table className="min-w-full border-collapse bg-white text-sm sm:text-base">
+            <thead className="bg-gray-100 sticky top-0 z-10">
               <tr>
                 <th className="px-4 py-2 text-left border-b">ID</th>
                 <th className="px-4 py-2 text-left border-b">Employee</th>
@@ -43,7 +43,7 @@ export const Requests = () => {
             </thead>
             <tbody>
               {requests.map((req) => (
-                <tr key={req.id} className="hover:bg-gray-50">
+                <tr key={req.id} className="hover:bg-gray-50 transition">
                   <td className="px-4 py-2 border-b">{req.id}</td>
                   <td className="px-4 py-2 border-b">{req.name}</td>
                   <td className="px-4 py-2 border-b">{req.type}</td>
@@ -60,11 +60,11 @@ export const Requests = () => {
                   >
                     {req.status}
                   </td>
-                  <td className="px-4 py-2 border-b flex gap-2">
-                    <button className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600">
+                  <td className="px-4 py-2 border-b flex flex-col sm:flex-row gap-2">
+                    <button className="w-full sm:w-auto px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition">
                       Approve
                     </button>
-                    <button className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600">
+                    <button className="w-full sm:w-auto px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition">
                       Reject
                     </button>
                   </td>

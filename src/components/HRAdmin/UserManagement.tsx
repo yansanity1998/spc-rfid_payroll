@@ -6,7 +6,6 @@ export const UserManagement = () => {
   const [create, showCreate] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
 
-  // Form state for new user
   const [newUser, setNewUser] = useState({
     name: "",
     email: "",
@@ -25,7 +24,7 @@ export const UserManagement = () => {
       console.error(error.message);
       alert("Failed to update user status");
     } else {
-      fetchUsers(); // refresh the list
+      fetchUsers();
     }
   };
 
@@ -34,6 +33,7 @@ export const UserManagement = () => {
       .from("users")
       .select("*")
       .order("created_at", { ascending: false });
+
     if (error) {
       console.error(error);
     } else {
@@ -65,20 +65,24 @@ export const UserManagement = () => {
   };
 
   return (
-    <div className="flex h-screen w-[87%] justify-end relative py-5 roboto pl-5">
-      <main className="flex flex-col w-full p-6 bg-white shadow rounded-l-xl overflow-y-auto">
-        <section className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">User Management</h1>
+    <div className="flex h-screen w-full lg:w-[87%] justify-end relative py-5 roboto px-3 sm:px-5">
+      <main className="flex flex-col w-full p-4 sm:p-6 bg-white shadow rounded-lg overflow-y-auto">
+        {/* Header */}
+        <section className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
+            User Management
+          </h1>
           <button
             onClick={() => showCreate(true)}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 w-full sm:w-auto"
           >
             + Create New User
           </button>
         </section>
 
+        {/* Table */}
         <div className="overflow-x-auto">
-          <table className="min-w-full border border-gray-200 rounded-lg">
+          <table className="min-w-full border border-gray-200 rounded-lg text-sm sm:text-base">
             <thead className="bg-gray-100">
               <tr>
                 <th className="px-4 py-2 text-left border-b">ID</th>
@@ -105,21 +109,21 @@ export const UserManagement = () => {
                   >
                     {user.status}
                   </td>
-                  <td className="px-4 py-2 border-b">
-                    <button className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 mr-2">
+                  <td className="px-4 py-2 border-b flex flex-wrap gap-2">
+                    <button className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
                       Edit
                     </button>
                     {user.status === "Active" ? (
                       <button
                         onClick={() => handleToggleStatus(user.id, user.status)}
-                        className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                        className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
                       >
                         Deactivate
                       </button>
                     ) : (
                       <button
                         onClick={() => handleToggleStatus(user.id, user.status)}
-                        className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                        className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
                       >
                         Activate
                       </button>
@@ -132,10 +136,14 @@ export const UserManagement = () => {
         </div>
       </main>
 
+      {/* Modal */}
       {create && (
-        <div className="absolute flex backdrop-blur-xs bg-gray-50/40 items-center -translate-y-5 justify-center h-full w-full">
-          <form onSubmit={handleCreate} className="w-[70%]  rounded">
-            <div className="flex flex-col p-4 bg-white shadow-xs/60 rounded-lg gap-3">
+        <div className="absolute flex backdrop-blur-xs bg-gray-50/40 items-center justify-center h-full w-full top-0 left-0 px-4">
+          <form
+            onSubmit={handleCreate}
+            className="w-full sm:w-[70%] md:w-[50%] lg:w-[40%] rounded"
+          >
+            <div className="flex flex-col p-4 bg-white shadow-md rounded-lg gap-3">
               <input
                 type="text"
                 placeholder="Full Name"
@@ -170,17 +178,17 @@ export const UserManagement = () => {
                 <option>Staff</option>
                 <option>SA</option>
               </select>
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3 mt-2">
                 <button
                   type="submit"
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full sm:w-auto"
                 >
                   Save
                 </button>
                 <button
                   type="button"
                   onClick={() => showCreate(false)}
-                  className="px-4 py-2 border rounded"
+                  className="px-4 py-2 border rounded w-full sm:w-auto"
                 >
                   Cancel
                 </button>
