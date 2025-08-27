@@ -80,7 +80,7 @@ const Dashboard = () => {
                 <p className="text-xl sm:text-2xl">87</p>
               </div>
             </div>
-            <div className="p-4 sm:p-6 bg-white rounded-lg border border-gray-100 shadow flex items-center justify-between">
+            <div className="p-4 sm:p-6 bg-white rounded-lg border border-gray-100 shadow  flex items-center justify-between">
               <div>
                 <h2 className="text-base sm:text-lg font-semibold">
                   Pending Requests
@@ -95,9 +95,9 @@ const Dashboard = () => {
           <h1 className="text-md sm:text-lg mb-4 sm:mb-6 mt-2 font-medium mx-2 sm:mx-4">
             Employee List
           </h1>
-          <div className="overflow-x-auto">
-            <table className="min-w-full border border-gray-200 bg-white rounded-lg shadow text-sm sm:text-base">
-              <thead className="bg-gray-100">
+          <div className="overflow-x-auto border rounded-lg">
+          <table className="min-w-full border-collapse bg-white text-sm sm:text-base">
+            <thead className="bg-red-800 text-white sticky top-0 z-10">
                 <tr>
                   <th className="px-3 sm:px-4 py-2 text-left border-b">ID</th>
                   <th className="px-3 sm:px-4 py-2 text-left border-b">Name</th>
@@ -210,9 +210,9 @@ const Dashboard = () => {
           <h1 className="text-md sm:text-lg mb-4 sm:mb-6 mt-2 font-medium mx-2 sm:mx-4">
             Payroll Records
           </h1>
-          <div className="overflow-x-auto">
-            <table className="min-w-full border border-gray-200 bg-white rounded-lg shadow text-sm sm:text-base">
-              <thead className="bg-gray-100">
+          <div className="overflow-x-auto border rounded-lg">
+          <table className="min-w-full border-collapse bg-white text-sm sm:text-base">
+            <thead className="bg-red-800 text-white sticky top-0 z-10">
                 <tr>
                   <th className="px-3 sm:px-4 py-2 text-left border-b">
                     Employee

@@ -91,7 +91,7 @@ export const Payroll = () => {
         {/* Payroll Table */}
         <div className="overflow-x-auto border rounded-lg">
           <table className="min-w-full border-collapse bg-white text-sm sm:text-base">
-            <thead className="bg-gray-100 sticky top-0 z-10">
+            <thead className="bg-red-800 text-white sticky top-0 z-10">
               <tr>
                 <th className="px-4 py-2 text-left border-b">ID</th>
                 <th className="px-4 py-2 text-left border-b">Employee</th>
