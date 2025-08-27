@@ -132,3 +132,7 @@ body{
 input:focus{
   outline: none;
 }
+
+#searchInput:focus ~ .search-bar {
+  transform: translateX(50px);
+}

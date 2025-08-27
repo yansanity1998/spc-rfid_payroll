@@ -65,28 +65,23 @@ export const LogIn = () => {
 
   return (
     <div className="h-screen w-full relative overflow-hidden flex flex-col">
-      {/* Top accent bar */}
       <div className="bg-red-950 shadow-xl/20 h-2 sm:h-3"></div>
 
-      {/* Logo top left */}
       <img
         src={spclogo}
         alt=""
         className="h-16 sm:h-24 md:h-32 lg:h-40 absolute top-5 sm:top-10 left-5 sm:left-10"
       />
 
-      {/* Centered form */}
       <div className="flex flex-1 items-center justify-center px-4">
         <form
           onSubmit={handleLogin}
           className="w-full max-w-sm sm:max-w-md md:max-w-lg bg-red-950/20 backdrop-blur-md border border-white/20 shadow-lg rounded-2xl p-6 space-y-6"
         >
-          {/* Title */}
           <div className="flex justify-center">
             <img src={titlelogo} alt="" className="h-10 sm:h-16" />
           </div>
 
-          {/* Input fields */}
           <div className="space-y-4">
             <div className="flex flex-col text-sm sm:text-base">
               <label className="mb-1">Email</label>
