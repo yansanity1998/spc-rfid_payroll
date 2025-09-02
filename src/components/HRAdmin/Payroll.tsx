@@ -95,7 +95,6 @@ export const Payroll = () => {
   return (
     <div className="flex h-screen w-full lg:w-[87%] justify-end py-5 px-3 sm:px-5 roboto">
       <main className="flex flex-col w-full p-4 sm:p-6 bg-white shadow rounded-lg lg:rounded-l-xl overflow-y-auto">
-        {/* Header */}
         <section className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-3">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
             Payroll Management (HR Admin)
@@ -139,7 +138,6 @@ export const Payroll = () => {
                     <td className="px-4 py-2 border-b">{pr.role}</td>
                     <td className="px-4 py-2 border-b">{pr.period}</td>
 
-                    {/* Editable fields if status is Pending */}
                     <td className="px-4 py-2 border-b">
                       {editing === pr.id ? (
                         <input

@@ -106,7 +106,6 @@ export const LogIn = () => {
           {/* Error message */}
           {errorMsg && <p className="text-red-600 text-xs sm:text-sm">{errorMsg}</p>}
 
-          {/* Submit button */}
           <div className="flex justify-center">
             <button
               type="submit"
@@ -116,7 +115,6 @@ export const LogIn = () => {
             </button>
           </div>
 
-          {/* Forgot password */}
           <div className="flex justify-start">
             <a href="/" className="text-xs sm:text-sm underline hover:text-red-800">
               Forgot password?

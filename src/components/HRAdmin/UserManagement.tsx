@@ -1,4 +1,3 @@
-// src/pages/UserManagement.tsx
 import { useEffect, useState } from "react";
 import supabase from "../../utils/supabase";
 
@@ -97,7 +96,6 @@ export const UserManagement = () => {
     }
   };
 
-  // Filtered users based on search
   const filteredUsers = users.filter(
     (user) =>
       user.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -113,7 +111,6 @@ export const UserManagement = () => {
   return (
     <div className="flex h-screen w-full lg:w-[87%] justify-end relative py-5 roboto px-3 sm:px-5">
       <main className="flex flex-col w-full p-4 sm:p-6 bg-white shadow rounded-lg overflow-y-auto">
-        {/* Header */}
         <section className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
             User Management
