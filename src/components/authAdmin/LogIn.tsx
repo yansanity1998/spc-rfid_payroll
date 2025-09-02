@@ -47,7 +47,7 @@ export const LogIn = () => {
         navigate("/hrAdmin/dashboard");
         break;
       case "Accounting":
-        navigate("/accounting/dashboard");
+        navigate("/accounting/payroll");
         break;
       case "Administrator":
         navigate("/hrAdmin/dashboard");

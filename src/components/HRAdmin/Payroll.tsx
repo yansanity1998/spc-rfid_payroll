@@ -5,6 +5,8 @@ import supabase from "../../utils/supabase";
 export const Payroll = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<number | null>(null);
+  const [editData, setEditData] = useState<any>({});
 
   const fetchPayrolls = async () => {
     setLoading(true);
@@ -34,19 +36,37 @@ export const Payroll = () => {
     fetchPayrolls();
   }, []);
 
+  // --- Finalize Payroll ---
   const finalizePayroll = async (id: number) => {
     const { error } = await supabase
       .from("payrolls")
       .update({ status: "Finalized" })
       .eq("id", id);
-    if (error) {
-      alert(error.message);
-    } else {
+
+    if (error) alert(error.message);
+    else fetchPayrolls();
+  };
+
+  // --- Save Edited Payroll ---
+  const savePayroll = async (id: number) => {
+    const { error } = await supabase
+      .from("payrolls")
+      .update({
+        gross: editData.gross,
+        deductions: editData.deductions,
+        net: editData.gross - editData.deductions,
+      })
+      .eq("id", id);
+
+    if (error) alert(error.message);
+    else {
+      setEditing(null);
+      setEditData({});
       fetchPayrolls();
     }
   };
 
-  // Flatten payrolls or create a placeholder if none
+  // Flatten payrolls
   const payrolls = users
     .map((user) =>
       user.payrolls?.length
@@ -78,7 +98,7 @@ export const Payroll = () => {
         {/* Header */}
         <section className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-3">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
-            Payroll Management
+            Payroll Management (HR Admin)
           </h1>
           <button
             className="w-full sm:w-auto bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
@@ -118,17 +138,57 @@ export const Payroll = () => {
                     <td className="px-4 py-2 border-b">{pr.name}</td>
                     <td className="px-4 py-2 border-b">{pr.role}</td>
                     <td className="px-4 py-2 border-b">{pr.period}</td>
+
+                    {/* Editable fields if status is Pending */}
                     <td className="px-4 py-2 border-b">
-                      {pr.gross > 0 ? `₱${pr.gross.toLocaleString()}` : "--"}
+                      {editing === pr.id ? (
+                        <input
+                          type="number"
+                          className="border rounded px-2 py-1 w-24"
+                          value={editData.gross || pr.gross}
+                          onChange={(e) =>
+                            setEditData({
+                              ...editData,
+                              gross: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                        />
+                      ) : pr.gross > 0 ? (
+                        `₱${pr.gross.toLocaleString()}`
+                      ) : (
+                        "--"
+                      )}
                     </td>
                     <td className="px-4 py-2 border-b">
-                      {pr.deductions > 0
-                        ? `₱${pr.deductions.toLocaleString()}`
-                        : "--"}
+                      {editing === pr.id ? (
+                        <input
+                          type="number"
+                          className="border rounded px-2 py-1 w-24"
+                          value={editData.deductions || pr.deductions}
+                          onChange={(e) =>
+                            setEditData({
+                              ...editData,
+                              deductions: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                        />
+                      ) : pr.deductions > 0 ? (
+                        `₱${pr.deductions.toLocaleString()}`
+                      ) : (
+                        "--"
+                      )}
                     </td>
                     <td className="px-4 py-2 border-b font-semibold text-green-700">
-                      {pr.net > 0 ? `₱${pr.net.toLocaleString()}` : "--"}
+                      {editing === pr.id
+                        ? `₱${
+                            (editData.gross || pr.gross) -
+                            (editData.deductions || pr.deductions)
+                          }`
+                        : pr.net > 0
+                        ? `₱${pr.net.toLocaleString()}`
+                        : "--"}
                     </td>
+
                     <td
                       className={`px-4 py-2 border-b font-semibold ${
                         pr.status === "Pending"
@@ -140,18 +200,34 @@ export const Payroll = () => {
                     >
                       {pr.status}
                     </td>
+
+                    {/* Actions */}
                     <td className="px-4 py-2 border-b flex flex-col sm:flex-row gap-2">
-                      <button className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">
-                        View
-                      </button>
+                      {pr.status === "Pending" && editing !== pr.id && (
+                        <button
+                          onClick={() => setEditing(pr.id)}
+                          className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                        >
+                          Edit
+                        </button>
+                      )}
+
+                      {editing === pr.id && (
+                        <button
+                          onClick={() => savePayroll(pr.id)}
+                          className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                        >
+                          Save
+                        </button>
+                      )}
+
                       <button
                         onClick={() => finalizePayroll(pr.id)}
                         className={`px-3 py-1 rounded text-white ${
                           pr.status === "Pending"
-                            ? "bg-green-500 hover:bg-green-600"
+                            ? "bg-green-700 hover:bg-green-800"
                             : "bg-gray-400 cursor-not-allowed"
                         }`}
-                        disabled={pr.status !== "Pending"}
                       >
                         Finalize
                       </button>

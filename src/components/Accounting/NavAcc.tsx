@@ -1,20 +1,18 @@
-// src/components/NavBar.tsx
+// src/components/Accounting/NavAccounting.tsx
 import { Link, useNavigate } from "react-router-dom";
-import { spclogo } from "../utils";
-import supabase from "../utils/supabase";
+import { spclogo } from "../../utils";
+import supabase from "../../utils/supabase";
 import { useState } from "react";
 
-export const NavBar = () => {
+export const NavAccounting = () => {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const menu = [
-    { key: "dashboard", label: "Dashboard", link: "hrAdmin/dashboard" },
-    { key: "users", label: "User Management", link: "hrAdmin/userManagement" },
-    { key: "attendance", label: "Attendance", link: "hrAdmin/attendance" },
-    { key: "payroll", label: "Payroll", link: "hrAdmin/payroll" },
-    { key: "requests", label: "Requests", link: "hrAdmin/requests" },
-    { key: "reports", label: "Reports", link: "hrAdmin/reports" },
+    { key: "dashboard", label: "Dashboard", link: "/accounting/dashboard" },
+    { key: "payroll", label: "Payroll", link: "/accounting/payroll" },
+    { key: "contributions", label: "Gov’t Contributions", link: "/accounting/contributions" },
+    { key: "reports", label: "Reports", link: "/accounting/reports" },
   ];
 
   const handleLogout = async () => {
@@ -88,8 +86,8 @@ export const NavBar = () => {
                     key={item.key}
                     to={item.link}
                     reloadDocument
-                    onClick={() => setMenuOpen(false)} // close menu after navigation
-                    className="hover:bg-red-800 block w-full text-left px-3 py-2 rounded-md hover:text-white transition"
+                    onClick={() => setMenuOpen(false)}
+                    className="hover:bg-blue-800 block w-full text-left px-3 py-2 rounded-md hover:text-white transition"
                   >
                     {item.label}
                   </Link>
@@ -99,7 +97,7 @@ export const NavBar = () => {
             <div className="p-4">
               <button
                 onClick={handleLogout}
-                className="w-full bg-gray-200 hover:bg-red-600 hover:text-white shadow-md cursor-pointer px-3 py-2 rounded-md transition"
+                className="w-full bg-gray-200 hover:bg-blue-600 hover:text-white shadow-md cursor-pointer px-3 py-2 rounded-md transition"
               >
                 Logout
               </button>

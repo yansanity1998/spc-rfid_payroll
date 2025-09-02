@@ -12,35 +12,37 @@ const Dashboard = () => {
   const fetchData = async () => {
     setLoading(true);
 
+    // fetch employees (for Employee List)
     const { data: users, error: userError } = await supabase
       .from("users")
       .select("*");
 
     if (userError) console.error("Error fetching employees:", userError);
 
-    const { data: payrolls, error: payrollError } = await supabase
-      .from("payrolls")
+    // fetch only users with payrolls (inner join ensures user must have payrolls)
+    const { data: payrollUsers, error: payrollError } = await supabase
+      .from("users")
       .select(
         `
+      id,
+      name,
+      role,
+      payrolls (
         id,
         period,
         gross,
         deductions,
         net,
-        status,
-        users (
-          name,
-          role,
-          department
-        )
-      `
+        status
       )
-      .order("created_at", { ascending: false });
+    `
+      )
+      .not("payrolls", "is", null);
 
     if (payrollError) console.error("Error fetching payrolls:", payrollError);
 
     setEmployees(users || []);
-    setPayrollData(payrolls || []);
+    setPayrollData(payrollUsers || []);
     setLoading(false);
   };
 
@@ -55,7 +57,6 @@ const Dashboard = () => {
   return (
     <div className="flex h-screen w-full lg:w-[87%] justify-end py-5 roboto px-3 sm:px-5">
       <main className="flex flex-col w-full p-4 sm:p-6 bg-white shadow-xs/20 justify-between rounded-lg lg:rounded-l-xl overflow-y-auto">
-
         <section className="space-y-6 sm:space-y-10">
           <div className="flex h-7">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
@@ -96,15 +97,12 @@ const Dashboard = () => {
             Employee List
           </h1>
           <div className="overflow-x-auto border rounded-lg">
-          <table className="min-w-full border-collapse bg-white text-sm sm:text-base">
-            <thead className="bg-red-800 text-white sticky top-0 z-10">
+            <table className="min-w-full border-collapse bg-white text-sm sm:text-base">
+              <thead className="bg-red-800 text-white sticky top-0 z-10">
                 <tr>
                   <th className="px-3 sm:px-4 py-2 text-left border-b">ID</th>
                   <th className="px-3 sm:px-4 py-2 text-left border-b">Name</th>
                   <th className="px-3 sm:px-4 py-2 text-left border-b">Role</th>
-                  <th className="px-3 sm:px-4 py-2 text-left border-b">
-                    Department
-                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -120,9 +118,6 @@ const Dashboard = () => {
                       <td className="px-3 sm:px-4 py-2 border-b">{emp.id}</td>
                       <td className="px-3 sm:px-4 py-2 border-b">{emp.name}</td>
                       <td className="px-3 sm:px-4 py-2 border-b">{emp.role}</td>
-                      <td className="px-3 sm:px-4 py-2 border-b">
-                        {emp.department || "--"}
-                      </td>
                     </tr>
                   ))
                 ) : (
@@ -211,16 +206,13 @@ const Dashboard = () => {
             Payroll Records
           </h1>
           <div className="overflow-x-auto border rounded-lg">
-          <table className="min-w-full border-collapse bg-white text-sm sm:text-base">
-            <thead className="bg-red-800 text-white sticky top-0 z-10">
+            <table className="min-w-full border-collapse bg-white text-sm sm:text-base">
+              <thead className="bg-red-800 text-white sticky top-0 z-10">
                 <tr>
                   <th className="px-3 sm:px-4 py-2 text-left border-b">
                     Employee
                   </th>
                   <th className="px-3 sm:px-4 py-2 text-left border-b">Role</th>
-                  <th className="px-3 sm:px-4 py-2 text-left border-b">
-                    Department
-                  </th>
                   <th className="px-3 sm:px-4 py-2 text-left border-b">
                     Salary
                   </th>
@@ -246,40 +238,39 @@ const Dashboard = () => {
                     </td>
                   </tr>
                 ) : payrollData.length > 0 ? (
-                  payrollData.map((row) => (
-                    <tr key={row.id} className="hover:bg-gray-50">
-                      <td className="px-3 sm:px-4 py-2 border-b">
-                        {row.users?.name}
-                      </td>
-                      <td className="px-3 sm:px-4 py-2 border-b">
-                        {row.users?.role}
-                      </td>
-                      <td className="px-3 sm:px-4 py-2 border-b">
-                        {row.users?.department || "--"}
-                      </td>
-                      <td className="px-3 sm:px-4 py-2 border-b">
-                        ₱{row.gross?.toLocaleString()}
-                      </td>
-                      <td className="px-3 sm:px-4 py-2 border-b">
-                        ₱{row.deductions?.toLocaleString()}
-                      </td>
-                      <td className="px-3 sm:px-4 py-2 border-b font-semibold text-green-600">
-                        ₱{row.net?.toLocaleString()}
-                      </td>
-                      <td className="px-3 sm:px-4 py-2 border-b">
-                        {row.period}
-                      </td>
-                      <td
-                        className={`px-3 sm:px-4 py-2 border-b font-semibold ${
-                          row.status === "Pending"
-                            ? "text-yellow-600"
-                            : "text-green-600"
-                        }`}
-                      >
-                        {row.status}
-                      </td>
-                    </tr>
-                  ))
+                  payrollData.flatMap((user) =>
+                    user.payrolls.map((pr: any) => (
+                      <tr key={pr.id} className="hover:bg-gray-50">
+                        <td className="px-3 sm:px-4 py-2 border-b">
+                          {user.name}
+                        </td>
+                        <td className="px-3 sm:px-4 py-2 border-b">
+                          {user.role}
+                        </td>
+                        <td className="px-3 sm:px-4 py-2 border-b">
+                          ₱{pr.gross?.toLocaleString()}
+                        </td>
+                        <td className="px-3 sm:px-4 py-2 border-b">
+                          ₱{pr.deductions?.toLocaleString()}
+                        </td>
+                        <td className="px-3 sm:px-4 py-2 border-b font-semibold text-green-600">
+                          ₱{pr.net?.toLocaleString()}
+                        </td>
+                        <td className="px-3 sm:px-4 py-2 border-b">
+                          {pr.period}
+                        </td>
+                        <td
+                          className={`px-3 sm:px-4 py-2 border-b font-semibold ${
+                            pr.status === "Pending"
+                              ? "text-yellow-600"
+                              : "text-green-600"
+                          }`}
+                        >
+                          {pr.status}
+                        </td>
+                      </tr>
+                    ))
+                  )
                 ) : (
                   <tr>
                     <td colSpan={8} className="text-center py-4">

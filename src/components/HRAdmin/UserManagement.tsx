@@ -4,6 +4,7 @@ import supabase from "../../utils/supabase";
 
 export const UserManagement = () => {
   const [create, showCreate] = useState(false);
+  const [edit, showEdit] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -14,6 +15,8 @@ export const UserManagement = () => {
     email: "",
     role: "Faculty",
   });
+
+  const [editUser, setEditUser] = useState<any | null>(null);
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
@@ -71,11 +74,36 @@ export const UserManagement = () => {
     }
   };
 
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editUser) return;
+
+    const { error } = await supabase
+      .from("users")
+      .update({
+        name: editUser.name,
+        email: editUser.email,
+        role: editUser.role,
+        status: editUser.status,
+      })
+      .eq("id", editUser.id);
+
+    if (error) {
+      alert(error.message);
+    } else {
+      showEdit(false);
+      setEditUser(null);
+      fetchUsers();
+    }
+  };
+
   // Filtered users based on search
   const filteredUsers = users.filter(
     (user) =>
       user.name.toLowerCase().includes(search.toLowerCase()) ||
-      user.email.toLowerCase().includes(search.toLowerCase())
+      user.email.toLowerCase().includes(search.toLowerCase()) ||
+      user.role.toLowerCase().includes(search.toLowerCase()) ||
+      user.status.toLowerCase().startsWith(search.toLowerCase())
   );
 
   const indexLast = currentPage * rows;
@@ -125,6 +153,7 @@ export const UserManagement = () => {
           </div>
         </section>
 
+        {/* Table */}
         <div className="overflow-x-auto border rounded-lg">
           <table className="min-w-full border-collapse bg-white text-sm sm:text-base">
             <thead className="bg-red-800 text-white sticky top-0 z-10">
@@ -154,7 +183,13 @@ export const UserManagement = () => {
                     {user.status}
                   </td>
                   <td className="px-4 py-2 border-b flex flex-wrap gap-2">
-                    <button className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+                    <button
+                      onClick={() => {
+                        setEditUser(user);
+                        showEdit(true);
+                      }}
+                      className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                    >
                       Edit
                     </button>
                     {user.status === "Active" ? (
@@ -188,6 +223,8 @@ export const UserManagement = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
         <div className="flex justify-center space-x-2 items-center mt-4">
           <button
             onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
@@ -195,33 +232,31 @@ export const UserManagement = () => {
             className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 cursor-pointer"
           >
             <svg
-              className="h-6"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-              <g
-                id="SVGRepo_tracerCarrier"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              ></g>
-              <g id="SVGRepo_iconCarrier">
-                {" "}
-                <path
-                  fill-rule="evenodd"
-                  clip-rule="evenodd"
-                  d="M15.7071 4.29289C16.0976 4.68342 16.0976 5.31658 15.7071 5.70711L9.41421 12L15.7071 18.2929C16.0976 18.6834 16.0976 19.3166 15.7071 19.7071C15.3166 20.0976 14.6834 20.0976 14.2929 19.7071L7.29289 12.7071C7.10536 12.5196 7 12.2652 7 12C7 11.7348 7.10536 11.4804 7.29289 11.2929L14.2929 4.29289C14.6834 3.90237 15.3166 3.90237 15.7071 4.29289Z"
-                  fill="#000000"
-                ></path>{" "}
-              </g>
-            </svg>
+                className="h-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                <g
+                  id="SVGRepo_tracerCarrier"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                ></g>
+                <g id="SVGRepo_iconCarrier">
+                  {" "}
+                  <path
+                    fill-rule="evenodd"
+                    clip-rule="evenodd"
+                    d="M15.7071 4.29289C16.0976 4.68342 16.0976 5.31658 15.7071 5.70711L9.41421 12L15.7071 18.2929C16.0976 18.6834 16.0976 19.3166 15.7071 19.7071C15.3166 20.0976 14.6834 20.0976 14.2929 19.7071L7.29289 12.7071C7.10536 12.5196 7 12.2652 7 12C7 11.7348 7.10536 11.4804 7.29289 11.2929L14.2929 4.29289C14.6834 3.90237 15.3166 3.90237 15.7071 4.29289Z"
+                    fill="#000000"
+                  ></path>{" "}
+                </g>
+              </svg>
           </button>
-
           <span>
             Page {currentPage} of {Math.ceil(filteredUsers.length / rows)}
           </span>
-
           <button
             onClick={() =>
               setCurrentPage((prev) =>
@@ -229,35 +264,35 @@ export const UserManagement = () => {
               )
             }
             disabled={currentPage === Math.ceil(filteredUsers.length / rows)}
-            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 cursor-pointer" 
+            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 cursor-pointer"
           >
             <svg
-              className="h-6"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-              <g
-                id="SVGRepo_tracerCarrier"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              ></g>
-              <g id="SVGRepo_iconCarrier">
-                {" "}
-                <path
-                  fill-rule="evenodd"
-                  clip-rule="evenodd"
-                  d="M8.29289 4.29289C8.68342 3.90237 9.31658 3.90237 9.70711 4.29289L16.7071 11.2929C17.0976 11.6834 17.0976 12.3166 16.7071 12.7071L9.70711 19.7071C9.31658 20.0976 8.68342 20.0976 8.29289 19.7071C7.90237 19.3166 7.90237 18.6834 8.29289 18.2929L14.5858 12L8.29289 5.70711C7.90237 5.31658 7.90237 4.68342 8.29289 4.29289Z"
-                  fill="#000000"
-                ></path>{" "}
-              </g>
-            </svg>
+                className="h-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                <g
+                  id="SVGRepo_tracerCarrier"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                ></g>
+                <g id="SVGRepo_iconCarrier">
+                  {" "}
+                  <path
+                    fill-rule="evenodd"
+                    clip-rule="evenodd"
+                    d="M8.29289 4.29289C8.68342 3.90237 9.31658 3.90237 9.70711 4.29289L16.7071 11.2929C17.0976 11.6834 17.0976 12.3166 16.7071 12.7071L9.70711 19.7071C9.31658 20.0976 8.68342 20.0976 8.29289 19.7071C7.90237 19.3166 7.90237 18.6834 8.29289 18.2929L14.5858 12L8.29289 5.70711C7.90237 5.31658 7.90237 4.68342 8.29289 4.29289Z"
+                    fill="#000000"
+                  ></path>{" "}
+                </g>
+              </svg>
           </button>
         </div>
       </main>
 
-      {/* Modal */}
+      {/* Create Modal */}
       {create && (
         <div className="absolute flex backdrop-blur-xs bg-gray-50/40 items-center justify-center h-full w-full top-0 left-0 px-4">
           <form
@@ -309,6 +344,82 @@ export const UserManagement = () => {
                 <button
                   type="button"
                   onClick={() => showCreate(false)}
+                  className="px-4 py-2 border rounded w-full sm:w-auto"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {edit && editUser && (
+        <div className="absolute flex backdrop-blur-xs bg-gray-50/40 items-center justify-center h-full w-full top-0 left-0 px-4">
+          <form
+            onSubmit={handleEdit}
+            className="w-full sm:w-[70%] md:w-[50%] lg:w-[40%] rounded"
+          >
+            <div className="flex flex-col p-4 bg-white shadow-md rounded-lg gap-3">
+              <legend>Name</legend>
+              <input
+                type="text"
+                placeholder="Full Name"
+                value={editUser.name}
+                onChange={(e) =>
+                  setEditUser({ ...editUser, name: e.target.value })
+                }
+                className="border px-3 py-2 rounded"
+                required
+              />
+              <legend>Email</legend>
+              <input
+                type="email"
+                placeholder="Email"
+                value={editUser.email}
+                onChange={(e) =>
+                  setEditUser({ ...editUser, email: e.target.value })
+                }
+                className="border px-3 py-2 rounded"
+                required
+              />
+              <legend>Role</legend>
+              <select
+                value={editUser.role}
+                onChange={(e) =>
+                  setEditUser({ ...editUser, role: e.target.value })
+                }
+                className="border px-3 py-2 rounded"
+              >
+                <option>Administrator</option>
+                <option>HR Personnel</option>
+                <option>Accounting</option>
+                <option>Faculty</option>
+                <option>Staff</option>
+                <option>SA</option>
+              </select>
+              <legend>Status</legend>
+              <select
+                value={editUser.status}
+                onChange={(e) =>
+                  setEditUser({ ...editUser, status: e.target.value })
+                }
+                className="border px-3 py-2 rounded"
+              >
+                <option>Active</option>
+                <option>Inactive</option>
+              </select>
+              <div className="flex flex-col sm:flex-row gap-3 mt-2">
+                <button
+                  type="submit"
+                  className="bg-red-800 cursor-pointer text-white px-4 py-2 rounded hover:bg-red-700 w-full sm:w-auto"
+                >
+                  Update
+                </button>
+                <button
+                  type="button"
+                  onClick={() => showEdit(false)}
                   className="px-4 py-2 border rounded w-full sm:w-auto"
                 >
                   Cancel

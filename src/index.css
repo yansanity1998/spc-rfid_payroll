@@ -136,3 +136,7 @@ input:focus{
 #searchInput:focus ~ .search-bar {
   transform: translateX(50px);
 }
+
+legend{
+    color: gray;
+}
