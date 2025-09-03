@@ -12,6 +12,9 @@ export const Attendance = () => {
       id,
       name,
       role,
+      semester,
+      schoolYear,
+      hiredDate,
       attendance (
         id,
         time_in,
@@ -19,6 +22,8 @@ export const Attendance = () => {
         status
       )
     `);
+
+    console.log("Users data:", data);
 
     if (error) {
       console.error(error);
@@ -41,6 +46,9 @@ export const Attendance = () => {
             userId: user.id,
             name: user.name,
             role: user.role,
+            semester: user.semester,
+            schoolYear: user.schoolYear,
+            hiredDate: user.hiredDate,
           }))
         : [
             {
@@ -48,6 +56,9 @@ export const Attendance = () => {
               userId: user.id,
               name: user.name,
               role: user.role,
+              semester: user.semester,
+              schoolYear: user.schoolYear,
+              hiredDate: user.hiredDate,
               time_in: null,
               time_out: null,
               status: "No Record",
@@ -100,7 +111,10 @@ export const Attendance = () => {
               <tr>
                 <th className="px-4 py-2 text-left border-b">ID</th>
                 <th className="px-4 py-2 text-left border-b">Name</th>
-                <th className="px-4 py-2 text-left border-b">Role</th>
+                <th className="px-4 py-2 text-left border-b">Employee Type</th>
+                <th className="px-4 py-2 text-left border-b">Semester</th>
+                <th className="px-4 py-2 text-left border-b">School Year</th>
+                <th className="px-4 py-2 text-left border-b">Hired Date</th>
                 <th className="px-4 py-2 text-left border-b">Time In</th>
                 <th className="px-4 py-2 text-left border-b">Time Out</th>
                 <th className="px-4 py-2 text-left border-b">Status</th>
@@ -109,7 +123,7 @@ export const Attendance = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-4">
+                  <td colSpan={9} className="text-center py-4">
                     Loading...
                   </td>
                 </tr>
@@ -119,6 +133,17 @@ export const Attendance = () => {
                     <td className="px-4 py-2 border-b">{log.userId}</td>
                     <td className="px-4 py-2 border-b">{log.name}</td>
                     <td className="px-4 py-2 border-b">{log.role}</td>
+                    <td className="px-4 py-2 border-b">{log.semester}</td>
+                    <td className="px-4 py-2 border-b">{log.schoolYear}</td>
+                    <td className="px-4 py-2 border-b">
+                      {log.hiredDate
+                        ? new Date(log.hiredDate).toLocaleDateString([], {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })
+                        : "--"}
+                    </td>
                     <td className="px-4 py-2 border-b">
                       {log.time_in
                         ? new Date(log.time_in).toLocaleTimeString([], {

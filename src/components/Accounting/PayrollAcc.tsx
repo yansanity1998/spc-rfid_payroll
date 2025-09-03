@@ -150,7 +150,7 @@ export const PayrollAcc = () => {
               <tr>
                 <th className="px-4 py-2 text-left border-b">Employee ID</th>
                 <th className="px-4 py-2 text-left border-b">Name</th>
-                <th className="px-4 py-2 text-left border-b">Role</th>
+                <th className="px-4 py-2 text-left border-b">Employee Type</th>
                 <th className="px-4 py-2 text-left border-b">Period</th>
                 <th className="px-4 py-2 text-left border-b">Gross Pay</th>
                 <th className="px-4 py-2 text-left border-b">Deductions</th>

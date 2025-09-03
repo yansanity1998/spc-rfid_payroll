@@ -114,7 +114,7 @@ export const Payroll = () => {
               <tr>
                 <th className="px-4 py-2 text-left border-b">ID</th>
                 <th className="px-4 py-2 text-left border-b">Employee</th>
-                <th className="px-4 py-2 text-left border-b">Role</th>
+                <th className="px-4 py-2 text-left border-b">Employee Type</th>
                 <th className="px-4 py-2 text-left border-b">Period</th>
                 <th className="px-4 py-2 text-left border-b">Gross Pay</th>
                 <th className="px-4 py-2 text-left border-b">Deductions</th>

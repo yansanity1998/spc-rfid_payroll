@@ -13,6 +13,9 @@ export const UserManagement = () => {
     name: "",
     email: "",
     role: "Faculty",
+    semester: "",
+    schoolYear: "",
+    hiredDate: "",
   });
 
   const [editUser, setEditUser] = useState<any | null>(null);
@@ -62,13 +65,24 @@ export const UserManagement = () => {
         email: newUser.email,
         role: newUser.role,
         status: "Active",
+        semester: newUser.semester,
+        schoolYear: newUser.schoolYear,
+        hiredDate: newUser.hiredDate,
       },
     ]);
+
     if (error) {
       alert(error.message);
     } else {
       showCreate(false);
-      setNewUser({ name: "", email: "", role: "Faculty" });
+      setNewUser({
+        name: "",
+        email: "",
+        role: "Faculty",
+        semester: "",
+        schoolYear: "",
+        hiredDate: "",
+      });
       fetchUsers();
     }
   };
@@ -84,6 +98,9 @@ export const UserManagement = () => {
         email: editUser.email,
         role: editUser.role,
         status: editUser.status,
+        semester: editUser.semester,
+        schoolYear: editUser.schoolYear,
+        hiredDate: editUser.hiredDate,
       })
       .eq("id", editUser.id);
 
@@ -158,7 +175,10 @@ export const UserManagement = () => {
                 <th className="px-4 py-2 text-left border-b">ID</th>
                 <th className="px-4 py-2 text-left border-b">Name</th>
                 <th className="px-4 py-2 text-left border-b">Email</th>
-                <th className="px-4 py-2 text-left border-b">Role</th>
+                <th className="px-4 py-2 text-left border-b">Employee Type</th>
+                <th className="px-4 py-2 text-left border-b">Semester</th>
+                <th className="px-4 py-2 text-left border-b">School Year</th>
+                <th className="px-4 py-2 text-left border-b">Hired Date</th>
                 <th className="px-4 py-2 text-left border-b">Status</th>
                 <th className="px-4 py-2 text-left border-b">Actions</th>
               </tr>
@@ -170,6 +190,9 @@ export const UserManagement = () => {
                   <td className="px-4 py-2 border-b">{user.name}</td>
                   <td className="px-4 py-2 border-b">{user.email}</td>
                   <td className="px-4 py-2 border-b">{user.role}</td>
+                  <td className="px-4 py-2 border-b">{user.semester}</td>
+                  <td className="px-4 py-2 border-b">{user.schoolYear}</td>
+                  <td className="px-4 py-2 border-b">{user.hiredDate}</td>
                   <td
                     className={`px-4 py-2 border-b font-semibold ${
                       user.status === "Active"
@@ -229,27 +252,27 @@ export const UserManagement = () => {
             className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 cursor-pointer"
           >
             <svg
-                className="h-6"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-                <g
-                  id="SVGRepo_tracerCarrier"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                ></g>
-                <g id="SVGRepo_iconCarrier">
-                  {" "}
-                  <path
-                    fill-rule="evenodd"
-                    clip-rule="evenodd"
-                    d="M15.7071 4.29289C16.0976 4.68342 16.0976 5.31658 15.7071 5.70711L9.41421 12L15.7071 18.2929C16.0976 18.6834 16.0976 19.3166 15.7071 19.7071C15.3166 20.0976 14.6834 20.0976 14.2929 19.7071L7.29289 12.7071C7.10536 12.5196 7 12.2652 7 12C7 11.7348 7.10536 11.4804 7.29289 11.2929L14.2929 4.29289C14.6834 3.90237 15.3166 3.90237 15.7071 4.29289Z"
-                    fill="#000000"
-                  ></path>{" "}
-                </g>
-              </svg>
+              className="h-6"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+              <g
+                id="SVGRepo_tracerCarrier"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              ></g>
+              <g id="SVGRepo_iconCarrier">
+                {" "}
+                <path
+                  fill-rule="evenodd"
+                  clip-rule="evenodd"
+                  d="M15.7071 4.29289C16.0976 4.68342 16.0976 5.31658 15.7071 5.70711L9.41421 12L15.7071 18.2929C16.0976 18.6834 16.0976 19.3166 15.7071 19.7071C15.3166 20.0976 14.6834 20.0976 14.2929 19.7071L7.29289 12.7071C7.10536 12.5196 7 12.2652 7 12C7 11.7348 7.10536 11.4804 7.29289 11.2929L14.2929 4.29289C14.6834 3.90237 15.3166 3.90237 15.7071 4.29289Z"
+                  fill="#000000"
+                ></path>{" "}
+              </g>
+            </svg>
           </button>
           <span>
             Page {currentPage} of {Math.ceil(filteredUsers.length / rows)}
@@ -264,27 +287,27 @@ export const UserManagement = () => {
             className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 cursor-pointer"
           >
             <svg
-                className="h-6"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-                <g
-                  id="SVGRepo_tracerCarrier"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                ></g>
-                <g id="SVGRepo_iconCarrier">
-                  {" "}
-                  <path
-                    fill-rule="evenodd"
-                    clip-rule="evenodd"
-                    d="M8.29289 4.29289C8.68342 3.90237 9.31658 3.90237 9.70711 4.29289L16.7071 11.2929C17.0976 11.6834 17.0976 12.3166 16.7071 12.7071L9.70711 19.7071C9.31658 20.0976 8.68342 20.0976 8.29289 19.7071C7.90237 19.3166 7.90237 18.6834 8.29289 18.2929L14.5858 12L8.29289 5.70711C7.90237 5.31658 7.90237 4.68342 8.29289 4.29289Z"
-                    fill="#000000"
-                  ></path>{" "}
-                </g>
-              </svg>
+              className="h-6"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+              <g
+                id="SVGRepo_tracerCarrier"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              ></g>
+              <g id="SVGRepo_iconCarrier">
+                {" "}
+                <path
+                  fill-rule="evenodd"
+                  clip-rule="evenodd"
+                  d="M8.29289 4.29289C8.68342 3.90237 9.31658 3.90237 9.70711 4.29289L16.7071 11.2929C17.0976 11.6834 17.0976 12.3166 16.7071 12.7071L9.70711 19.7071C9.31658 20.0976 8.68342 20.0976 8.29289 19.7071C7.90237 19.3166 7.90237 18.6834 8.29289 18.2929L14.5858 12L8.29289 5.70711C7.90237 5.31658 7.90237 4.68342 8.29289 4.29289Z"
+                  fill="#000000"
+                ></path>{" "}
+              </g>
+            </svg>
           </button>
         </div>
       </main>
@@ -297,9 +320,9 @@ export const UserManagement = () => {
             className="w-full sm:w-[70%] md:w-[50%] lg:w-[40%] rounded"
           >
             <div className="flex flex-col p-4 bg-white shadow-md rounded-lg gap-3">
+              <legend>Name</legend>
               <input
                 type="text"
-                placeholder="Full Name"
                 value={newUser.name}
                 onChange={(e) =>
                   setNewUser({ ...newUser, name: e.target.value })
@@ -307,9 +330,9 @@ export const UserManagement = () => {
                 className="border px-3 py-2 rounded"
                 required
               />
+              <legend>Email</legend>
               <input
                 type="email"
-                placeholder="Email"
                 value={newUser.email}
                 onChange={(e) =>
                   setNewUser({ ...newUser, email: e.target.value })
@@ -317,6 +340,40 @@ export const UserManagement = () => {
                 className="border px-3 py-2 rounded"
                 required
               />
+              <legend>Year Level</legend>
+              <div className="flex justify-around">
+                <input
+                  type="number"
+                  placeholder="Semester"
+                  value={newUser.semester}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, semester: e.target.value })
+                  }
+                  className="border px-3 py-2 rounded"
+                  required
+                />
+                <input
+                  type="number"
+                  placeholder="School Year"
+                  value={newUser.schoolYear}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, schoolYear: e.target.value })
+                  }
+                  className="border px-3 py-2 rounded"
+                  required
+                />
+              </div>
+              <legend>Hired Date</legend>
+              <input
+                type="date"
+                value={newUser.hiredDate}
+                onChange={(e) =>
+                  setNewUser({ ...newUser, hiredDate: e.target.value })
+                }
+                className="border px-3 py-2 rounded"
+                required
+              />
+              <legend>Employee Type</legend>
               <select
                 value={newUser.role}
                 onChange={(e) =>
@@ -381,7 +438,31 @@ export const UserManagement = () => {
                 className="border px-3 py-2 rounded"
                 required
               />
-              <legend>Role</legend>
+              <div className="flex items-center gap-2">
+                <legend>Semester</legend>
+                <input
+                  type="number"
+                  placeholder="Semester"
+                  value={editUser.semester}
+                  onChange={(e) =>
+                    setEditUser({ ...editUser, semester: e.target.value })
+                  }
+                  className="border px-3 py-2 rounded"
+                  required
+                />
+                <legend>School Year</legend>
+                <input
+                  type="number"
+                  placeholder="School Year"
+                  value={editUser.schoolYear}
+                  onChange={(e) =>
+                    setEditUser({ ...editUser, schoolYear: e.target.value })
+                  }
+                  className="border px-3 py-2 rounded"
+                  required
+                />
+              </div>
+              <legend>Employee type</legend>
               <select
                 value={editUser.role}
                 onChange={(e) =>

@@ -102,7 +102,7 @@ const Dashboard = () => {
                 <tr>
                   <th className="px-3 sm:px-4 py-2 text-left border-b">ID</th>
                   <th className="px-3 sm:px-4 py-2 text-left border-b">Name</th>
-                  <th className="px-3 sm:px-4 py-2 text-left border-b">Role</th>
+                  <th className="px-3 sm:px-4 py-2 text-left border-b">Employee Type</th>
                 </tr>
               </thead>
               <tbody>
@@ -212,7 +212,7 @@ const Dashboard = () => {
                   <th className="px-3 sm:px-4 py-2 text-left border-b">
                     Employee
                   </th>
-                  <th className="px-3 sm:px-4 py-2 text-left border-b">Role</th>
+                  <th className="px-3 sm:px-4 py-2 text-left border-b">Employee Type</th>
                   <th className="px-3 sm:px-4 py-2 text-left border-b">
                     Salary
                   </th>
