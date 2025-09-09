@@ -140,3 +140,8 @@ input:focus{
 legend{
     color: gray;
 }
+
+select:disabled{
+    border-color: gray;
+    color: gray;
+}

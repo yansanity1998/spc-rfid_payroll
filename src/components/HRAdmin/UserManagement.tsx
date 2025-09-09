@@ -16,6 +16,7 @@ export const UserManagement = () => {
     semester: "",
     schoolYear: "",
     hiredDate: "",
+    department: "",
   });
 
   const [editUser, setEditUser] = useState<any | null>(null);
@@ -68,6 +69,10 @@ export const UserManagement = () => {
         semester: newUser.semester,
         schoolYear: newUser.schoolYear,
         hiredDate: newUser.hiredDate,
+        department:
+          newUser.role === "Faculty" || newUser.role === "SA"
+            ? newUser.department
+            : null,
       },
     ]);
 
@@ -82,6 +87,7 @@ export const UserManagement = () => {
         semester: "",
         schoolYear: "",
         hiredDate: "",
+        department: "",
       });
       fetchUsers();
     }
@@ -101,6 +107,7 @@ export const UserManagement = () => {
         semester: editUser.semester,
         schoolYear: editUser.schoolYear,
         hiredDate: editUser.hiredDate,
+        department: editUser.department,
       })
       .eq("id", editUser.id);
 
@@ -178,7 +185,9 @@ export const UserManagement = () => {
                 <th className="px-4 py-2 text-left border-b">Employee Type</th>
                 <th className="px-4 py-2 text-left border-b">Semester</th>
                 <th className="px-4 py-2 text-left border-b">School Year</th>
+                <th className="px-4 py-2 text-left border-b">Department</th>
                 <th className="px-4 py-2 text-left border-b">Hired Date</th>
+
                 <th className="px-4 py-2 text-left border-b">Status</th>
                 <th className="px-4 py-2 text-left border-b">Actions</th>
               </tr>
@@ -192,6 +201,7 @@ export const UserManagement = () => {
                   <td className="px-4 py-2 border-b">{user.role}</td>
                   <td className="px-4 py-2 border-b">{user.semester}</td>
                   <td className="px-4 py-2 border-b">{user.schoolYear}</td>
+                  <td className="px-4 py-2 border-b">{user.department}</td>
                   <td className="px-4 py-2 border-b">{user.hiredDate}</td>
                   <td
                     className={`px-4 py-2 border-b font-semibold ${
@@ -320,6 +330,21 @@ export const UserManagement = () => {
             className="w-full sm:w-[70%] md:w-[50%] lg:w-[40%] rounded"
           >
             <div className="flex flex-col p-4 bg-white shadow-md rounded-lg gap-3">
+              <legend>Employee Type</legend>
+              <select
+                value={newUser.role}
+                onChange={(e) =>
+                  setNewUser({ ...newUser, role: e.target.value })
+                }
+                className="border px-3 py-2 rounded"
+              >
+                <option>Administrator</option>
+                <option>HR Personnel</option>
+                <option>Accounting</option>
+                <option>Faculty</option>
+                <option>Staff</option>
+                <option>SA</option>
+              </select>
               <legend>Name</legend>
               <input
                 type="text"
@@ -340,29 +365,33 @@ export const UserManagement = () => {
                 className="border px-3 py-2 rounded"
                 required
               />
-              <legend>Year Level</legend>
-              <div className="flex justify-around">
-                <input
-                  type="number"
-                  placeholder="Semester"
-                  value={newUser.semester}
-                  onChange={(e) =>
-                    setNewUser({ ...newUser, semester: e.target.value })
-                  }
-                  className="border px-3 py-2 rounded"
-                  required
-                />
-                <input
-                  type="number"
-                  placeholder="School Year"
-                  value={newUser.schoolYear}
-                  onChange={(e) =>
-                    setNewUser({ ...newUser, schoolYear: e.target.value })
-                  }
-                  className="border px-3 py-2 rounded"
-                  required
-                />
-              </div>
+              {(newUser.role === "Faculty" || newUser.role === "SA") && (
+                <>
+                  <legend>Year Level</legend>
+                  <div className="flex justify-around">
+                    <input
+                      type="number"
+                      placeholder="Semester"
+                      value={newUser.semester}
+                      onChange={(e) =>
+                        setNewUser({ ...newUser, semester: e.target.value })
+                      }
+                      className="border px-3 py-2 rounded"
+                      required
+                    />
+                    <input
+                      type="number"
+                      placeholder="School Year"
+                      value={newUser.schoolYear}
+                      onChange={(e) =>
+                        setNewUser({ ...newUser, schoolYear: e.target.value })
+                      }
+                      className="border px-3 py-2 rounded"
+                      required
+                    />
+                  </div>
+                </>
+              )}
               <legend>Hired Date</legend>
               <input
                 type="date"
@@ -373,21 +402,23 @@ export const UserManagement = () => {
                 className="border px-3 py-2 rounded"
                 required
               />
-              <legend>Employee Type</legend>
-              <select
-                value={newUser.role}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, role: e.target.value })
-                }
-                className="border px-3 py-2 rounded"
-              >
-                <option>Administrator</option>
-                <option>HR Personnel</option>
-                <option>Accounting</option>
-                <option>Faculty</option>
-                <option>Staff</option>
-                <option>SA</option>
-              </select>
+              {(newUser.role === "Faculty" || newUser.role === "SA") && (
+                <>
+                  <legend>Department</legend>
+                  <select
+                    value={newUser.department}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, department: e.target.value })
+                    }
+                    className="border px-3 py-2 rounded text-gray"
+                    required
+                  >
+                    <option value="">-- Select Department --</option>
+                    <option value="CCS">CCS</option>
+                  </select>
+                </>
+              )}
+
               <div className="flex flex-col sm:flex-row gap-3 mt-2">
                 <button
                   type="submit"
@@ -488,6 +519,18 @@ export const UserManagement = () => {
                 <option>Active</option>
                 <option>Inactive</option>
               </select>
+              <legend>Department</legend>
+              <input
+                type="text"
+                value="CCS"
+                placeholder="CCS"
+                onChange={(e) =>
+                  setEditUser({ ...editUser, department: e.target.value })
+                }
+                className="border px-3 py-2 rounded"
+                required
+                disabled={editUser.role !== "Faculty" && editUser.role !== "SA"}
+              />
               <div className="flex flex-col sm:flex-row gap-3 mt-2">
                 <button
                   type="submit"

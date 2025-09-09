@@ -5,6 +5,7 @@ import supabase from "../../utils/supabase";
 export const Attendance = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState(""); // 🔍 Search state
 
   const fetchAttendance = async () => {
     setLoading(true);
@@ -22,8 +23,6 @@ export const Attendance = () => {
         status
       )
     `);
-
-    console.log("Users data:", data);
 
     if (error) {
       console.error(error);
@@ -67,19 +66,40 @@ export const Attendance = () => {
     )
     .flat();
 
+  // 🔍 Filter logs
+  const filteredLogs = logs.filter(
+    (log) =>
+      log.name.toLowerCase().includes(search.toLowerCase()) ||
+      log.role.toLowerCase().includes(search.toLowerCase()) ||
+      log.semester?.toString().includes(search) ||
+      log.schoolYear?.toString().includes(search) ||
+      log.status.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div className="flex h-screen w-full lg:w-[87%] justify-end py-5 px-3 sm:px-5 roboto">
       <main className="flex flex-col w-full p-4 sm:p-6 bg-white shadow rounded-lg lg:rounded-l-xl overflow-y-auto">
+        {/* Header */}
         <section className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-3">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
             Attendance Monitoring
           </h1>
-          <button
-            className="w-full sm:w-auto bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
-            onClick={fetchAttendance}
-          >
-            Refresh
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            {/* 🔍 Search */}
+            <input
+              type="text"
+              placeholder="Search by name, role, year, or status..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="border rounded-full px-4 py-2 w-full sm:w-72 outline-none"
+            />
+            <button
+              className="w-full sm:w-auto bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
+              onClick={fetchAttendance}
+            >
+              Refresh
+            </button>
+          </div>
         </section>
 
         {/* Summary Cards */}
@@ -87,19 +107,19 @@ export const Attendance = () => {
           <div className="bg-green-100 p-4 rounded-lg shadow text-center">
             <h2 className="text-lg font-semibold text-green-800">Present</h2>
             <p className="text-2xl font-bold">
-              {logs.filter((l) => l.status === "Present").length}
+              {filteredLogs.filter((l) => l.status === "Present").length}
             </p>
           </div>
           <div className="bg-red-100 p-4 rounded-lg shadow text-center">
             <h2 className="text-lg font-semibold text-red-800">Absent</h2>
             <p className="text-2xl font-bold">
-              {logs.filter((l) => l.status === "Absent").length}
+              {filteredLogs.filter((l) => l.status === "Absent").length}
             </p>
           </div>
           <div className="bg-yellow-100 p-4 rounded-lg shadow text-center">
             <h2 className="text-lg font-semibold text-yellow-800">Late</h2>
             <p className="text-2xl font-bold">
-              {logs.filter((l) => l.status === "Late").length}
+              {filteredLogs.filter((l) => l.status === "Late").length}
             </p>
           </div>
         </section>
@@ -127,8 +147,8 @@ export const Attendance = () => {
                     Loading...
                   </td>
                 </tr>
-              ) : logs.length > 0 ? (
-                logs.map((log) => (
+              ) : filteredLogs.length > 0 ? (
+                filteredLogs.map((log) => (
                   <tr key={log.id} className="hover:bg-gray-50 transition">
                     <td className="px-4 py-2 border-b">{log.userId}</td>
                     <td className="px-4 py-2 border-b">{log.name}</td>
@@ -177,7 +197,7 @@ export const Attendance = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="text-center py-4">
+                  <td colSpan={9} className="text-center py-4">
                     No attendance records found
                   </td>
                 </tr>

@@ -6,6 +6,8 @@ export const PayrollAcc = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState("");
+
   const [formData, setFormData] = useState({
     user_id: "",
     period: "",
@@ -15,7 +17,6 @@ export const PayrollAcc = () => {
     status: "Pending",
   });
 
-  // Fetch all users with payrolls
   const fetchUsersWithPayrolls = async () => {
     setLoading(true);
     const { data, error } = await supabase.from("users").select(`
@@ -51,7 +52,6 @@ export const PayrollAcc = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Insert payroll
   const addPayroll = async (userId: number, payrollData: any) => {
     const { error } = await supabase.from("payrolls").insert([
       {
@@ -67,7 +67,6 @@ export const PayrollAcc = () => {
     }
   };
 
-  // Handle save
   const handleSave = async () => {
     if (!formData.user_id) {
       alert("Please select an employee");
@@ -93,7 +92,6 @@ export const PayrollAcc = () => {
     });
   };
 
-  // Flatten user + payrolls
   const payrolls = users
     .map((user) =>
       user.payrolls?.length
@@ -119,15 +117,30 @@ export const PayrollAcc = () => {
     )
     .flat();
 
+  const filteredPayrolls = payrolls.filter(
+    (pr) =>
+      pr.name.toLowerCase().includes(search.toLowerCase()) ||
+      pr.role.toLowerCase().includes(search.toLowerCase()) ||
+      pr.period.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div className="flex h-screen w-full lg:w-[87%] justify-end py-5 px-3 sm:px-5 roboto">
       <main className="flex flex-col w-full p-6 bg-white shadow rounded-lg overflow-y-auto">
         {/* Header */}
-        <section className="flex justify-between items-center mb-6">
+        <section className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
           <h1 className="text-2xl font-bold text-gray-800">
             Accounting Payroll
           </h1>
-          <div className="flex gap-3">
+          <div className="flex gap-3 w-full sm:w-auto">
+            {/* 🔍 Search */}
+            <input
+              type="text"
+              placeholder="Search by name, role, or period..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="border rounded-full px-4 py-2 w-full sm:w-72 outline-none"
+            />
             <button
               className="bg-red-800 text-white px-4 py-2 cursor-pointer rounded-lg hover:bg-red-700"
               onClick={() => setShowForm(true)}
@@ -165,8 +178,8 @@ export const PayrollAcc = () => {
                     Loading...
                   </td>
                 </tr>
-              ) : payrolls.length > 0 ? (
-                payrolls.map((pr) => (
+              ) : filteredPayrolls.length > 0 ? (
+                filteredPayrolls.map((pr) => (
                   <tr key={pr.id} className="hover:bg-gray-50">
                     <td className="px-4 py-2 border-b">{pr.userId}</td>
                     <td className="px-4 py-2 border-b">{pr.name}</td>

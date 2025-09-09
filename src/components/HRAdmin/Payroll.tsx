@@ -7,6 +7,7 @@ export const Payroll = () => {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<number | null>(null);
   const [editData, setEditData] = useState<any>({});
+  const [search, setSearch] = useState(""); // 🔍 search state
 
   const fetchPayrolls = async () => {
     setLoading(true);
@@ -36,7 +37,6 @@ export const Payroll = () => {
     fetchPayrolls();
   }, []);
 
-  // --- Finalize Payroll ---
   const finalizePayroll = async (id: number) => {
     const { error } = await supabase
       .from("payrolls")
@@ -47,7 +47,6 @@ export const Payroll = () => {
     else fetchPayrolls();
   };
 
-  // --- Save Edited Payroll ---
   const savePayroll = async (id: number) => {
     const { error } = await supabase
       .from("payrolls")
@@ -92,6 +91,13 @@ export const Payroll = () => {
     )
     .flat();
 
+  const filteredPayrolls = payrolls.filter(
+    (pr) =>
+      pr.name.toLowerCase().includes(search.toLowerCase()) ||
+      pr.role.toLowerCase().includes(search.toLowerCase()) ||
+      pr.period.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div className="flex h-screen w-full lg:w-[87%] justify-end py-5 px-3 sm:px-5 roboto">
       <main className="flex flex-col w-full p-4 sm:p-6 bg-white shadow rounded-lg lg:rounded-l-xl overflow-y-auto">
@@ -99,12 +105,22 @@ export const Payroll = () => {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
             Payroll Management (HR Admin)
           </h1>
-          <button
-            className="w-full sm:w-auto bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
-            onClick={fetchPayrolls}
-          >
-            Refresh
-          </button>
+          <div className="flex gap-3 w-full sm:w-auto">
+
+            <input
+              type="text"
+              placeholder="Search by name, role, or period..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="border-1 rounded-full px-4 py-2 w-full sm:w-72 outline-none"
+            />
+            <button
+              className="w-auto bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
+              onClick={fetchPayrolls}
+            >
+              Refresh
+            </button>
+          </div>
         </section>
 
         {/* Payroll Table */}
@@ -130,8 +146,8 @@ export const Payroll = () => {
                     Loading...
                   </td>
                 </tr>
-              ) : payrolls.length > 0 ? (
-                payrolls.map((pr) => (
+              ) : filteredPayrolls.length > 0 ? (
+                filteredPayrolls.map((pr) => (
                   <tr key={pr.id} className="hover:bg-gray-50 transition">
                     <td className="px-4 py-2 border-b">{pr.userId}</td>
                     <td className="px-4 py-2 border-b">{pr.name}</td>
