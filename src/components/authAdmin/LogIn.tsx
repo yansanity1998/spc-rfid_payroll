@@ -1,50 +1,72 @@
 import { useState } from "react";
 import { spclogo, titlelogo } from "../../utils";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import supabase from "../../utils/supabase";
+import toast, { Toaster } from "react-hot-toast";
 
 export const LogIn = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
+  const [type, setType] = useState("password");
+  const [eye, setEye] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // 1. Sign in
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (error) {
-      setErrorMsg(error.message);
+      toast.error(error.message);
       return;
     }
 
     const userId = data.user?.id;
     if (!userId) {
-      setErrorMsg("User not found.");
+      toast.error("User not found.");
       return;
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("roles")
+    // 2. Try fetching role from 'users' table
+    let userRole: string | null = null;
+    const { data: userProfile, error: userError } = await supabase
+      .from("users")
       .select("role")
-      .eq("id", userId)
+      .eq("auth_id", userId)
       .single();
 
-    if (profileError) {
-      setErrorMsg("Failed to fetch user profile.");
+    if (!userError && userProfile?.role) {
+      userRole = userProfile.role;
+    } else {
+      // 3. Fallback: fetch role from 'roles' table
+      const { data: roleProfile, error: roleError } = await supabase
+        .from("roles")
+        .select("role")
+        .eq("id", userId)
+        .single();
+
+      if (!roleError && roleProfile?.role) {
+        userRole = roleProfile.role;
+      }
+    }
+
+    if (!userRole) {
+      toast.error("Role not assigned. Contact admin.");
       return;
     }
 
+    // 4. Save session and role
     localStorage.setItem("user", JSON.stringify(data.session));
-    localStorage.setItem("role", profile.role);
+    localStorage.setItem("role", userRole);
 
-    switch (profile.role) {
+    // 5. Redirect based on role
+    switch (userRole) {
       case "HR Personnel":
-        navigate("/hrAdmin/dashboard");
+        navigate("/hrPersonnel/dashboard");
         break;
       case "Accounting":
         navigate("/accounting/payroll");
@@ -53,18 +75,24 @@ export const LogIn = () => {
         navigate("/hrAdmin/dashboard");
         break;
       case "Faculty":
-        navigate("/faculty/dashboard");
+        navigate("/Faculty/dashboard");
         break;
       case "Guard":
         navigate("/Guard/dashboard");
         break;
       default:
-        setErrorMsg("Role not assigned. Contact admin.");
+        toast.error("Role not assigned. Contact admin.");
     }
+  };
+
+  const handleShow = () => {
+    setEye((prev) => !prev);
+    setType((prev) => (prev === "password" ? "text" : "password"));
   };
 
   return (
     <div className="h-screen w-full relative overflow-hidden flex flex-col">
+      <Toaster position="bottom-left" reverseOrder={false} />
       <div className="bg-red-950 shadow-xl/20 h-2 sm:h-3"></div>
 
       <img
@@ -94,17 +122,71 @@ export const LogIn = () => {
             </div>
             <div className="flex flex-col text-sm sm:text-base">
               <label className="mb-1">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-2 w-full h-10 border-gray-800 border-2 rounded-xl"
-              />
+              <div className="flex relative">
+                <input
+                  type={type}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-2 w-full h-10 border-gray-800 border-2 rounded-xl"
+                />
+                <button
+                  type="button"
+                  className="absolute right-5 top-2 cursor-pointer"
+                  onClick={handleShow}
+                >
+                  {eye === true ? (
+                    <svg
+                      height="25"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                      <g
+                        id="SVGRepo_tracerCarrier"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      ></g>
+                      <g id="SVGRepo_iconCarrier">
+                        {" "}
+                        <path
+                          d="M3 14C3 9.02944 7.02944 5 12 5C16.9706 5 21 9.02944 21 14M17 14C17 16.7614 14.7614 19 12 19C9.23858 19 7 16.7614 7 14C7 11.2386 9.23858 9 12 9C14.7614 9 17 11.2386 17 14Z"
+                          stroke="#000000"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        ></path>{" "}
+                      </g>
+                    </svg>
+                  ) : (
+                    <svg
+                      height="25"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                      <g
+                        id="SVGRepo_tracerCarrier"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      ></g>
+                      <g id="SVGRepo_iconCarrier">
+                        {" "}
+                        <path
+                          d="M9.60997 9.60714C8.05503 10.4549 7 12.1043 7 14C7 16.7614 9.23858 19 12 19C13.8966 19 15.5466 17.944 16.3941 16.3878M21 14C21 9.02944 16.9706 5 12 5C11.5582 5 11.1238 5.03184 10.699 5.09334M3 14C3 11.0069 4.46104 8.35513 6.70883 6.71886M3 3L21 21"
+                          stroke="#000000"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        ></path>{" "}
+                      </g>
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-
-          {/* Error message */}
-          {errorMsg && <p className="text-red-600 text-xs sm:text-sm">{errorMsg}</p>}
 
           <div className="flex justify-center">
             <button
@@ -116,11 +198,26 @@ export const LogIn = () => {
           </div>
 
           <div className="flex justify-start">
-            <a href="/" className="text-xs sm:text-sm underline hover:text-red-800">
+            <a
+              href="/"
+              className="text-xs sm:text-sm underline hover:text-red-800"
+            >
               Forgot password?
             </a>
           </div>
         </form>
+      </div>
+      <div className="absolute right-10 bottom-10 flex items-center gap-5">
+        <p className="font-medium italic opacity-50 hover:opacity-100 transition">
+          Ready to Scan?
+        </p>
+        <Link
+          className="text-white text-medium bg-red-900 px-4 py-2 rounded font-semibold hover:scale-105 transition"
+          reloadDocument
+          to="/scanner"
+        >
+          Scanner
+        </Link>
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import supabase from "../../utils/supabase";
+import toast from "react-hot-toast";
 
 export const UserManagement = () => {
   const [create, showCreate] = useState(false);
@@ -7,6 +8,12 @@ export const UserManagement = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [editingRfid, setEditingRfid] = useState(false);
+  const [newRfid, setNewRfid] = useState("");
+
+  const [scanningRfid, setScanningRfid] = useState(false);
+  const [scannedCard, setScannedCard] = useState("");
+
   const rows = 10;
 
   const [newUser, setNewUser] = useState({
@@ -31,7 +38,7 @@ export const UserManagement = () => {
 
     if (error) {
       console.error(error.message);
-      alert("Failed to update user status");
+      toast.error("Failed to update user status");
     } else {
       fetchUsers();
     }
@@ -60,26 +67,82 @@ export const UserManagement = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from("users").insert([
-      {
-        name: newUser.name,
-        email: newUser.email,
-        role: newUser.role,
-        status: "Active",
-        semester: newUser.semester,
-        schoolYear: newUser.schoolYear,
-        hiredDate: newUser.hiredDate,
-        department:
-          newUser.role === "Faculty" || newUser.role === "SA"
-            ? newUser.department
-            : null,
-      },
-    ]);
+    // Show RFID scanner modal
+    setScanningRfid(true);
+  };
+
+  const handleUpdateRfid = async () => {
+    if (!editUser || !newRfid) return;
+
+    const { error } = await supabase
+      .from("users")
+      .update({ rfid_id: Number(newRfid) }) // update separate column
+      .eq("id", editUser.id); // keep primary key intact
 
     if (error) {
-      alert(error.message);
+      console.log(error.message);
+      toast.error("RFID is already in use.");
     } else {
-      showCreate(false);
+      toast.success("RFID updated successfully");
+      setEditingRfid(false);
+      setNewRfid("");
+      fetchUsers();
+    }
+  };
+
+  const handleConfirmCreate = async () => {
+    if (!scannedCard) return;
+
+    const payload = {
+      ...newUser,
+      rfid_id: Number(scannedCard),
+      semester: newUser.semester ? Number(newUser.semester) : null,
+      schoolYear: newUser.schoolYear ? Number(newUser.schoolYear) : null,
+      hiredDate: newUser.hiredDate || null,
+      department:
+        newUser.role === "Faculty" || newUser.role === "SA"
+          ? newUser.department
+          : null,
+      status: "Active",
+      password: "ChangePassword", // or generate one
+    };
+
+    console.log("Insert Payload:", payload);
+
+    try {
+      // get the current session (logged-in admin)
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        alert("You must be logged in as an admin to create users.");
+        return;
+      }
+
+      const response = await fetch(
+        "https://squtybkgujjgrxeqmrfs.supabase.co/functions/v1/create-user",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${session.access_token}`, // ✅ FIX
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert("Error: " + (data.error || "Failed to create user"));
+        return;
+      }
+
+      alert("User created successfully!");
+      setScanningRfid(false);
+      setScannedCard("");
       setNewUser({
         name: "",
         email: "",
@@ -90,6 +153,9 @@ export const UserManagement = () => {
         department: "",
       });
       fetchUsers();
+    } catch (err: any) {
+      console.error(err);
+      alert("Network error: " + err.message);
     }
   };
 
@@ -439,6 +505,43 @@ export const UserManagement = () => {
         </div>
       )}
 
+      {/* Scan RFID */}
+      {scanningRfid && (
+        <div className="absolute flex backdrop-blur-xs bg-gray-50/40 items-center justify-center h-full w-full top-0 left-0 px-4">
+          <div className="flex flex-col p-6 bg-white shadow-md rounded-lg gap-3 items-center">
+            <h2 className="text-lg font-bold">Scan RFID Card</h2>
+            <input
+              autoFocus
+              type="text"
+              value={scannedCard}
+              onChange={(e) => setScannedCard(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && e.currentTarget.value.trim() !== "") {
+                  setScannedCard(e.currentTarget.value.trim());
+                  handleConfirmCreate();
+                }
+              }}
+              className="border px-3 py-2 rounded opacity-0 absolute -left-96"
+            />
+            <p className="text-gray-600">
+              Waiting for RFID scan... Please tap the card.
+            </p>
+            {scannedCard && (
+              <p className="text-green-600 font-semibold">
+                Card Scanned: {scannedCard}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => setScanningRfid(false)}
+              className="mt-3 px-4 py-2 border rounded"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Edit Modal */}
       {edit && editUser && (
         <div className="absolute flex backdrop-blur-xs bg-gray-50/40 items-center justify-center h-full w-full top-0 left-0 px-4">
@@ -469,30 +572,34 @@ export const UserManagement = () => {
                 className="border px-3 py-2 rounded"
                 required
               />
-              <div className="flex items-center gap-2">
-                <legend>Semester</legend>
-                <input
-                  type="number"
-                  placeholder="Semester"
-                  value={editUser.semester}
-                  onChange={(e) =>
-                    setEditUser({ ...editUser, semester: e.target.value })
-                  }
-                  className="border px-3 py-2 rounded"
-                  required
-                />
-                <legend>School Year</legend>
-                <input
-                  type="number"
-                  placeholder="School Year"
-                  value={editUser.schoolYear}
-                  onChange={(e) =>
-                    setEditUser({ ...editUser, schoolYear: e.target.value })
-                  }
-                  className="border px-3 py-2 rounded"
-                  required
-                />
-              </div>
+              {(editUser.role === "Faculty" || editUser.role === "SA") && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <legend>Semester</legend>
+                    <input
+                      type="number"
+                      placeholder="Semester"
+                      value={editUser.semester}
+                      onChange={(e) =>
+                        setEditUser({ ...editUser, semester: e.target.value })
+                      }
+                      className="border px-3 py-2 rounded"
+                      required
+                    />
+                    <legend>School Year</legend>
+                    <input
+                      type="number"
+                      placeholder="School Year"
+                      value={editUser.schoolYear}
+                      onChange={(e) =>
+                        setEditUser({ ...editUser, schoolYear: e.target.value })
+                      }
+                      className="border px-3 py-2 rounded"
+                      required
+                    />
+                  </div>
+                </>
+              )}
               <legend>Employee type</legend>
               <select
                 value={editUser.role}
@@ -519,18 +626,72 @@ export const UserManagement = () => {
                 <option>Active</option>
                 <option>Inactive</option>
               </select>
-              <legend>Department</legend>
-              <input
-                type="text"
-                value="CCS"
-                placeholder="CCS"
-                onChange={(e) =>
-                  setEditUser({ ...editUser, department: e.target.value })
-                }
-                className="border px-3 py-2 rounded"
-                required
-                disabled={editUser.role !== "Faculty" && editUser.role !== "SA"}
-              />
+              {(editUser.role === "Faculty" || editUser.role === "SA") && (
+                <>
+                  <legend>Department</legend>
+                  <input
+                    type="text"
+                    value="CCS"
+                    placeholder="CCS"
+                    onChange={(e) =>
+                      setEditUser({ ...editUser, department: e.target.value })
+                    }
+                    className="border px-3 py-2 rounded"
+                    required
+                    disabled={
+                      editUser.role !== "Faculty" && editUser.role !== "SA"
+                    }
+                  />
+                </>
+              )}
+              <div className="flex flex-col gap-2">
+                {!editingRfid ? (
+                  <button
+                    type="button"
+                    onClick={() => setEditingRfid(true)}
+                    className="px-3 py-1 bg-red-900 text-white rounded hover:bg-red-950 cursor-pointer transition text-sm"
+                  >
+                    Edit RFID
+                  </button>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <input
+                      autoFocus
+                      type="text"
+                      value={newRfid}
+                      onChange={(e) => setNewRfid(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleUpdateRfid();
+                      }}
+                      className="opacity-0 absolute"
+                      placeholder="Scan new RFID card"
+                    />
+                    <p className="text-gray-600 text-center py-5">
+                      Please tap an RFID card...
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleUpdateRfid}
+                        className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+                      >
+                        Save RFID
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingRfid(false);
+                          setNewRfid("");
+                        }}
+                        className="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400 text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="flex flex-col sm:flex-row gap-3 mt-2">
                 <button
                   type="submit"

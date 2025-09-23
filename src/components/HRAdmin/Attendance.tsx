@@ -3,32 +3,63 @@ import { useEffect, useState } from "react";
 import supabase from "../../utils/supabase";
 
 export const Attendance = () => {
-  const [users, setUsers] = useState<any[]>([]);
+  const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(""); // 🔍 Search state
 
   const fetchAttendance = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("users").select(`
+
+    // join attendance + user info
+    const { data, error } = await supabase
+      .from("attendance")
+      .select(
+        `
+    id,
+    att_date,
+    time_in,
+    time_out,
+    user:users (
       id,
       name,
       role,
       semester,
       schoolYear,
-      hiredDate,
-      attendance (
-        id,
-        time_in,
-        time_out,
-        status
+      hiredDate
+    )
+  `
       )
-    `);
+      .order("att_date", { ascending: false });
 
     if (error) {
       console.error(error);
+      setRecords([]);
     } else {
-      setUsers(data || []);
+      // Flatten into single array
+      const flat = data.map((row: any) => ({
+        id: row.id,
+        att_date: row.att_date,
+        time_in: row.time_in,
+        time_out: row.time_out,
+        attendance: row.attendance,
+        userId: row.user?.id,
+        name: row.user?.name,
+        role: row.user?.role,
+        semester: row.user?.semester,
+        schoolYear: row.user?.schoolYear,
+        hiredDate: row.user?.hiredDate,
+        status: row.attendance
+          ? row.time_in && !row.time_out
+            ? "Present"
+            : row.time_out
+              ? "Completed"
+              : "Late"
+          : "Absent",
+      }));
+
+      setRecords(flat);
     }
+
     setLoading(false);
   };
 
@@ -36,44 +67,14 @@ export const Attendance = () => {
     fetchAttendance();
   }, []);
 
-  // Flatten logs or placeholder
-  const logs = users
-    .map((user) =>
-      user.attendance?.length
-        ? user.attendance.map((att: any) => ({
-            ...att,
-            userId: user.id,
-            name: user.name,
-            role: user.role,
-            semester: user.semester,
-            schoolYear: user.schoolYear,
-            hiredDate: user.hiredDate,
-          }))
-        : [
-            {
-              id: `no-attendance-${user.id}`,
-              userId: user.id,
-              name: user.name,
-              role: user.role,
-              semester: user.semester,
-              schoolYear: user.schoolYear,
-              hiredDate: user.hiredDate,
-              time_in: null,
-              time_out: null,
-              status: "No Record",
-            },
-          ]
-    )
-    .flat();
-
   // 🔍 Filter logs
-  const filteredLogs = logs.filter(
+  const filtered = records.filter(
     (log) =>
-      log.name.toLowerCase().includes(search.toLowerCase()) ||
-      log.role.toLowerCase().includes(search.toLowerCase()) ||
+      log.name?.toLowerCase().includes(search.toLowerCase()) ||
+      log.role?.toLowerCase().includes(search.toLowerCase()) ||
       log.semester?.toString().includes(search) ||
       log.schoolYear?.toString().includes(search) ||
-      log.status.toLowerCase().includes(search.toLowerCase())
+      log.status?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -107,19 +108,19 @@ export const Attendance = () => {
           <div className="bg-green-100 p-4 rounded-lg shadow text-center">
             <h2 className="text-lg font-semibold text-green-800">Present</h2>
             <p className="text-2xl font-bold">
-              {filteredLogs.filter((l) => l.status === "Present").length}
+              {filtered.filter((l) => l.status === "Present").length}
             </p>
           </div>
           <div className="bg-red-100 p-4 rounded-lg shadow text-center">
             <h2 className="text-lg font-semibold text-red-800">Absent</h2>
             <p className="text-2xl font-bold">
-              {filteredLogs.filter((l) => l.status === "Absent").length}
+              {filtered.filter((l) => l.status === "Absent").length}
             </p>
           </div>
           <div className="bg-yellow-100 p-4 rounded-lg shadow text-center">
-            <h2 className="text-lg font-semibold text-yellow-800">Late</h2>
+            <h2 className="text-lg font-semibold text-yellow-800">Completed</h2>
             <p className="text-2xl font-bold">
-              {filteredLogs.filter((l) => l.status === "Late").length}
+              {filtered.filter((l) => l.status === "Completed").length}
             </p>
           </div>
         </section>
@@ -129,12 +130,13 @@ export const Attendance = () => {
           <table className="min-w-full border-collapse bg-white text-sm sm:text-base">
             <thead className="bg-red-800 text-white sticky top-0 z-10">
               <tr>
-                <th className="px-4 py-2 text-left border-b">ID</th>
+                <th className="px-4 py-2 text-left border-b">User ID</th>
                 <th className="px-4 py-2 text-left border-b">Name</th>
-                <th className="px-4 py-2 text-left border-b">Employee Type</th>
+                <th className="px-4 py-2 text-left border-b">Role</th>
                 <th className="px-4 py-2 text-left border-b">Semester</th>
                 <th className="px-4 py-2 text-left border-b">School Year</th>
                 <th className="px-4 py-2 text-left border-b">Hired Date</th>
+                <th className="px-4 py-2 text-left border-b">Date</th>
                 <th className="px-4 py-2 text-left border-b">Time In</th>
                 <th className="px-4 py-2 text-left border-b">Time Out</th>
                 <th className="px-4 py-2 text-left border-b">Status</th>
@@ -143,53 +145,53 @@ export const Attendance = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-4">
+                  <td colSpan={10} className="text-center py-4">
                     Loading...
                   </td>
                 </tr>
-              ) : filteredLogs.length > 0 ? (
-                filteredLogs.map((log) => (
+              ) : filtered.length > 0 ? (
+                filtered.map((log) => (
                   <tr key={log.id} className="hover:bg-gray-50 transition">
                     <td className="px-4 py-2 border-b">{log.userId}</td>
                     <td className="px-4 py-2 border-b">{log.name}</td>
                     <td className="px-4 py-2 border-b">{log.role}</td>
-                    <td className="px-4 py-2 border-b">{log.semester}</td>
-                    <td className="px-4 py-2 border-b">{log.schoolYear}</td>
+                    <td className="px-4 py-2 border-b">
+                      {log.semester ?? "--"}
+                    </td>
+                    <td className="px-4 py-2 border-b">
+                      {log.schoolYear ?? "--"}
+                    </td>
                     <td className="px-4 py-2 border-b">
                       {log.hiredDate
-                        ? new Date(log.hiredDate).toLocaleDateString([], {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })
+                        ? new Date(log.hiredDate).toLocaleDateString()
                         : "--"}
                     </td>
+                    <td className="px-4 py-2 border-b">{log.att_date}</td>
                     <td className="px-4 py-2 border-b">
                       {log.time_in
                         ? new Date(log.time_in).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
                         : "--"}
                     </td>
                     <td className="px-4 py-2 border-b">
                       {log.time_out
                         ? new Date(log.time_out).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
                         : "--"}
                     </td>
                     <td
-                      className={`px-4 py-2 border-b font-semibold ${
-                        log.status === "Present"
+                      className={`px-4 py-2 border-b font-semibold ${log.status === "Present"
                           ? "text-green-600"
-                          : log.status === "Late"
-                          ? "text-yellow-600"
-                          : log.status === "Absent"
-                          ? "text-red-600"
-                          : "text-gray-500"
-                      }`}
+                          : log.status === "Completed"
+                            ? "text-blue-600"
+                            : log.status === "Absent"
+                              ? "text-red-600"
+                              : "text-yellow-600"
+                        }`}
                     >
                       {log.status}
                     </td>
@@ -197,7 +199,7 @@ export const Attendance = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={9} className="text-center py-4">
+                  <td colSpan={10} className="text-center py-4">
                     No attendance records found
                   </td>
                 </tr>

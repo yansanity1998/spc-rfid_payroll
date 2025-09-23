@@ -16,21 +16,34 @@ import Dashboard from "./components/HRAdmin/Dashboard";
 import AccDashboard from "./components/Accounting/Dashboard";
 import { NavAccounting } from "./components/Accounting/NavAcc";
 import { PayrollAcc } from "./components/Accounting/PayrollAcc";
+import { NavGuard } from "./components/Guard/NavGuard";
+import GuardDashboard from "./components/Guard/GuardDashboard";
+import GuardReports from "./components/Guard/GuardReports";
+import FacDashboard from "./components/Faculty/FacDashboard";
+import { FacNav } from "./components/Faculty/FacNav";
+import Scanner from "./components/authAdmin/Scanner";
+import FacAttendance from "./components/Faculty/FacAttendance";
+import { FacRequest } from "./components/Faculty/FacRequest";
 
 function AppContent() {
   const location = useLocation();
 
   const showNavBarHR = location.pathname.startsWith("/hrAdmin");
   const showNavBarACC = location.pathname.startsWith("/accounting");
+  const showNavBarGuard = location.pathname.startsWith("/Guard");
+  const showNavBarFaculty = location.pathname.startsWith("/Faculty");
 
   return (
     <>
       <main className="flex bg-gray-50">
         {showNavBarHR && <NavBar />}
         {showNavBarACC && <NavAccounting />}
+        {showNavBarGuard && <NavGuard />}
+        {showNavBarFaculty && <FacNav />}
 
         <Routes>
           <Route path="/" element={<LogIn />} />
+          <Route path="/scanner" element={<Scanner />}/>
 
           {/* HR ADMIN */}
           <Route path="/hrAdmin/dashboard" element={<Dashboard />} />
@@ -43,6 +56,16 @@ function AppContent() {
           {/* ACCOUNTING */}
           <Route path="/accounting/dashboard" element={<AccDashboard />}/>
           <Route path="/accounting/payroll" element={<PayrollAcc />}/>
+
+          {/* GUARD */}
+          <Route path="/Guard/dashboard" element={<GuardDashboard />}/>
+          <Route path="/Guard/reports" element={<GuardReports />}/>
+
+          {/* FACULTY */}
+          <Route path="/Faculty/dashboard" element={<FacDashboard />} />
+          <Route path="/Faculty/attendance" element={<FacAttendance />} />
+          <Route path="/Faculty/request" element={<FacRequest />} />
+
         </Routes>
       </main>
     </>

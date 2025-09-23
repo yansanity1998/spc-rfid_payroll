@@ -9,6 +9,12 @@ const Dashboard = () => {
   const [table, setTable] = useState(1);
   const tableRow = 5;
 
+  const [payrollPage, setPayrollPage] = useState(1);
+  const payrollRow = 5;
+
+  const payrollLast = payrollRow * payrollPage;
+  const payrollFirst = payrollLast - payrollRow;
+
   const fetchData = async () => {
     setLoading(true);
 
@@ -50,6 +56,17 @@ const Dashboard = () => {
     fetchData();
   }, []);
 
+  // flatten payrolls into one array
+  const payrollRecords = payrollData.flatMap((user) =>
+    user.payrolls.map((pr: any) => ({
+      ...pr,
+      name: user.name,
+      role: user.role,
+    }))
+  );
+
+  const payrollPageData = payrollRecords.slice(payrollFirst, payrollLast);
+
   const tableLast = tableRow * table;
   const tableFirst = tableLast - tableRow;
   const tablePage = employees.slice(tableFirst, tableLast);
@@ -58,11 +75,6 @@ const Dashboard = () => {
     <div className="flex h-screen w-full lg:w-[87%] justify-end py-5 roboto px-3 sm:px-5">
       <main className="flex flex-col w-full p-4 sm:p-6 bg-white shadow-xs/20 justify-between rounded-lg lg:rounded-l-xl overflow-y-auto">
         <section className="space-y-6 sm:space-y-10">
-          <div className="flex h-7">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
-              Dashboard
-            </h1>
-          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="p-4 sm:p-6 bg-white rounded-lg border border-gray-100 shadow flex items-center justify-between">
@@ -102,7 +114,9 @@ const Dashboard = () => {
                 <tr>
                   <th className="px-3 sm:px-4 py-2 text-left border-b">ID</th>
                   <th className="px-3 sm:px-4 py-2 text-left border-b">Name</th>
-                  <th className="px-3 sm:px-4 py-2 text-left border-b">Employee Type</th>
+                  <th className="px-3 sm:px-4 py-2 text-left border-b">
+                    Employee Type
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -212,7 +226,9 @@ const Dashboard = () => {
                   <th className="px-3 sm:px-4 py-2 text-left border-b">
                     Employee
                   </th>
-                  <th className="px-3 sm:px-4 py-2 text-left border-b">Employee Type</th>
+                  <th className="px-3 sm:px-4 py-2 text-left border-b">
+                    Employee Type
+                  </th>
                   <th className="px-3 sm:px-4 py-2 text-left border-b">
                     Salary
                   </th>
@@ -237,40 +253,34 @@ const Dashboard = () => {
                       Loading...
                     </td>
                   </tr>
-                ) : payrollData.length > 0 ? (
-                  payrollData.flatMap((user) =>
-                    user.payrolls.map((pr: any) => (
-                      <tr key={pr.id} className="hover:bg-gray-50">
-                        <td className="px-3 sm:px-4 py-2 border-b">
-                          {user.name}
-                        </td>
-                        <td className="px-3 sm:px-4 py-2 border-b">
-                          {user.role}
-                        </td>
-                        <td className="px-3 sm:px-4 py-2 border-b">
-                          ₱{pr.gross?.toLocaleString()}
-                        </td>
-                        <td className="px-3 sm:px-4 py-2 border-b">
-                          ₱{pr.deductions?.toLocaleString()}
-                        </td>
-                        <td className="px-3 sm:px-4 py-2 border-b font-semibold text-green-600">
-                          ₱{pr.net?.toLocaleString()}
-                        </td>
-                        <td className="px-3 sm:px-4 py-2 border-b">
-                          {pr.period}
-                        </td>
-                        <td
-                          className={`px-3 sm:px-4 py-2 border-b font-semibold ${
-                            pr.status === "Pending"
-                              ? "text-yellow-600"
-                              : "text-green-600"
-                          }`}
-                        >
-                          {pr.status}
-                        </td>
-                      </tr>
-                    ))
-                  )
+                ) : payrollPageData.length > 0 ? (
+                  payrollPageData.map((pr: any) => (
+                    <tr key={pr.id} className="hover:bg-gray-50">
+                      <td className="px-3 sm:px-4 py-2 border-b">{pr.name}</td>
+                      <td className="px-3 sm:px-4 py-2 border-b">{pr.role}</td>
+                      <td className="px-3 sm:px-4 py-2 border-b">
+                        ₱{pr.gross?.toLocaleString()}
+                      </td>
+                      <td className="px-3 sm:px-4 py-2 border-b">
+                        ₱{pr.deductions?.toLocaleString()}
+                      </td>
+                      <td className="px-3 sm:px-4 py-2 border-b font-semibold text-green-600">
+                        ₱{pr.net?.toLocaleString()}
+                      </td>
+                      <td className="px-3 sm:px-4 py-2 border-b">
+                        {pr.period}
+                      </td>
+                      <td
+                        className={`px-3 sm:px-4 py-2 border-b font-semibold ${
+                          pr.status === "Pending"
+                            ? "text-yellow-600"
+                            : "text-green-600"
+                        }`}
+                      >
+                        {pr.status}
+                      </td>
+                    </tr>
+                  ))
                 ) : (
                   <tr>
                     <td colSpan={8} className="text-center py-4">
@@ -280,6 +290,78 @@ const Dashboard = () => {
                 )}
               </tbody>
             </table>
+          </div>
+          <div className="flex justify-center space-x-2 items-center mt-4">
+            <button
+              onClick={() => setPayrollPage((prev) => Math.max(prev - 1, 1))}
+              disabled={payrollPage === 1}
+              className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 cursor-pointer"
+            >
+              <svg
+                className="h-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                <g
+                  id="SVGRepo_tracerCarrier"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                ></g>
+                <g id="SVGRepo_iconCarrier">
+                  {" "}
+                  <path
+                    fill-rule="evenodd"
+                    clip-rule="evenodd"
+                    d="M15.7071 4.29289C16.0976 4.68342 16.0976 5.31658 15.7071 5.70711L9.41421 12L15.7071 18.2929C16.0976 18.6834 16.0976 19.3166 15.7071 19.7071C15.3166 20.0976 14.6834 20.0976 14.2929 19.7071L7.29289 12.7071C7.10536 12.5196 7 12.2652 7 12C7 11.7348 7.10536 11.4804 7.29289 11.2929L14.2929 4.29289C14.6834 3.90237 15.3166 3.90237 15.7071 4.29289Z"
+                    fill="#000000"
+                  ></path>{" "}
+                </g>
+              </svg>
+            </button>
+
+            <span>
+              Page {payrollPage} of{" "}
+              {Math.ceil(payrollRecords.length / payrollRow)}
+            </span>
+
+            <button
+              onClick={() =>
+                setPayrollPage((prev) =>
+                  prev < Math.ceil(payrollRecords.length / payrollRow)
+                    ? prev + 1
+                    : prev
+                )
+              }
+              disabled={
+                payrollPage === Math.ceil(payrollRecords.length / payrollRow)
+              }
+              className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 cursor-pointer"
+            >
+              <svg
+                className="h-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                <g
+                  id="SVGRepo_tracerCarrier"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                ></g>
+                <g id="SVGRepo_iconCarrier">
+                  {" "}
+                  <path
+                    fill-rule="evenodd"
+                    clip-rule="evenodd"
+                    d="M8.29289 4.29289C8.68342 3.90237 9.31658 3.90237 9.70711 4.29289L16.7071 11.2929C17.0976 11.6834 17.0976 12.3166 16.7071 12.7071L9.70711 19.7071C9.31658 20.0976 8.68342 20.0976 8.29289 19.7071C7.90237 19.3166 7.90237 18.6834 8.29289 18.2929L14.5858 12L8.29289 5.70711C7.90237 5.31658 7.90237 4.68342 8.29289 4.29289Z"
+                    fill="#000000"
+                  ></path>{" "}
+                </g>
+              </svg>
+            </button>
           </div>
         </div>
       </main>
