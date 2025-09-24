@@ -14,6 +14,7 @@ import { Payroll } from "./components/HRAdmin/Payroll";
 import { Requests } from "./components/HRAdmin/Requests";
 import Reports from "./components/HRAdmin/Reports";
 import Dashboard from "./components/HRAdmin/Dashboard";
+import Schedule from "./components/HRAdmin/Schedule";
 import AccDashboard from "./components/Accounting/Dashboard";
 import { NavAccounting } from "./components/Accounting/NavAcc";
 import { PayrollAcc } from "./components/Accounting/PayrollAcc";
@@ -24,9 +25,11 @@ import FacDashboard from "./components/Faculty/FacDashboard";
 import { FacNav } from "./components/Faculty/FacNav";
 import Scanner from "./components/authAdmin/Scanner";
 import FacAttendance from "./components/Faculty/FacAttendance";
+import FacSchedule from "./components/Faculty/FacSchedule";
 import { FacRequest } from "./components/Faculty/FacRequest";
 import SADashboard from "./components/SA/SADashboard";
 import SAAttendance from "./components/SA/SAAttendance";
+import SASchedule from "./components/SA/SASchedule";
 import SAReports from "./components/SA/SAReports";
 import SAEvents from "./components/SA/SAEvents";
 import SARequest from "./components/SA/SARequest";
@@ -63,6 +66,7 @@ function AppContent() {
           <Route path="/hrAdmin/dashboard" element={<Dashboard />} />
           <Route path="/hrAdmin/userManagement" element={<UserManagement />} />
           <Route path="/hrAdmin/attendance" element={<Attendance />} />
+          <Route path="/hrAdmin/schedule" element={<Schedule />} />
           <Route path="/hrAdmin/payroll" element={<Payroll />} />
           <Route path="/hrAdmin/requests" element={<Requests />} />
           <Route path="/hrAdmin/reports" element={<Reports />} />
@@ -78,11 +82,13 @@ function AppContent() {
           {/* FACULTY */}
           <Route path="/Faculty/dashboard" element={<FacDashboard />} />
           <Route path="/Faculty/attendance" element={<FacAttendance />} />
+          <Route path="/Faculty/schedule" element={<FacSchedule />} />
           <Route path="/Faculty/request" element={<FacRequest />} />
 
           {/* STUDENT AFFAIRS */}
           <Route path="/SA/dashboard" element={<SADashboard />} />
           <Route path="/SA/attendance" element={<SAAttendance />} />
+          <Route path="/SA/schedule" element={<SASchedule />} />
           <Route path="/SA/events" element={<SAEvents />} />
           <Route path="/SA/request" element={<SARequest />} />
           <Route path="/SA/reports" element={<SAReports />} />

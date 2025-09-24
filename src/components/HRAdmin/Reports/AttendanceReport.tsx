@@ -38,9 +38,53 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
         return "from-orange-500 to-orange-600 text-orange-800 bg-orange-100";
       case "SA":
         return "from-yellow-500 to-yellow-600 text-yellow-800 bg-yellow-100";
+      case "Guard":
+        return "from-teal-500 to-teal-600 text-teal-800 bg-teal-100";
       default:
         return "from-gray-500 to-gray-600 text-gray-800 bg-gray-100";
     }
+  };
+
+  // Helper function to format time in Philippine timezone
+  const formatPhilippineTime = (dateString: string) => {
+    // Handle different date string formats from Supabase
+    let date: Date;
+    
+    if (dateString.includes('T')) {
+      // ISO format with time
+      if (!dateString.includes('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
+        // No timezone info, assume UTC (common with Supabase)
+        date = new Date(dateString + 'Z');
+      } else {
+        date = new Date(dateString);
+      }
+    } else {
+      // Date only format, treat as UTC
+      date = new Date(dateString + 'T00:00:00Z');
+    }
+    
+    // Convert to Philippine time
+    return date.toLocaleTimeString('en-PH', {
+      timeZone: 'Asia/Manila',
+      hour12: true,
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  };
+
+  // Helper function to format date in Philippine timezone
+  const formatPhilippineDate = (dateString: string) => {
+    // Handle date-only strings (YYYY-MM-DD format)
+    const date = dateString.includes('T') 
+      ? new Date(dateString)
+      : new Date(dateString + 'T00:00:00Z');
+    
+    return date.toLocaleDateString('en-PH', {
+      timeZone: 'Asia/Manila',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   const fetchAttendanceData = async () => {
@@ -123,9 +167,9 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
       record.user?.role || "",
       record.user?.semester || "",
       record.user?.schoolYear || "",
-      record.user?.hiredDate ? new Date(record.user.hiredDate).toLocaleDateString() : "",
-      record.time_in ? new Date(record.time_in).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
-      record.time_out ? new Date(record.time_out).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
+      record.user?.hiredDate ? formatPhilippineDate(record.user.hiredDate) : "",
+      record.time_in ? formatPhilippineTime(record.time_in) : "",
+      record.time_out ? formatPhilippineTime(record.time_out) : "",
       record.status
     ]);
 
@@ -334,12 +378,12 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
               
               return `
                 <tr>
-                  <td>${new Date(record.att_date).toLocaleDateString()}</td>
+                  <td>${formatPhilippineDate(record.att_date)}</td>
                   <td>${record.user?.id || ''}</td>
                   <td>${record.user?.name || 'Unknown'}</td>
                   <td><span class="role-badge ${getRoleClass(record.user?.role || '')}">${record.user?.role || 'No Role'}</span></td>
-                  <td>${record.time_in ? new Date(record.time_in).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : '--'}</td>
-                  <td>${record.time_out ? new Date(record.time_out).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : '--'}</td>
+                  <td>${record.time_in ? formatPhilippineTime(record.time_in) : '--'}</td>
+                  <td>${record.time_out ? formatPhilippineTime(record.time_out) : '--'}</td>
                   <td><span class="status-badge ${getStatusClass(record.status)}">${record.status}</span></td>
                 </tr>
               `;
@@ -560,7 +604,7 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
                   filteredRecords.map((record) => (
                     <tr key={record.id} className="hover:bg-white/80 transition-all duration-200 group">
                       <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
-                        {new Date(record.att_date).toLocaleDateString()}
+                        {formatPhilippineDate(record.att_date)}
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
                         <div className="flex flex-col">
@@ -574,10 +618,10 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
                         </span>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
-                        {record.time_in ? new Date(record.time_in).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
+                        {record.time_in ? formatPhilippineTime(record.time_in) : "--"}
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
-                        {record.time_out ? new Date(record.time_out).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
+                        {record.time_out ? formatPhilippineTime(record.time_out) : "--"}
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${

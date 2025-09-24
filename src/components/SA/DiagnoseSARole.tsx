@@ -1,13 +1,67 @@
 // src/components/SA/DiagnoseSARole.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import supabase from "../../utils/supabase";
 import { useNavigate } from "react-router-dom";
 
 const DiagnoseSARole = () => {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<any>(null);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+
+  // Automatically check SA role on component mount
+  useEffect(() => {
+    checkSARole();
+  }, []);
+
+  const checkSARole = async () => {
+    try {
+      // Get current authenticated user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        setError("No authenticated user found. Please log in first.");
+        setLoading(false);
+        return;
+      }
+
+      // Try the same logic as login - check users table first, then roles table
+      let userRole: string | null = null;
+      const { data: userProfile, error: userProfileError } = await supabase
+        .from("users")
+        .select("role")
+        .eq("auth_id", user.id)
+        .single();
+
+      if (!userProfileError && userProfile?.role) {
+        userRole = userProfile.role;
+      } else {
+        // Fallback to roles table
+        const { data: roleProfile, error: roleError } = await supabase
+          .from("roles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+
+        if (!roleError && roleProfile?.role) {
+          userRole = roleProfile.role;
+        }
+      }
+
+      if (userRole === "SA") {
+        // User has SA role, redirect to dashboard
+        navigate("/SA/dashboard");
+        return;
+      } else if (userRole) {
+        setError(`You have ${userRole} role, not SA role. This diagnostic tool is for SA accounts only.`);
+      } else {
+        setError("Role not assigned. Use the diagnostic tools below to fix SA role issues.");
+      }
+    } catch (err: any) {
+      setError(`Error checking SA role: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const diagnoseCurrentUser = async () => {
     setLoading(true);
@@ -218,14 +272,31 @@ const DiagnoseSARole = () => {
     }
   };
 
+  // Show loading screen while checking SA role
+  if (loading && !results) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-6 flex items-center justify-center">
+        <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Checking SA Role...</h2>
+          <p className="text-gray-600">Verifying your authentication and redirecting to dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-6">
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-xl shadow-lg p-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">SA Role Diagnostic Tool</h1>
-          <p className="text-gray-600 mb-8">
+          <p className="text-gray-600 mb-4">
             This tool helps diagnose and fix authentication issues for SA accounts.
           </p>
+          <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-6">
+            <p className="font-medium">Note:</p>
+            <p>If you have a valid SA role, you should be automatically redirected to the SA dashboard. This diagnostic tool is only needed if you're experiencing login issues.</p>
+          </div>
 
           <div className="space-y-4 mb-8">
             <button

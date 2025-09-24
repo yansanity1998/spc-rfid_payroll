@@ -56,7 +56,7 @@ const Scanner = () => {
       if (fetchError) throw fetchError;
 
       if (!existing) {
-        // ✅ First scan → Time In
+        // ✅ First scan of the day → Time In
         const { error: insertError } = await supabase.from("attendance").insert([
           {
             user_id: user.id,
@@ -69,7 +69,7 @@ const Scanner = () => {
         if (insertError) throw insertError;
         toast.success(`✅ Time In recorded for ${user.name ?? user.id}`);
       } else if (!existing.time_out) {
-        // ✅ Second scan → Time Out
+        // ✅ Currently timed in → Time Out
         const { error: updateError } = await supabase
           .from("attendance")
           .update({
@@ -81,8 +81,18 @@ const Scanner = () => {
         if (updateError) throw updateError;
         toast.success(`✅ Time Out recorded for ${user.name ?? user.id}`);
       } else {
-        // ⚠️ Already completed both time_in and time_out
-        toast.loading(`⚠️ ${user.name ?? user.id} already completed attendance today.`);
+        // ✅ Currently timed out → Time In again (allows multiple in/out per day)
+        const { error: updateError } = await supabase
+          .from("attendance")
+          .update({
+            time_in: new Date().toISOString(),
+            time_out: null, // Clear previous time_out
+            status: true,
+          })
+          .eq("id", existing.id);
+
+        if (updateError) throw updateError;
+        toast.success(`✅ Time In recorded again for ${user.name ?? user.id}`);
       }
     } catch (err: any) {
       console.error(err);

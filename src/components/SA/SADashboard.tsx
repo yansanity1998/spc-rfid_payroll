@@ -23,6 +23,7 @@ const SADashboard = () => {
     status: string;
     created_at: string;
   }>>([]);
+  const [schedules, setSchedules] = useState<any[]>([]);
   const [students, setStudents] = useState<Array<{
     id: number;
     name: string;
@@ -73,13 +74,25 @@ const SADashboard = () => {
         .from("attendance")
         .select("*")
         .eq("user_id", saData.id)
-        .eq("date", today)
+        .eq("att_date", today) // Use correct field name
         .single();
 
       if (attendanceError && attendanceError.code !== 'PGRST116') {
         console.error("Error fetching attendance:", attendanceError);
       } else if (attendanceData) {
-        setTodayStatus(attendanceData.status || "Unknown");
+        // Calculate status from attendance data
+        const status = attendanceData.attendance === true
+          ? attendanceData.time_in && !attendanceData.time_out
+            ? "Present"
+            : attendanceData.time_out
+              ? "Present" // Completed day
+              : "Late"
+          : attendanceData.attendance === false
+            ? "Absent"
+            : attendanceData.time_in || attendanceData.time_out
+              ? "Present" // Fallback
+              : "Unknown";
+        setTodayStatus(status);
       }
 
       // Fetch attendance statistics (last 30 days)
@@ -88,23 +101,39 @@ const SADashboard = () => {
       
       const { data: statsData, error: statsError } = await supabase
         .from("attendance")
-        .select("status")
+        .select("*") // Get all fields to calculate status
         .eq("user_id", saData.id)
-        .gte("date", thirtyDaysAgo.toISOString().split('T')[0]);
+        .gte("att_date", thirtyDaysAgo.toISOString().split('T')[0]); // Use correct field name
 
       if (statsError) {
         console.error("Error fetching attendance stats:", statsError);
       } else {
-        const present = statsData.filter(record => record.status === "Present").length;
-        const absent = statsData.filter(record => record.status === "Absent").length;
-        const late = statsData.filter(record => record.status === "Late").length;
+        // Calculate status for each record
+        const recordsWithStatus = statsData.map(record => {
+          const status = record.attendance === true
+            ? record.time_in && !record.time_out
+              ? "Present"
+              : record.time_out
+                ? "Present" // Completed day
+                : "Late"
+            : record.attendance === false
+              ? "Absent"
+              : record.time_in || record.time_out
+                ? "Present" // Fallback
+                : "Absent";
+          return { ...record, status };
+        });
+        
+        const present = recordsWithStatus.filter(record => record.status === "Present").length;
+        const absent = recordsWithStatus.filter(record => record.status === "Absent").length;
+        const late = recordsWithStatus.filter(record => record.status === "Late").length;
         
         setAttendanceStats({
           present,
           absent,
           late,
-          total: statsData.length,
-          attendanceRate: statsData.length > 0 ? ((present + late) / statsData.length * 100).toFixed(1) : "0"
+          total: recordsWithStatus.length,
+          attendanceRate: recordsWithStatus.length > 0 ? ((present + late) / recordsWithStatus.length * 100).toFixed(1) : "0"
         });
       }
 
@@ -120,6 +149,19 @@ const SADashboard = () => {
         console.error("Error fetching requests:", requestsError);
       } else {
         setRequests(requestsData || []);
+      }
+
+      // Fetch schedules
+      const { data: schedulesData, error: schedulesError } = await supabase
+        .from("schedules")
+        .select("*")
+        .eq("user_id", saData.id)
+        .order("created_at", { ascending: false });
+
+      if (schedulesError) {
+        console.error("Error fetching schedules:", schedulesError);
+      } else {
+        setSchedules(schedulesData || []);
       }
 
       // Fetch students count (for SA overview)
@@ -228,7 +270,7 @@ const SADashboard = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
           {/* Today's Status */}
           <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-yellow-500">
             <div className="flex items-center justify-between">
@@ -287,6 +329,21 @@ const SADashboard = () => {
               </div>
               <div className="p-3 bg-purple-100 rounded-full">
                 <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* My Schedule */}
+          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-red-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">My Schedule</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{schedules.length}</p>
+              </div>
+              <div className="p-3 bg-red-100 rounded-full">
+                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </div>

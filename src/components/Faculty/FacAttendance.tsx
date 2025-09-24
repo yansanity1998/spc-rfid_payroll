@@ -26,6 +26,35 @@ const PersonalAttendance = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
+  // Helper function to format time in Philippine timezone
+  const formatPhilippineTime = (dateString: string) => {
+    if (!dateString) return "-";
+    
+    // Handle different date string formats from Supabase
+    let date: Date;
+    
+    if (dateString.includes('T')) {
+      // ISO format with time
+      if (!dateString.includes('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
+        // No timezone info, assume UTC (common with Supabase)
+        date = new Date(dateString + 'Z');
+      } else {
+        date = new Date(dateString);
+      }
+    } else {
+      // Time only format (HH:MM:SS), treat as Philippine time
+      return dateString;
+    }
+    
+    // Convert to Philippine time
+    return date.toLocaleTimeString('en-PH', {
+      timeZone: 'Asia/Manila',
+      hour12: true,
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  };
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -75,8 +104,7 @@ const PersonalAttendance = () => {
         const { data: data1, error: error1 } = await supabase
           .from("attendance")
           .select("*")
-          .eq("user_id", user.id)
-          .order("att_date", { ascending: false });
+          .eq("user_id", user.id);
         
         console.log("Faculty Attendance: Query with user_id =", user.id, "Results:", data1);
         if (error1) console.log("Faculty Attendance: Error with user_id query:", error1);
@@ -88,8 +116,7 @@ const PersonalAttendance = () => {
           const { data: data2, error: error2 } = await supabase
             .from("attendance")
             .select("*")
-            .eq("user_id", facultyData.id)
-            .order("att_date", { ascending: false });
+            .eq("user_id", facultyData.id);
           
           console.log("Faculty Attendance: Query with faculty ID =", facultyData.id, "Results:", data2);
           if (error2) console.log("Faculty Attendance: Error with faculty ID query:", error2);
@@ -100,8 +127,24 @@ const PersonalAttendance = () => {
         }
 
         if (attendanceData && attendanceData.length > 0) {
+          // Sort by most recent activity (either time_in or time_out, whichever is more recent)
+          const sortedData = attendanceData.sort((a: any, b: any) => {
+            // Get the most recent activity time for each record
+            const getLatestActivity = (record: any) => {
+              const timeIn = record.time_in ? new Date(record.time_in).getTime() : 0;
+              const timeOut = record.time_out ? new Date(record.time_out).getTime() : 0;
+              return Math.max(timeIn, timeOut);
+            };
+
+            const aLatest = getLatestActivity(a);
+            const bLatest = getLatestActivity(b);
+            
+            // Sort in descending order (most recent first)
+            return bLatest - aLatest;
+          });
+
           // Process attendance data with status calculation and hours calculation
-          const processedData = attendanceData.map((row: any) => {
+          const processedData = sortedData.map((row: any) => {
             // Calculate hours worked
             let hoursWorked = 0;
             if (row.time_in && row.time_out) {
@@ -449,10 +492,10 @@ const PersonalAttendance = () => {
                           <span className="font-semibold text-gray-800">{log.att_date || '-'}</span>
                         </td>
                         <td className="px-3 sm:px-4 py-4 border-b border-gray-200 text-gray-600">
-                          {log.time_in || "-"}
+                          {formatPhilippineTime(log.time_in)}
                         </td>
                         <td className="px-3 sm:px-4 py-4 border-b border-gray-200 text-gray-600">
-                          {log.time_out || "-"}
+                          {formatPhilippineTime(log.time_out)}
                         </td>
                         <td className="px-3 sm:px-4 py-4 border-b border-gray-200">
                           <span className="font-semibold text-gray-700">

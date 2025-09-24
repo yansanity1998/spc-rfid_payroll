@@ -6,6 +6,7 @@ const FacDashboard = () => {
   const [attendanceStats, setAttendanceStats] = useState<any>(null);
   const [todayStatus, setTodayStatus] = useState<string>("Unknown");
   const [requests, setRequests] = useState<any[]>([]);
+  const [schedules, setSchedules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -24,6 +25,8 @@ const FacDashboard = () => {
         return "from-orange-500 to-orange-600 text-orange-800 bg-orange-100";
       case "SA":
         return "from-yellow-500 to-yellow-600 text-yellow-800 bg-yellow-100";
+      case "Guard":
+        return "from-teal-500 to-teal-600 text-teal-800 bg-teal-100";
       default:
         return "from-gray-500 to-gray-600 text-gray-800 bg-gray-100";
     }
@@ -154,6 +157,17 @@ const FacDashboard = () => {
 
       if (!requestsError && requestsData) {
         setRequests(requestsData);
+      }
+
+      // Fetch schedules
+      const { data: schedulesData, error: schedulesError } = await supabase
+        .from("schedules")
+        .select("*")
+        .eq("user_id", facultyData.id)
+        .order("created_at", { ascending: false });
+
+      if (!schedulesError && schedulesData) {
+        setSchedules(schedulesData);
       }
 
     } catch (error) {
@@ -401,6 +415,22 @@ const FacDashboard = () => {
                     <h3 className="font-semibold text-gray-800">Submit Request</h3>
                   </div>
                   <p className="text-gray-600 text-sm">Request loans, gatepasses, or other services</p>
+                </div>
+
+                {/* View Schedule */}
+                <div className="group bg-white p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer border border-gray-200">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-800">My Schedule</h3>
+                      <p className="text-xs text-red-600 font-medium">{schedules?.length || 0} schedule{schedules?.length !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                  <p className="text-gray-600 text-sm">View your weekly schedule and upcoming classes</p>
                 </div>
 
                 {/* Profile Settings */}

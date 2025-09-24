@@ -24,6 +24,7 @@ export const NavBar = () => {
     { key: "dashboard", label: "Dashboard", link: "hrAdmin/dashboard" },
     { key: "users", label: "User Management", link: "hrAdmin/userManagement" },
     { key: "attendance", label: "Attendance", link: "hrAdmin/attendance" },
+    { key: "schedule", label: "Schedule", link: "hrAdmin/schedule" },
     { key: "payroll", label: "Payroll", link: "hrAdmin/payroll" },
     { key: "requests", label: "Requests", link: "hrAdmin/requests" },
     { key: "reports", label: "Reports", link: "hrAdmin/reports" },
@@ -61,6 +62,12 @@ export const NavBar = () => {
         return (
           <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      case "schedule":
+        return (
+          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
         );
       case "reports":

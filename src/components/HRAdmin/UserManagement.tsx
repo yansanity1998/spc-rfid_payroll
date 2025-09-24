@@ -27,6 +27,8 @@ export const UserManagement = () => {
         return "from-orange-500 to-orange-600 text-orange-800 bg-orange-100";
       case "SA":
         return "from-yellow-500 to-yellow-600 text-yellow-800 bg-yellow-100";
+      case "Guard":
+        return "from-teal-500 to-teal-600 text-teal-800 bg-teal-100";
       default:
         return "from-gray-500 to-gray-600 text-gray-800 bg-gray-100";
     }
@@ -272,6 +274,7 @@ export const UserManagement = () => {
                   <option value="Faculty">Faculty</option>
                   <option value="Staff">Staff</option>
                   <option value="SA">SA</option>
+                  <option value="Guard">Guard</option>
                 </select>
                 <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -513,6 +516,7 @@ export const UserManagement = () => {
                   <option>Faculty</option>
                   <option>Staff</option>
                   <option>SA</option>
+                  <option>Guard</option>
                 </select>
               </div>
               
@@ -704,6 +708,7 @@ export const UserManagement = () => {
                   <option>Faculty</option>
                   <option>Staff</option>
                   <option>SA</option>
+                  <option>Guard</option>
                 </select>
               </div>
               

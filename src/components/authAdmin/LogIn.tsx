@@ -31,31 +31,131 @@ export const LogIn = () => {
       return;
     }
 
-    // 2. Try fetching role from 'users' table
     let userRole: string | null = null;
-    const { data: userProfile, error: userError } = await supabase
-      .from("users")
-      .select("role")
-      .eq("auth_id", userId)
-      .single();
+    let debugMsg = "";
+    const userEmail = data.user?.email;
 
-    if (!userError && userProfile?.role) {
-      userRole = userProfile.role;
-    } else {
-      // 3. Fallback: fetch role from 'roles' table
-      const { data: roleProfile, error: roleError } = await supabase
-        .from("roles")
-        .select("role")
-        .eq("id", userId)
-        .single();
+    console.log("=== SA LOGIN DEBUG START ===");
+    console.log("User ID:", userId);
+    console.log("User Email:", userEmail);
 
-      if (!roleError && roleProfile?.role) {
-        userRole = roleProfile.role;
+    // SIMPLIFIED SA DETECTION WITH DETAILED LOGGING
+    
+    // Step 1: Check if there's any SA role in the roles table
+    console.log("Step 1: Checking for SA roles in roles table...");
+    const { data: allSARoles, error: saRolesError } = await supabase
+      .from("roles")
+      .select("*")
+      .eq("role", "SA");
+
+    console.log("SA Roles found:", allSARoles);
+    console.log("SA Roles error:", saRolesError);
+
+    if (!saRolesError && allSARoles && allSARoles.length > 0) {
+      console.log(`Found ${allSARoles.length} SA role(s) in roles table`);
+      
+      // If there's exactly one SA role, assume it's the current user
+      if (allSARoles.length === 1) {
+        console.log("Only one SA role found - assuming current user is SA");
+        userRole = "SA";
+        debugMsg += `Single SA role found in roles table, assuming current user\n`;
+        localStorage.setItem("user", JSON.stringify(data.session));
+        localStorage.setItem("role", userRole);
+        toast.success("Welcome SA! Redirecting to dashboard...");
+        navigate("/SA/dashboard");
+        return;
+      }
+      
+      // If multiple SA roles, try to match by ID
+      const matchingRole = allSARoles.find(role => role.id === userId);
+      if (matchingRole) {
+        console.log("Found matching SA role by ID");
+        userRole = "SA";
+        debugMsg += `SA role found in roles table by ID match: ${userId}\n`;
+        localStorage.setItem("user", JSON.stringify(data.session));
+        localStorage.setItem("role", userRole);
+        toast.success("Welcome SA! Redirecting to dashboard...");
+        navigate("/SA/dashboard");
+        return;
       }
     }
 
+    // Step 2: Check users table by auth_id
+    console.log("Step 2: Checking users table by auth_id...");
+    const { data: userProfile, error: userError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("auth_id", userId)
+      .single();
+
+    console.log("User profile by auth_id:", userProfile);
+    console.log("User profile error:", userError);
+
+    if (!userError && userProfile?.role === "SA") {
+      console.log("SA role found in users table by auth_id");
+      userRole = "SA";
+      debugMsg += `SA role found in users table by auth_id: ${userId}\n`;
+      localStorage.setItem("user", JSON.stringify(data.session));
+      localStorage.setItem("role", userRole);
+      toast.success("Welcome SA! Redirecting to dashboard...");
+      navigate("/SA/dashboard");
+      return;
+    }
+
+    // Step 3: Check users table by email
+    if (userEmail) {
+      console.log("Step 3: Checking users table by email...");
+      const { data: userByEmail, error: emailError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", userEmail)
+        .single();
+
+      console.log("User profile by email:", userByEmail);
+      console.log("User profile by email error:", emailError);
+
+      if (!emailError && userByEmail?.role === "SA") {
+        console.log("SA role found in users table by email");
+        userRole = "SA";
+        debugMsg += `SA role found in users table by email: ${userEmail}\n`;
+        
+        // Fix auth_id mismatch if needed
+        if (userByEmail.auth_id !== userId) {
+          console.log("Fixing auth_id mismatch...");
+          const { error: updateError } = await supabase
+            .from("users")
+            .update({ auth_id: userId })
+            .eq("id", userByEmail.id);
+          
+          if (!updateError) {
+            console.log("Auth ID fixed successfully");
+            debugMsg += `Auth ID fixed for SA user\n`;
+          } else {
+            console.log("Failed to fix auth ID:", updateError);
+          }
+        }
+        
+        localStorage.setItem("user", JSON.stringify(data.session));
+        localStorage.setItem("role", userRole);
+        toast.success("Welcome SA! Authentication fixed. Redirecting to dashboard...");
+        navigate("/SA/dashboard");
+        return;
+      }
+    }
+
+    // Step 4: For non-SA roles, continue with regular logic
+    if (!userRole && userProfile?.role) {
+      userRole = userProfile.role;
+      debugMsg += `Role found in users table: ${userRole}\n`;
+      console.log("Non-SA role found:", userRole);
+    }
+
+    console.log("=== SA LOGIN DEBUG END ===");
+    console.log("Final userRole:", userRole);
+
+    // If still no role found, show error
     if (!userRole) {
-      toast.error("Role not assigned. Contact admin.");
+      toast.error(`Role not assigned. Contact admin. Debug info: ${debugMsg}`);
       return;
     }
 
@@ -81,10 +181,12 @@ export const LogIn = () => {
         navigate("/Guard/dashboard");
         break;
       case "SA":
+        // SA should have been handled earlier, but keeping as fallback
+        toast.success("Welcome SA! Redirecting to dashboard...");
         navigate("/SA/dashboard");
         break;
       default:
-        toast.error("Role not assigned. Contact admin.");
+        toast.error(`Role not assigned. Debug info: ${debugMsg}`);
     }
   };
 
