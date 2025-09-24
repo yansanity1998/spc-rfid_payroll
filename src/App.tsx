@@ -25,6 +25,13 @@ import { FacNav } from "./components/Faculty/FacNav";
 import Scanner from "./components/authAdmin/Scanner";
 import FacAttendance from "./components/Faculty/FacAttendance";
 import { FacRequest } from "./components/Faculty/FacRequest";
+import SADashboard from "./components/SA/SADashboard";
+import SAAttendance from "./components/SA/SAAttendance";
+import SAReports from "./components/SA/SAReports";
+import SAEvents from "./components/SA/SAEvents";
+import SARequest from "./components/SA/SARequest";
+import { SANav } from "./components/SA/SANav";
+import DiagnoseSARole from "./components/SA/DiagnoseSARole";
 
 function AppContent() {
   const location = useLocation();
@@ -33,6 +40,7 @@ function AppContent() {
   const showNavBarACC = location.pathname.startsWith("/accounting");
   const showNavBarGuard = location.pathname.startsWith("/Guard");
   const showNavBarFaculty = location.pathname.startsWith("/Faculty");
+  const showNavBarSA = location.pathname.startsWith("/SA");
   
   // Check if current route should show full-screen layout (no navigation bars)
   const isFullScreenRoute = location.pathname === "/" || location.pathname === "/login" || location.pathname === "/scanner";
@@ -44,6 +52,7 @@ function AppContent() {
         {!isFullScreenRoute && showNavBarACC && <NavAccounting />}
         {!isFullScreenRoute && showNavBarGuard && <NavGuard />}
         {!isFullScreenRoute && showNavBarFaculty && <FacNav />}
+        {!isFullScreenRoute && showNavBarSA && <SANav />}
 
         <Routes>
           <Route path="/" element={<LandingPage />} />
@@ -70,6 +79,16 @@ function AppContent() {
           <Route path="/Faculty/dashboard" element={<FacDashboard />} />
           <Route path="/Faculty/attendance" element={<FacAttendance />} />
           <Route path="/Faculty/request" element={<FacRequest />} />
+
+          {/* STUDENT AFFAIRS */}
+          <Route path="/SA/dashboard" element={<SADashboard />} />
+          <Route path="/SA/attendance" element={<SAAttendance />} />
+          <Route path="/SA/events" element={<SAEvents />} />
+          <Route path="/SA/request" element={<SARequest />} />
+          <Route path="/SA/reports" element={<SAReports />} />
+
+          {/* SA DIAGNOSTIC ROUTES */}
+          <Route path="/diagnose-sa" element={<DiagnoseSARole />} />
 
         </Routes>
       </main>

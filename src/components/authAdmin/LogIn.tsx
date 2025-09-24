@@ -80,6 +80,9 @@ export const LogIn = () => {
       case "Guard":
         navigate("/Guard/dashboard");
         break;
+      case "SA":
+        navigate("/SA/dashboard");
+        break;
       default:
         toast.error("Role not assigned. Contact admin.");
     }

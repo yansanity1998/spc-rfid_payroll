@@ -1,10 +1,10 @@
-// src/components/Faculty/FacNav.tsx
+// src/components/SA/SANav.tsx
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { spclogo } from "../../utils";
 import supabase from "../../utils/supabase";
 import { useState, useEffect } from "react";
 
-export const FacNav = () => {
+export const SANav = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -21,9 +21,11 @@ export const FacNav = () => {
   }, []);
 
   const menu = [
-    { key: "dashboard", label: "Dashboard", link: "/Faculty/dashboard" },
-    { key: "attendance", label: "Attendance", link: "/Faculty/attendance" },
-    { key: "request", label: "Request", link: "/Faculty/request" },
+    { key: "dashboard", label: "Dashboard", link: "/SA/dashboard" },
+    { key: "attendance", label: "Attendance", link: "/SA/attendance" },
+    { key: "events", label: "Events & Activities", link: "/SA/events" },
+    { key: "request", label: "Request", link: "/SA/request" },
+    { key: "reports", label: "Reports", link: "/SA/reports" },
   ];
 
   const getMenuIcon = (key: string) => {
@@ -42,10 +44,28 @@ export const FacNav = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
           </svg>
         );
+      case "students":
+        return (
+          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+          </svg>
+        );
+      case "events":
+        return (
+          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        );
       case "request":
         return (
           <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      case "reports":
+        return (
+          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
         );
       default:
@@ -93,7 +113,7 @@ export const FacNav = () => {
             <div className="bg-white backdrop-blur-md border border-white/20 rounded-2xl px-6 py-4 shadow-xl flex items-center gap-2 mb-2">
               <img src={spclogo} alt="SPC Logo" className="h-12 w-auto drop-shadow-lg" />
             </div>
-            <h2 className="text-white font-bold text-xl tracking-wide whitespace-nowrap mb-1">Faculty</h2>
+            <h2 className="text-white font-bold text-xl tracking-wide whitespace-nowrap mb-1">Student Affairs</h2>
             {userEmail && <p className="text-white/70 text-xs font-medium">{userEmail}</p>}
           </div>
           
@@ -146,7 +166,7 @@ export const FacNav = () => {
                 <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-5 py-3 shadow-xl flex items-center gap-2 mb-2">
                   <img src={spclogo} alt="SPC Logo" className="h-10 w-auto drop-shadow-lg" />
                 </div>
-                <h2 className="text-white font-bold text-lg tracking-wide whitespace-nowrap mb-1">Faculty</h2>
+                <h2 className="text-white font-bold text-lg tracking-wide whitespace-nowrap mb-1">Student Affairs</h2>
                 {userEmail && <p className="text-white/70 text-xs font-medium">{userEmail}</p>}
               </div>
               

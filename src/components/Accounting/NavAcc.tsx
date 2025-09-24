@@ -110,7 +110,6 @@ export const NavAccounting = () => {
               <Link
                 key={item.key}
                 to={item.link}
-                reloadDocument
                 className={`group relative overflow-hidden backdrop-blur-sm border block w-full text-left px-4 py-3 rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-lg font-medium ${
                   location.pathname === item.link
                     ? "bg-white/20 border-white/30 text-white shadow-lg scale-[1.02]"
@@ -164,7 +163,6 @@ export const NavAccounting = () => {
                   <Link
                     key={item.key}
                     to={item.link}
-                    reloadDocument
                     onClick={() => setMenuOpen(false)} // close menu after navigation
                     className={`group relative overflow-hidden backdrop-blur-sm border block w-full text-left px-4 py-3 rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-lg font-medium ${
                       location.pathname === item.link
