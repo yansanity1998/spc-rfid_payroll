@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { spclogo, titlelogo } from "../../utils";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router-dom";
 import supabase from "../../utils/supabase";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -222,3 +222,5 @@ export const LogIn = () => {
     </div>
   );
 };
+
+export default LogIn;

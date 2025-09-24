@@ -1,12 +1,24 @@
 // src/components/Accounting/NavAccounting.tsx
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { spclogo } from "../../utils";
 import supabase from "../../utils/supabase";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export const NavAccounting = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [userEmail, setUserEmail] = useState<string>("");
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) {
+        setUserEmail(user.email);
+      }
+    };
+    getUser();
+  }, []);
 
   const menu = [
     { key: "dashboard", label: "Dashboard", link: "/accounting/dashboard" },
@@ -14,6 +26,43 @@ export const NavAccounting = () => {
     { key: "contributions", label: "Gov’t Contributions", link: "/accounting/contributions" },
     { key: "reports", label: "Reports", link: "/accounting/reports" },
   ];
+
+  const getMenuIcon = (key: string) => {
+    const iconClass = "w-5 h-5";
+    switch (key) {
+      case "dashboard":
+        return (
+          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v6H8V5z" />
+          </svg>
+        );
+      case "payroll":
+        return (
+          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      case "contributions":
+        return (
+          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        );
+      case "reports":
+        return (
+          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        );
+      default:
+        return (
+          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        );
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -44,62 +93,108 @@ export const NavAccounting = () => {
       </div>
 
       {/* Sidebar (desktop) */}
-      <div className="hidden lg:flex w-70 h-screen pr-2 py-10 flex-col justify-between bg-white shadow-md">
+      <div className="hidden lg:flex w-70 min-h-screen fixed left-0 top-0 pr-2 py-6 flex-col justify-between bg-red-900 shadow-2xl z-30">
         <div>
-          <div className="flex items-center justify-center gap-10">
-            <img src={spclogo} alt="Logo" className="h-10" />
+          {/* Modern Logo Section */}
+          <div className="flex flex-col items-center justify-center px-4 py-6 mb-6">
+            <div className="bg-white backdrop-blur-md border border-white/20 rounded-2xl px-6 py-4 shadow-xl flex items-center gap-2 mb-2">
+              <img src={spclogo} alt="SPC Logo" className="h-12 w-auto drop-shadow-lg" />
+            </div>
+            <h2 className="text-white font-bold text-xl tracking-wide whitespace-nowrap mb-1">Accounting</h2>
+            {userEmail && <p className="text-white/70 text-xs font-medium">{userEmail}</p>}
           </div>
-          <nav className="flex flex-col p-4 mt-10 space-y-2">
+          
+          {/* Modern Navigation */}
+          <nav className="flex flex-col px-4 space-y-2">
             {menu.map((item) => (
               <Link
                 key={item.key}
                 to={item.link}
                 reloadDocument
-                className="hover:bg-red-800 block w-full text-left px-3 py-2 rounded-md hover:text-white transition"
+                className={`group relative overflow-hidden backdrop-blur-sm border block w-full text-left px-4 py-3 rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-lg font-medium ${
+                  location.pathname === item.link
+                    ? "bg-white/20 border-white/30 text-white shadow-lg scale-[1.02]"
+                    : "bg-white/5 border-white/10 text-white/90 hover:text-white hover:bg-white/20"
+                }`}
               >
-                {item.label}
+                <span className="relative z-10 flex items-center gap-3">
+                  {getMenuIcon(item.key)}
+                  {item.label}
+                </span>
+                <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </Link>
             ))}
           </nav>
         </div>
+        
+        {/* Modern Logout Section */}
         <div className="p-4">
           <button
             onClick={handleLogout}
-            className="w-full bg-gray-200 hover:bg-red-600 hover:text-white shadow-md cursor-pointer px-3 py-2 rounded-md transition"
+            className="group relative overflow-hidden w-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-red-700 shadow-xl cursor-pointer px-4 py-3 rounded-xl transition-all duration-300 hover:scale-[1.02] font-semibold"
           >
-            Logout
+            <span className="relative z-10 flex items-center justify-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Logout
+            </span>
+            <div className="absolute inset-0 bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
           </button>
         </div>
       </div>
 
       {/* Sidebar (mobile overlay) */}
       {menuOpen && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 z-40 lg:hidden">
-          <div className="fixed top-0 left-0 w-64 h-full bg-white shadow-lg flex flex-col justify-between">
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/50 z-40 lg:hidden">
+          <div className="fixed top-0 left-0 w-72 h-full bg-red-900 shadow-2xl flex flex-col justify-between">
             <div>
-              <div className="flex items-center justify-center p-4">
-                <img src={spclogo} alt="Logo" className="h-10" />
+              {/* Mobile Logo Section */}
+              <div className="flex flex-col items-center justify-center px-4 py-6 mb-4">
+                <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-5 py-3 shadow-xl flex items-center gap-2 mb-2">
+                  <img src={spclogo} alt="SPC Logo" className="h-10 w-auto drop-shadow-lg" />
+                </div>
+                <h2 className="text-white font-bold text-lg tracking-wide whitespace-nowrap mb-1">Accounting</h2>
+                {userEmail && <p className="text-white/70 text-xs font-medium">{userEmail}</p>}
               </div>
-              <nav className="flex flex-col p-4 space-y-2">
+              
+              {/* Mobile Navigation */}
+              <nav className="flex flex-col px-4 space-y-2">
                 {menu.map((item) => (
                   <Link
                     key={item.key}
                     to={item.link}
                     reloadDocument
-                    onClick={() => setMenuOpen(false)}
-                    className="hover:bg-blue-800 block w-full text-left px-3 py-2 rounded-md hover:text-white transition"
+                    onClick={() => setMenuOpen(false)} // close menu after navigation
+                    className={`group relative overflow-hidden backdrop-blur-sm border block w-full text-left px-4 py-3 rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-lg font-medium ${
+                      location.pathname === item.link
+                        ? "bg-white/20 border-white/30 text-white shadow-lg scale-[1.02]"
+                        : "bg-white/5 border-white/10 text-white/90 hover:text-white hover:bg-white/20"
+                    }`}
                   >
-                    {item.label}
+                    <span className="relative z-10 flex items-center gap-3">
+                      {getMenuIcon(item.key)}
+                      {item.label}
+                    </span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </Link>
                 ))}
               </nav>
             </div>
+            
+            {/* Mobile Logout Section */}
             <div className="p-4">
               <button
                 onClick={handleLogout}
-                className="w-full bg-gray-200 hover:bg-blue-600 hover:text-white shadow-md cursor-pointer px-3 py-2 rounded-md transition"
+                className="group relative overflow-hidden w-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-red-700 shadow-xl cursor-pointer px-4 py-3 rounded-xl transition-all duration-300 hover:scale-[1.02] font-semibold"
               >
-                Logout
+                <span className="relative z-10 flex items-center justify-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  Logout
+                </span>
+                <div className="absolute inset-0 bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </button>
             </div>
           </div>

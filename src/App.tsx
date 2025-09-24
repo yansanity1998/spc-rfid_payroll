@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import { NavBar } from "./components/HRAdmin/NavBar";
 import { LogIn } from "./components/authAdmin/LogIn";
+import { LandingPage } from "./components/LandingPage";
 import { UserManagement } from "./components/HRAdmin/UserManagement";
 import { Attendance } from "./components/HRAdmin/Attendance";
 import { Payroll } from "./components/HRAdmin/Payroll";
@@ -32,17 +33,21 @@ function AppContent() {
   const showNavBarACC = location.pathname.startsWith("/accounting");
   const showNavBarGuard = location.pathname.startsWith("/Guard");
   const showNavBarFaculty = location.pathname.startsWith("/Faculty");
+  
+  // Check if current route should show full-screen layout (no navigation bars)
+  const isFullScreenRoute = location.pathname === "/" || location.pathname === "/login" || location.pathname === "/scanner";
 
   return (
     <>
-      <main className="flex bg-gray-50">
-        {showNavBarHR && <NavBar />}
-        {showNavBarACC && <NavAccounting />}
-        {showNavBarGuard && <NavGuard />}
-        {showNavBarFaculty && <FacNav />}
+      <main className={isFullScreenRoute ? "" : "flex bg-gray-50"}>
+        {!isFullScreenRoute && showNavBarHR && <NavBar />}
+        {!isFullScreenRoute && showNavBarACC && <NavAccounting />}
+        {!isFullScreenRoute && showNavBarGuard && <NavGuard />}
+        {!isFullScreenRoute && showNavBarFaculty && <FacNav />}
 
         <Routes>
-          <Route path="/" element={<LogIn />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LogIn />} />
           <Route path="/scanner" element={<Scanner />}/>
 
           {/* HR ADMIN */}

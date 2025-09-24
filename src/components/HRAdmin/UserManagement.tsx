@@ -10,6 +10,27 @@ export const UserManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [editingRfid, setEditingRfid] = useState(false);
   const [newRfid, setNewRfid] = useState("");
+  const [sortBy, setSortBy] = useState("All");
+
+  // Color coding system for employee types
+  const getEmployeeTypeColor = (role: string) => {
+    switch (role) {
+      case "Administrator":
+        return "from-purple-500 to-purple-600 text-purple-800 bg-purple-100";
+      case "HR Personnel":
+        return "from-blue-500 to-blue-600 text-blue-800 bg-blue-100";
+      case "Accounting":
+        return "from-green-500 to-green-600 text-green-800 bg-green-100";
+      case "Faculty":
+        return "from-red-500 to-red-600 text-red-800 bg-red-100";
+      case "Staff":
+        return "from-orange-500 to-orange-600 text-orange-800 bg-orange-100";
+      case "SA":
+        return "from-yellow-500 to-yellow-600 text-yellow-800 bg-yellow-100";
+      default:
+        return "from-gray-500 to-gray-600 text-gray-800 bg-gray-100";
+    }
+  };
 
   const [scanningRfid, setScanningRfid] = useState(false);
   const [scannedCard, setScannedCard] = useState("");
@@ -187,11 +208,16 @@ export const UserManagement = () => {
   };
 
   const filteredUsers = users.filter(
-    (user) =>
-      user.name.toLowerCase().includes(search.toLowerCase()) ||
-      user.email.toLowerCase().includes(search.toLowerCase()) ||
-      user.role.toLowerCase().includes(search.toLowerCase()) ||
-      user.status.toLowerCase().startsWith(search.toLowerCase())
+    (user) => {
+      const matchesSearch = user.name.toLowerCase().includes(search.toLowerCase()) ||
+        user.email.toLowerCase().includes(search.toLowerCase()) ||
+        user.role.toLowerCase().includes(search.toLowerCase()) ||
+        user.status.toLowerCase().startsWith(search.toLowerCase());
+      
+      const matchesSort = sortBy === "All" || user.role === sortBy;
+      
+      return matchesSearch && matchesSort;
+    }
   );
 
   const indexLast = currentPage * rows;
@@ -199,242 +225,328 @@ export const UserManagement = () => {
   const currentUsers = filteredUsers.slice(indexFirst, indexLast);
 
   return (
-    <div className="flex h-screen w-full lg:w-[87%] justify-end relative py-5 roboto px-3 sm:px-5">
-      <main className="flex flex-col w-full p-4 sm:p-6 bg-white shadow rounded-lg overflow-y-auto">
-        <section className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
-            User Management
-          </h1>
-          <div className="space-x-10 flex">
-            <div className="relative w-full max-w-md flex items-center">
-              <input
-                id="searchInput"
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search users..."
-                className="transition-all duration-500 ease-in-out border w-72 border-gray-800 text-gray-700 rounded-full pl-5 pr-12 py-2 outline-none"
-              />
-              <svg
-                className="search-bar absolute right-5 h-5 w-5 text-gray-600 transition-transform duration-200 ease-in-out"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M15.7955 15.8111L21 21M18 10.5C18 14.6421 14.6421 18 10.5 18C6.35786 18 3 14.6421 3 10.5C3 6.35786 6.35786 3 10.5 3C14.6421 3 18 6.35786 18 10.5Z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+    <div className="min-h-screen w-full lg:ml-70 py-5 roboto px-3 sm:px-5 bg-red-200">
+      <main className="flex flex-col w-full max-w-7xl mx-auto p-4 sm:p-6 bg-white border border-gray-200 shadow-2xl rounded-2xl">
+        {/* Modern Header */}
+        <section className="flex-shrink-0 space-y-4">
+          <div className="mb-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-700 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">User Management</h1>
+            </div>
+            <p className="text-gray-600">Manage employee accounts and permissions</p>
+          </div>
+
+          {/* Modern Controls */}
+          <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
+            <div className="flex flex-col sm:flex-row gap-2 flex-1">
+              {/* Search Bar */}
+              <div className="relative flex-1 max-w-md">
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search users..."
+                  className="w-full pl-10 pr-4 py-2.5 bg-white border-2 border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 shadow-sm"
                 />
-              </svg>
+                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+
+              {/* Sort Dropdown */}
+              <div className="relative">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="appearance-none bg-white border-2 border-gray-300 rounded-xl px-4 py-2.5 pr-10 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 cursor-pointer shadow-sm"
+                >
+                  <option value="All">All Employee Types</option>
+                  <option value="Administrator">Administrator</option>
+                  <option value="HR Personnel">HR Personnel</option>
+                  <option value="Accounting">Accounting</option>
+                  <option value="Faculty">Faculty</option>
+                  <option value="Staff">Staff</option>
+                  <option value="SA">SA</option>
+                </select>
+                <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
             </div>
 
+            {/* Create Button */}
             <button
               onClick={() => showCreate(true)}
-              className="bg-green-600 text-white px-4 py-2 text-nowrap rounded-lg hover:bg-green-700 w-full sm:w-auto"
+              className="group relative overflow-hidden bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2"
             >
-              + Create New User
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Create New User
+              <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </button>
           </div>
         </section>
 
-        {/* Table */}
-        <div className="overflow-x-auto border rounded-lg">
-          <table className="min-w-full border-collapse bg-white text-sm sm:text-base">
-            <thead className="bg-red-800 text-white sticky top-0 z-10">
-              <tr>
-                <th className="px-4 py-2 text-left border-b">ID</th>
-                <th className="px-4 py-2 text-left border-b">Name</th>
-                <th className="px-4 py-2 text-left border-b">Email</th>
-                <th className="px-4 py-2 text-left border-b">Employee Type</th>
-                <th className="px-4 py-2 text-left border-b">Semester</th>
-                <th className="px-4 py-2 text-left border-b">School Year</th>
-                <th className="px-4 py-2 text-left border-b">Department</th>
-                <th className="px-4 py-2 text-left border-b">Hired Date</th>
-
-                <th className="px-4 py-2 text-left border-b">Status</th>
-                <th className="px-4 py-2 text-left border-b">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 border-b">{user.id}</td>
-                  <td className="px-4 py-2 border-b">{user.name}</td>
-                  <td className="px-4 py-2 border-b">{user.email}</td>
-                  <td className="px-4 py-2 border-b">{user.role}</td>
-                  <td className="px-4 py-2 border-b">{user.semester}</td>
-                  <td className="px-4 py-2 border-b">{user.schoolYear}</td>
-                  <td className="px-4 py-2 border-b">{user.department}</td>
-                  <td className="px-4 py-2 border-b">{user.hiredDate}</td>
-                  <td
-                    className={`px-4 py-2 border-b font-semibold ${
-                      user.status === "Active"
-                        ? "text-green-600"
-                        : "text-red-600"
-                    }`}
-                  >
-                    {user.status}
-                  </td>
-                  <td className="px-4 py-2 border-b flex flex-wrap gap-2">
-                    <button
-                      onClick={() => {
-                        setEditUser(user);
-                        showEdit(true);
-                      }}
-                      className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-                    >
-                      Edit
-                    </button>
-                    {user.status === "Active" ? (
-                      <button
-                        onClick={() => handleToggleStatus(user.id, user.status)}
-                        className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
-                      >
-                        Deactivate
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleToggleStatus(user.id, user.status)}
-                        className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
-                      >
-                        Activate
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {filteredUsers.length === 0 && (
+        {/* Modern User Table */}
+        <div className="bg-gray-50 border border-gray-200 shadow-xl rounded-2xl mt-4 overflow-hidden">
+          <div className="p-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-700 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-gray-800">Employee Directory</h2>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse text-sm">
+              <thead className="bg-gradient-to-r from-red-600 to-red-700 text-white sticky top-0 z-10">
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="text-center py-4 text-gray-500 italic"
-                  >
-                    No users found
-                  </td>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">ID</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Name</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Email</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Employee Type</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Semester</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">School Year</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Department</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Hired Date</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Status</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Actions</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {currentUsers.length > 0 ? (
+                  currentUsers.map((user) => (
+                    <tr key={user.id} className="hover:bg-white/80 transition-all duration-200 group">
+                      <td className="px-3 py-3 border-b border-gray-200">
+                        <span className="font-medium text-gray-700 text-sm">{user.id}</span>
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200">
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-gray-800 text-sm">{user.name || 'No Name'}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200">
+                        <span className="text-gray-600 text-sm">{user.email}</span>
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium shadow-sm ${getEmployeeTypeColor(user.role).split(' ').slice(2).join(' ')}`}>
+                          {user.role || 'No Role Assigned'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
+                        {user.semester || '--'}
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
+                        {user.schoolYear || '--'}
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
+                        {user.department || '--'}
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
+                        {user.hiredDate ? new Date(user.hiredDate).toLocaleDateString() : '--'}
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                          user.status === "Active"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}>
+                          {user.status}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200">
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            onClick={() => {
+                              setEditUser(user);
+                              showEdit(true);
+                            }}
+                            className="px-2.5 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-md hover:from-blue-600 hover:to-blue-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+                          >
+                            Edit
+                          </button>
+                          {user.status === "Active" ? (
+                            <button
+                              onClick={() => handleToggleStatus(user.id, user.status)}
+                              className="px-2.5 py-1.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-md hover:from-red-600 hover:to-red-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+                            >
+                              Deactivate
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleToggleStatus(user.id, user.status)}
+                              className="px-2.5 py-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+                            >
+                              Activate
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={10} className="text-center py-12">
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                        </div>
+                        <div className="text-center">
+                          <h3 className="text-lg font-semibold text-gray-800 mb-1">No Users Found</h3>
+                          <p className="text-gray-500">Try adjusting your search or filter criteria.</p>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Modern Pagination */}
+          <div className="flex justify-center space-x-3 items-center mt-4 p-3">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="flex items-center justify-center w-10 h-10 bg-white border border-gray-300 rounded-xl disabled:opacity-50 hover:bg-gray-50 transition-all duration-200 shadow-lg disabled:cursor-not-allowed"
+            >
+              <svg
+                className="h-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+                <g
+                  id="SVGRepo_tracerCarrier"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                ></g>
+                <g id="SVGRepo_iconCarrier">
+                  <path
+                    fillRule="evenodd"
+                    clipRule="evenodd"
+                    d="M15.7071 4.29289C16.0976 4.68342 16.0976 5.31658 15.7071 5.70711L9.41421 12L15.7071 18.2929C16.0976 18.6834 16.0976 19.3166 15.7071 19.7071C15.3166 20.0976 14.6834 20.0976 14.2929 19.7071L7.29289 12.7071C7.10536 12.5196 7 12.2652 7 12C7 11.7348 7.10536 11.4804 7.29289 11.2929L14.2929 4.29289C14.6834 3.90237 15.3166 3.90237 15.7071 4.29289Z"
+                    fill="#000000"
+                  ></path>
+                </g>
+              </svg>
+            </button>
 
-        {/* Pagination */}
-        <div className="flex justify-center space-x-2 items-center mt-4">
-          <button
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 cursor-pointer"
-          >
-            <svg
-              className="h-6"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
+            <span className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700">
+              Page {currentPage} of {Math.ceil(filteredUsers.length / rows) || 1}
+            </span>
+
+            <button
+              onClick={() =>
+                setCurrentPage((prev) =>
+                  prev < Math.ceil(filteredUsers.length / rows) ? prev + 1 : prev
+                )
+              }
+              disabled={currentPage === Math.ceil(filteredUsers.length / rows)}
+              className="flex items-center justify-center w-10 h-10 bg-white border border-gray-300 rounded-xl disabled:opacity-50 hover:bg-gray-50 transition-all duration-200 shadow-lg disabled:cursor-not-allowed"
             >
-              <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-              <g
-                id="SVGRepo_tracerCarrier"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              ></g>
-              <g id="SVGRepo_iconCarrier">
-                {" "}
-                <path
-                  fill-rule="evenodd"
-                  clip-rule="evenodd"
-                  d="M15.7071 4.29289C16.0976 4.68342 16.0976 5.31658 15.7071 5.70711L9.41421 12L15.7071 18.2929C16.0976 18.6834 16.0976 19.3166 15.7071 19.7071C15.3166 20.0976 14.6834 20.0976 14.2929 19.7071L7.29289 12.7071C7.10536 12.5196 7 12.2652 7 12C7 11.7348 7.10536 11.4804 7.29289 11.2929L14.2929 4.29289C14.6834 3.90237 15.3166 3.90237 15.7071 4.29289Z"
-                  fill="#000000"
-                ></path>{" "}
-              </g>
-            </svg>
-          </button>
-          <span>
-            Page {currentPage} of {Math.ceil(filteredUsers.length / rows)}
-          </span>
-          <button
-            onClick={() =>
-              setCurrentPage((prev) =>
-                prev < Math.ceil(filteredUsers.length / rows) ? prev + 1 : prev
-              )
-            }
-            disabled={currentPage === Math.ceil(filteredUsers.length / rows)}
-            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 cursor-pointer"
-          >
-            <svg
-              className="h-6"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-              <g
-                id="SVGRepo_tracerCarrier"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              ></g>
-              <g id="SVGRepo_iconCarrier">
-                {" "}
-                <path
-                  fill-rule="evenodd"
-                  clip-rule="evenodd"
-                  d="M8.29289 4.29289C8.68342 3.90237 9.31658 3.90237 9.70711 4.29289L16.7071 11.2929C17.0976 11.6834 17.0976 12.3166 16.7071 12.7071L9.70711 19.7071C9.31658 20.0976 8.68342 20.0976 8.29289 19.7071C7.90237 19.3166 7.90237 18.6834 8.29289 18.2929L14.5858 12L8.29289 5.70711C7.90237 5.31658 7.90237 4.68342 8.29289 4.29289Z"
-                  fill="#000000"
-                ></path>{" "}
-              </g>
-            </svg>
-          </button>
+              <svg
+                className="h-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+                <g
+                  id="SVGRepo_tracerCarrier"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                ></g>
+                <g id="SVGRepo_iconCarrier">
+                  <path
+                    fillRule="evenodd"
+                    clipRule="evenodd"
+                    d="M8.29289 4.29289C8.68342 3.90237 9.31658 3.90237 9.70711 4.29289L16.7071 11.2929C17.0976 11.6834 17.0976 12.3166 16.7071 12.7071L9.70711 19.7071C9.31658 20.0976 8.68342 20.0976 8.29289 19.7071C7.90237 19.3166 7.90237 18.6834 8.29289 18.2929L14.5858 12L8.29289 5.70711C7.90237 5.31658 7.90237 4.68342 8.29289 4.29289Z"
+                    fill="#000000"
+                  ></path>
+                </g>
+              </svg>
+            </button>
+          </div>
         </div>
       </main>
 
-      {/* Create Modal */}
+      {/* Modern Create Modal */}
       {create && (
-        <div className="absolute flex backdrop-blur-xs bg-gray-50/40 items-center justify-center h-full w-full top-0 left-0 px-4">
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/50 z-50 flex items-center justify-center p-4">
           <form
             onSubmit={handleCreate}
-            className="w-full sm:w-[70%] md:w-[50%] lg:w-[40%] rounded"
+            className="w-full max-w-md bg-white/90 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl overflow-hidden max-h-[90vh]"
           >
-            <div className="flex flex-col p-4 bg-white shadow-md rounded-lg gap-3">
-              <legend>Employee Type</legend>
-              <select
-                value={newUser.role}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, role: e.target.value })
-                }
-                className="border px-3 py-2 rounded"
-              >
-                <option>Administrator</option>
-                <option>HR Personnel</option>
-                <option>Accounting</option>
-                <option>Faculty</option>
-                <option>Staff</option>
-                <option>SA</option>
-              </select>
-              <legend>Name</legend>
-              <input
-                type="text"
-                value={newUser.name}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, name: e.target.value })
-                }
-                className="border px-3 py-2 rounded"
-                required
-              />
-              <legend>Email</legend>
-              <input
-                type="email"
-                value={newUser.email}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, email: e.target.value })
-                }
-                className="border px-3 py-2 rounded"
-                required
-              />
+            <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4">
+              <h2 className="text-xl font-bold text-white flex items-center gap-3">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+                Create New Employee
+              </h2>
+            </div>
+            <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Employee Type</label>
+                <select
+                  value={newUser.role}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, role: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                >
+                  <option>Administrator</option>
+                  <option>HR Personnel</option>
+                  <option>Accounting</option>
+                  <option>Faculty</option>
+                  <option>Staff</option>
+                  <option>SA</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
+                <input
+                  type="text"
+                  value={newUser.name}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, name: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  placeholder="Enter full name"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
+                <input
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, email: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  placeholder="Enter email address"
+                  required
+                />
+              </div>
               {(newUser.role === "Faculty" || newUser.role === "SA") && (
-                <>
-                  <legend>Year Level</legend>
-                  <div className="flex justify-around">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Academic Year</label>
+                  <div className="grid grid-cols-2 gap-4">
                     <input
                       type="number"
                       placeholder="Semester"
@@ -442,7 +554,7 @@ export const UserManagement = () => {
                       onChange={(e) =>
                         setNewUser({ ...newUser, semester: e.target.value })
                       }
-                      className="border px-3 py-2 rounded"
+                      className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
                       required
                     />
                     <input
@@ -452,64 +564,81 @@ export const UserManagement = () => {
                       onChange={(e) =>
                         setNewUser({ ...newUser, schoolYear: e.target.value })
                       }
-                      className="border px-3 py-2 rounded"
+                      className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
                       required
                     />
                   </div>
-                </>
+                </div>
               )}
-              <legend>Hired Date</legend>
-              <input
-                type="date"
-                value={newUser.hiredDate}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, hiredDate: e.target.value })
-                }
-                className="border px-3 py-2 rounded"
-                required
-              />
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Hired Date</label>
+                <input
+                  type="date"
+                  value={newUser.hiredDate}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, hiredDate: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  required
+                />
+              </div>
+              
               {(newUser.role === "Faculty" || newUser.role === "SA") && (
-                <>
-                  <legend>Department</legend>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Department</label>
                   <select
                     value={newUser.department}
                     onChange={(e) =>
                       setNewUser({ ...newUser, department: e.target.value })
                     }
-                    className="border px-3 py-2 rounded text-gray"
+                    className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
                     required
                   >
                     <option value="">-- Select Department --</option>
                     <option value="CCS">CCS</option>
                   </select>
-                </>
+                </div>
               )}
+            </div>
 
-              <div className="flex flex-col sm:flex-row gap-3 mt-2">
-                <button
-                  type="submit"
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full sm:w-auto"
-                >
-                  Save
-                </button>
-                <button
-                  type="button"
-                  onClick={() => showCreate(false)}
-                  className="px-4 py-2 border rounded w-full sm:w-auto"
-                >
-                  Cancel
-                </button>
-              </div>
+            {/* Modern Modal Buttons */}
+            <div className="bg-gray-50/50 backdrop-blur-md px-6 py-4 flex justify-center gap-4">
+              <button
+                type="submit"
+                className="group relative overflow-hidden bg-gradient-to-r from-red-600 to-red-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Create Employee
+                <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              </button>
+              <button
+                type="button"
+                onClick={() => showCreate(false)}
+                className="px-8 py-3 bg-white/70 backdrop-blur-md border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-white/90 transition-all duration-200 flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Cancel
+              </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Scan RFID */}
+      {/* Modern RFID Scan Modal */}
       {scanningRfid && (
-        <div className="absolute flex backdrop-blur-xs bg-gray-50/40 items-center justify-center h-full w-full top-0 left-0 px-4">
-          <div className="flex flex-col p-6 bg-white shadow-md rounded-lg gap-3 items-center">
-            <h2 className="text-lg font-bold">Scan RFID Card</h2>
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white/90 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl p-8 max-w-md w-full text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-red-600 to-red-700 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Scan RFID Card</h2>
             <input
               autoFocus
               type="text"
@@ -521,20 +650,22 @@ export const UserManagement = () => {
                   handleConfirmCreate();
                 }
               }}
-              className="border px-3 py-2 rounded opacity-0 absolute -left-96"
+              className="opacity-0 absolute -left-96"
             />
-            <p className="text-gray-600">
+            <p className="text-gray-600 mb-4">
               Waiting for RFID scan... Please tap the card.
             </p>
             {scannedCard && (
-              <p className="text-green-600 font-semibold">
-                Card Scanned: {scannedCard}
-              </p>
+              <div className="bg-green-100 border border-green-300 rounded-xl p-3 mb-4">
+                <p className="text-green-800 font-semibold">
+                  Card Scanned: {scannedCard}
+                </p>
+              </div>
             )}
             <button
               type="button"
               onClick={() => setScanningRfid(false)}
-              className="mt-3 px-4 py-2 border rounded"
+              className="px-6 py-3 bg-white/70 backdrop-blur-md border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-white/90 transition-all duration-200"
             >
               Cancel
             </button>
@@ -542,40 +673,72 @@ export const UserManagement = () => {
         </div>
       )}
 
-      {/* Edit Modal */}
+      {/* Modern Edit Modal */}
       {edit && editUser && (
-        <div className="absolute flex backdrop-blur-xs bg-gray-50/40 items-center justify-center h-full w-full top-0 left-0 px-4">
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/50 z-50 flex items-center justify-center p-4">
           <form
             onSubmit={handleEdit}
-            className="w-full sm:w-[70%] md:w-[50%] lg:w-[40%] rounded"
+            className="w-full max-w-md bg-white/90 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl overflow-hidden max-h-[90vh]"
           >
-            <div className="flex flex-col p-4 bg-white shadow-md rounded-lg gap-3">
-              <legend>Name</legend>
-              <input
-                type="text"
-                placeholder="Full Name"
-                value={editUser.name}
-                onChange={(e) =>
-                  setEditUser({ ...editUser, name: e.target.value })
-                }
-                className="border px-3 py-2 rounded"
-                required
-              />
-              <legend>Email</legend>
-              <input
-                type="email"
-                placeholder="Email"
-                value={editUser.email}
-                onChange={(e) =>
-                  setEditUser({ ...editUser, email: e.target.value })
-                }
-                className="border px-3 py-2 rounded"
-                required
-              />
+            <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4">
+              <h2 className="text-xl font-bold text-white flex items-center gap-3">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit Employee
+              </h2>
+            </div>
+            <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Employee Type</label>
+                <select
+                  value={editUser.role}
+                  onChange={(e) =>
+                    setEditUser({ ...editUser, role: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                >
+                  <option>Administrator</option>
+                  <option>HR Personnel</option>
+                  <option>Accounting</option>
+                  <option>Faculty</option>
+                  <option>Staff</option>
+                  <option>SA</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
+                <input
+                  type="text"
+                  value={editUser.name}
+                  onChange={(e) =>
+                    setEditUser({ ...editUser, name: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  placeholder="Enter full name"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
+                <input
+                  type="email"
+                  value={editUser.email}
+                  onChange={(e) =>
+                    setEditUser({ ...editUser, email: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  placeholder="Enter email address"
+                  required
+                />
+              </div>
+              
               {(editUser.role === "Faculty" || editUser.role === "SA") && (
-                <>
-                  <div className="flex items-center gap-2">
-                    <legend>Semester</legend>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Academic Year</label>
+                  <div className="grid grid-cols-2 gap-4">
                     <input
                       type="number"
                       placeholder="Semester"
@@ -583,10 +746,9 @@ export const UserManagement = () => {
                       onChange={(e) =>
                         setEditUser({ ...editUser, semester: e.target.value })
                       }
-                      className="border px-3 py-2 rounded"
+                      className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
                       required
                     />
-                    <legend>School Year</legend>
                     <input
                       type="number"
                       placeholder="School Year"
@@ -594,67 +756,71 @@ export const UserManagement = () => {
                       onChange={(e) =>
                         setEditUser({ ...editUser, schoolYear: e.target.value })
                       }
-                      className="border px-3 py-2 rounded"
+                      className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
                       required
                     />
                   </div>
-                </>
+                </div>
               )}
-              <legend>Employee type</legend>
-              <select
-                value={editUser.role}
-                onChange={(e) =>
-                  setEditUser({ ...editUser, role: e.target.value })
-                }
-                className="border px-3 py-2 rounded"
-              >
-                <option>Administrator</option>
-                <option>HR Personnel</option>
-                <option>Accounting</option>
-                <option>Faculty</option>
-                <option>Staff</option>
-                <option>SA</option>
-              </select>
-              <legend>Status</legend>
-              <select
-                value={editUser.status}
-                onChange={(e) =>
-                  setEditUser({ ...editUser, status: e.target.value })
-                }
-                className="border px-3 py-2 rounded"
-              >
-                <option>Active</option>
-                <option>Inactive</option>
-              </select>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Hired Date</label>
+                <input
+                  type="date"
+                  value={editUser.hiredDate}
+                  onChange={(e) =>
+                    setEditUser({ ...editUser, hiredDate: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                />
+              </div>
+              
               {(editUser.role === "Faculty" || editUser.role === "SA") && (
-                <>
-                  <legend>Department</legend>
-                  <input
-                    type="text"
-                    value="CCS"
-                    placeholder="CCS"
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Department</label>
+                  <select
+                    value={editUser.department}
                     onChange={(e) =>
                       setEditUser({ ...editUser, department: e.target.value })
                     }
-                    className="border px-3 py-2 rounded"
+                    className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
                     required
-                    disabled={
-                      editUser.role !== "Faculty" && editUser.role !== "SA"
-                    }
-                  />
-                </>
+                  >
+                    <option value="">-- Select Department --</option>
+                    <option value="CCS">CCS</option>
+                  </select>
+                </div>
               )}
-              <div className="flex flex-col gap-2">
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
+                <select
+                  value={editUser.status}
+                  onChange={(e) =>
+                    setEditUser({ ...editUser, status: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                >
+                  <option>Active</option>
+                  <option>Inactive</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">RFID Management</label>
                 {!editingRfid ? (
                   <button
                     type="button"
                     onClick={() => setEditingRfid(true)}
-                    className="px-3 py-1 bg-red-900 text-white rounded hover:bg-red-950 cursor-pointer transition text-sm"
+                    className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center justify-center gap-2"
                   >
-                    Edit RFID
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                    Edit RFID Card
                   </button>
                 ) : (
-                  <div className="flex flex-col gap-2">
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                     <input
                       autoFocus
                       type="text"
@@ -663,17 +829,30 @@ export const UserManagement = () => {
                       onKeyDown={(e) => {
                         if (e.key === "Enter") handleUpdateRfid();
                       }}
-                      className="opacity-0 absolute"
+                      className="opacity-0 absolute -left-96"
                       placeholder="Scan new RFID card"
                     />
-                    <p className="text-gray-600 text-center py-5">
-                      Please tap an RFID card...
-                    </p>
-                    <div className="flex gap-2">
+                    <div className="text-center mb-4">
+                      <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <p className="text-blue-800 font-medium">Waiting for RFID scan...</p>
+                      <p className="text-blue-600 text-sm">Please tap the new RFID card</p>
+                    </div>
+                    {newRfid && (
+                      <div className="bg-green-100 border border-green-300 rounded-xl p-3 mb-4">
+                        <p className="text-green-800 font-semibold text-center">
+                          Card Scanned: {newRfid}
+                        </p>
+                      </div>
+                    )}
+                    <div className="flex gap-3">
                       <button
                         type="button"
                         onClick={handleUpdateRfid}
-                        className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+                        className="flex-1 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-semibold hover:from-green-700 hover:to-green-800 transition-all duration-200"
                       >
                         Save RFID
                       </button>
@@ -683,7 +862,7 @@ export const UserManagement = () => {
                           setEditingRfid(false);
                           setNewRfid("");
                         }}
-                        className="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400 text-sm"
+                        className="flex-1 px-4 py-2 bg-white/70 backdrop-blur-md border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-white/90 transition-all duration-200"
                       >
                         Cancel
                       </button>
@@ -691,22 +870,30 @@ export const UserManagement = () => {
                   </div>
                 )}
               </div>
+            </div>
 
-              <div className="flex flex-col sm:flex-row gap-3 mt-2">
-                <button
-                  type="submit"
-                  className="bg-red-800 cursor-pointer text-white px-4 py-2 rounded hover:bg-red-700 w-full sm:w-auto"
-                >
-                  Update
-                </button>
-                <button
-                  type="button"
-                  onClick={() => showEdit(false)}
-                  className="px-4 py-2 border rounded w-full sm:w-auto"
-                >
-                  Cancel
-                </button>
-              </div>
+            {/* Modern Modal Buttons */}
+            <div className="bg-gray-50/50 backdrop-blur-md px-6 py-4 flex justify-center gap-4">
+              <button
+                type="submit"
+                className="group relative overflow-hidden bg-gradient-to-r from-red-600 to-red-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Update Employee
+                <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              </button>
+              <button
+                type="button"
+                onClick={() => showEdit(false)}
+                className="px-8 py-3 bg-white/70 backdrop-blur-md border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-white/90 transition-all duration-200 flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Cancel
+              </button>
             </div>
           </form>
         </div>
