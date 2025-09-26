@@ -51,6 +51,7 @@ export const UserManagement = () => {
 
   const [editUser, setEditUser] = useState<any | null>(null);
 
+
   const handleToggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
 
@@ -113,24 +114,59 @@ export const UserManagement = () => {
     }
   };
 
-  const handleConfirmCreate = async () => {
-    if (!scannedCard) return;
 
+  const handleConfirmCreate = async () => {
+    if (!scannedCard) {
+      toast.error("No RFID card scanned!");
+      return;
+    }
+
+    // Add a longer delay to ensure all form state is properly captured
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    console.log("=== FORM STATE DEBUG ===");
+    console.log("Full newUser state:", newUser);
+    console.log("Field check:");
+    console.log("- name:", `"${newUser.name}"`, "length:", newUser.name.length);
+    console.log("- email:", `"${newUser.email}"`, "length:", newUser.email.length);
+    console.log("- role:", `"${newUser.role}"`);
+    console.log("- department:", `"${newUser.department}"`);
+    console.log("- hiredDate:", `"${newUser.hiredDate}"`);
+
+    // Check if required fields are filled
+    if (!newUser.name || !newUser.email) {
+      toast.error("Please fill in all required fields (Name and Email) before scanning RFID!");
+      setScanningRfid(false);
+      setScannedCard("");
+      return;
+    }
+
+
+    // Prepare payload with only the remaining fields
     const payload = {
-      ...newUser,
       rfid_id: Number(scannedCard),
-      semester: newUser.semester ? Number(newUser.semester) : null,
-      schoolYear: newUser.schoolYear ? Number(newUser.schoolYear) : null,
+      name: newUser.name,
+      email: newUser.email,
+      role: newUser.role,
+      semester: newUser.semester || null,
+      schoolYear: newUser.schoolYear || null,
       hiredDate: newUser.hiredDate || null,
       department:
         newUser.role === "Faculty" || newUser.role === "SA"
           ? newUser.department
           : null,
       status: "Active",
-      password: "ChangePassword", // or generate one
+      password: "ChangePassword",
     };
 
-    console.log("Insert Payload:", payload);
+    console.log("=== PAYLOAD DEBUG ===");
+    console.log("Final payload:", payload);
+    console.log("Payload field check:");
+    console.log("- name:", payload.name, typeof payload.name);
+    console.log("- email:", payload.email, typeof payload.email);
+    console.log("- role:", payload.role, typeof payload.role);
+    console.log("- department:", payload.department, typeof payload.department);
+    console.log("=== END DEBUG ===");
 
     try {
       // get the current session (logged-in admin)
@@ -157,13 +193,121 @@ export const UserManagement = () => {
       );
 
       const data = await response.json();
+      console.log('Edge Function Response:', data);
 
       if (!response.ok) {
-        alert("Error: " + (data.error || "Failed to create user"));
+        console.error('Edge Function Error:', data);
+        toast.error("Error creating user: " + (data.error || "Failed to create user"));
         return;
       }
 
-      alert("User created successfully!");
+      // Try to get user ID from different possible response structures
+      const userId = data.user?.id || data.id || data.user_id;
+      console.log('Extracted User ID:', userId);
+
+      // Update user with additional fields and profile image
+      if (userId) {
+        console.log('User created with ID:', userId);
+        const updateData: any = {};
+        
+        
+        // Note: Edge Function now handles all fields directly, only profile picture needs separate upload
+        
+        console.log('Update data to be saved:', updateData);
+        console.log('User ID for update:', userId);
+        console.log('Update data keys:', Object.keys(updateData));
+        
+        // Update user record with additional fields
+        if (Object.keys(updateData).length > 0) {
+          const { data: updateResult, error: updateError } = await supabase
+            .from('users')
+            .update(updateData)
+            .eq('id', userId)
+            .select();
+            
+          if (updateError) {
+            console.error('Error updating user with additional fields:', updateError);
+            toast.error('User created but failed to save additional information: ' + updateError.message);
+            
+            // Try to verify what was actually saved
+            const { data: verifyData } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', userId)
+              .single();
+            
+            console.log('Verification - What was actually saved:', verifyData);
+          } else {
+            console.log('User updated successfully:', updateResult);
+            toast.success('User created with all information saved!');
+            
+            // Verify all fields were saved
+            const savedUser = updateResult[0];
+            console.log('Verification - All fields saved:', {
+              age: savedUser.age,
+              gender: savedUser.gender,
+              address: savedUser.address,
+              contact_no: savedUser.contact_no,
+              positions: savedUser.positions,
+              profile_picture: savedUser.profile_picture
+            });
+          }
+        } else {
+          console.log('No additional data to update');
+          // Still show success since user was created
+          toast.success('User created successfully!');
+        }
+      } else {
+        console.error('No user ID returned from Edge Function');
+        console.log('Trying to find user by email...');
+        
+        // Fallback: try to find the user by email and update
+        const { data: foundUsers, error: findError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', newUser.email)
+          .order('created_at', { ascending: false })
+          .limit(1);
+          
+        if (findError) {
+          console.error('Error finding user by email:', findError);
+        } else if (foundUsers && foundUsers.length > 0) {
+          const foundUserId = foundUsers[0].id;
+          console.log('Found user by email with ID:', foundUserId);
+          
+          const updateData: any = {};
+          
+          
+          // Note: Edge Function now handles all fields directly, only profile picture needs separate upload
+          
+          if (Object.keys(updateData).length > 0) {
+            const { error: updateError } = await supabase
+              .from('users')
+              .update(updateData)
+              .eq('id', foundUserId);
+              
+            if (updateError) {
+              console.error('Error updating found user:', updateError);
+              toast.error('User created but failed to save additional information: ' + updateError.message);
+              
+              // Try to verify what was actually saved
+              const { data: verifyData } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', foundUserId)
+                .single();
+              
+              console.log('Fallback Verification - What was actually saved:', verifyData);
+            } else {
+              console.log('Found user updated successfully');
+              toast.success('User created with all information saved!');
+            }
+          }
+        } else {
+          console.error('Could not find created user by email');
+          toast.error('User created but could not save additional information');
+        }
+      }
       setScanningRfid(false);
       setScannedCard("");
       setNewUser({
@@ -177,8 +321,12 @@ export const UserManagement = () => {
       });
       fetchUsers();
     } catch (err: any) {
-      console.error(err);
-      alert("Network error: " + err.message);
+      console.error('User Creation Error:', err);
+      toast.error("Network error: " + err.message);
+      
+      // Reset scanning state on error
+      setScanningRfid(false);
+      setScannedCard("");
     }
   };
 
@@ -312,12 +460,9 @@ export const UserManagement = () => {
             <table className="min-w-full border-collapse text-sm">
               <thead className="bg-gradient-to-r from-red-600 to-red-700 text-white sticky top-0 z-10">
                 <tr>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">ID</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Name</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Email</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Employee Type</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Semester</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">School Year</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Department</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Hired Date</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Status</th>
@@ -328,9 +473,6 @@ export const UserManagement = () => {
                 {currentUsers.length > 0 ? (
                   currentUsers.map((user) => (
                     <tr key={user.id} className="hover:bg-white/80 transition-all duration-200 group">
-                      <td className="px-3 py-3 border-b border-gray-200">
-                        <span className="font-medium text-gray-700 text-sm">{user.id}</span>
-                      </td>
                       <td className="px-3 py-3 border-b border-gray-200">
                         <div className="flex flex-col">
                           <span className="font-semibold text-gray-800 text-sm">{user.name || 'No Name'}</span>
@@ -343,12 +485,6 @@ export const UserManagement = () => {
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium shadow-sm ${getEmployeeTypeColor(user.role).split(' ').slice(2).join(' ')}`}>
                           {user.role || 'No Role Assigned'}
                         </span>
-                      </td>
-                      <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
-                        {user.semester || '--'}
-                      </td>
-                      <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
-                        {user.schoolYear || '--'}
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
                         {user.department || '--'}
@@ -397,7 +533,7 @@ export const UserManagement = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={10} className="text-center py-12">
+                    <td colSpan={7} className="text-center py-12">
                       <div className="flex flex-col items-center gap-4">
                         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
                           <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -501,6 +637,7 @@ export const UserManagement = () => {
               </h2>
             </div>
             <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
+              
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Employee Type</label>
                 <select
@@ -519,6 +656,7 @@ export const UserManagement = () => {
                   <option>Guard</option>
                 </select>
               </div>
+              
               
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
@@ -604,6 +742,7 @@ export const UserManagement = () => {
                   </select>
                 </div>
               )}
+              
             </div>
 
             {/* Modern Modal Buttons */}
@@ -648,17 +787,29 @@ export const UserManagement = () => {
               type="text"
               value={scannedCard}
               onChange={(e) => setScannedCard(e.target.value)}
-              onKeyDown={(e) => {
+              onKeyDown={async (e) => {
                 if (e.key === "Enter" && e.currentTarget.value.trim() !== "") {
-                  setScannedCard(e.currentTarget.value.trim());
-                  handleConfirmCreate();
+                  const cardValue = e.currentTarget.value.trim();
+                  setScannedCard(cardValue);
+                  
+                  // Show processing state immediately
+                  toast.loading('Processing RFID card...', { duration: 3000 });
+                  
+                  // Add a longer delay to ensure all form state is captured
+                  setTimeout(() => {
+                    handleConfirmCreate();
+                  }, 1500);
                 }
               }}
               className="opacity-0 absolute -left-96"
             />
             <p className="text-gray-600 mb-4">
-              Waiting for RFID scan... Please tap the card.
+              Waiting for RFID scan... Please tap the card and wait for processing.
             </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-blue-800 text-sm font-medium">⚠️ Important:</p>
+              <p className="text-blue-700 text-sm">After scanning, please wait a moment for all information to be saved properly.</p>
+            </div>
             {scannedCard && (
               <div className="bg-green-100 border border-green-300 rounded-xl p-3 mb-4">
                 <p className="text-green-800 font-semibold">
@@ -693,6 +844,46 @@ export const UserManagement = () => {
               </h2>
             </div>
             <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
+              {/* Profile Picture Upload */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Profile Picture</label>
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center border-2 border-dashed border-gray-300">
+                    {editUser.newProfilePicture ? (
+                      <img
+                        src={URL.createObjectURL(editUser.newProfilePicture)}
+                        alt="Preview"
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : editUser.profile_picture ? (
+                      <img
+                        src={editUser.profile_picture}
+                        alt={editUser.name}
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setEditUser({ ...editUser, newProfilePicture: file });
+                        }
+                      }}
+                      className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Upload a new profile picture (JPG, PNG, etc.)</p>
+                  </div>
+                </div>
+              </div>
+              
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Employee Type</label>
                 <select
@@ -711,6 +902,33 @@ export const UserManagement = () => {
                   <option>Guard</option>
                 </select>
               </div>
+              
+              {/* Positions Field - Conditional based on role */}
+              {(editUser.role === "Faculty" || editUser.role === "SA" || editUser.role === "Staff") && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Position</label>
+                  <select
+                    value={editUser.positions || ''}
+                    onChange={(e) =>
+                      setEditUser({ ...editUser, positions: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                    required
+                  >
+                    <option value="">-- Select Position --</option>
+                    {editUser.role === "Faculty" && (
+                      <>
+                        <option value="Dean">Dean</option>
+                        <option value="Program Head">Program Head</option>
+                        <option value="Full Time">Full Time</option>
+                      </>
+                    )}
+                    {(editUser.role === "SA" || editUser.role === "Staff") && (
+                      <option value="Full Time">Full Time</option>
+                    )}
+                  </select>
+                </div>
+              )}
               
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
@@ -809,6 +1027,64 @@ export const UserManagement = () => {
                   <option>Active</option>
                   <option>Inactive</option>
                 </select>
+              </div>
+              
+              {/* Personal Information */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Age</label>
+                <input
+                  type="number"
+                  value={editUser.age || ''}
+                  onChange={(e) =>
+                    setEditUser({ ...editUser, age: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  placeholder="Enter age"
+                  min="18"
+                  max="100"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Gender</label>
+                <select
+                  value={editUser.gender || ''}
+                  onChange={(e) =>
+                    setEditUser({ ...editUser, gender: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                >
+                  <option value="">-- Select Gender --</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Contact Number</label>
+                <input
+                  type="tel"
+                  value={editUser.contact_no || ''}
+                  onChange={(e) =>
+                    setEditUser({ ...editUser, contact_no: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  placeholder="Enter contact number"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Address</label>
+                <textarea
+                  value={editUser.address || ''}
+                  onChange={(e) =>
+                    setEditUser({ ...editUser, address: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 resize-none"
+                  placeholder="Enter full address"
+                  rows={3}
+                />
               </div>
               
               <div>

@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import supabase from "../../utils/supabase";
-import toast, { Toaster } from "react-hot-toast";
 import { titlelogo, spc1, spc2, spc3, spc4 } from "../../utils";
 import { Link } from "react-router-dom";
 
@@ -9,6 +8,17 @@ const Scanner = () => {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  
+  // Modern Alert Modal State
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertData, setAlertData] = useState({
+    type: 'success', // 'success', 'error', 'info'
+    title: '',
+    message: '',
+    userName: '',
+    time: '',
+    action: '' // 'time_in', 'time_out', 'error'
+  });
 
   const carouselImages = [
     { src: spc1, alt: "SPC Image 1" },
@@ -24,6 +34,36 @@ const Scanner = () => {
     }, 5000);
     return () => clearInterval(timer);
   }, [carouselImages.length]);
+
+  // Auto-close alert after 4 seconds
+  useEffect(() => {
+    if (showAlert) {
+      const timer = setTimeout(() => {
+        setShowAlert(false);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [showAlert]);
+
+  // Function to show modern alert
+  const showModernAlert = (type: 'success' | 'error' | 'info', title: string, message: string, userName: string = '', action: string = '') => {
+    const currentTime = new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+    
+    setAlertData({
+      type,
+      title,
+      message,
+      userName,
+      time: currentTime,
+      action
+    });
+    setShowAlert(true);
+  };
 
   const handleScan = async (cardId: string) => {
     setLoading(true);
@@ -41,7 +81,7 @@ const Scanner = () => {
 
       if (userError) throw userError;
       if (!user) {
-        toast.error(`❌ No user found for card ${cardId}`);
+        showModernAlert('error', 'Card Not Found', `No user found for card ${cardId}`, '', 'error');
         return;
       }
 
@@ -67,7 +107,7 @@ const Scanner = () => {
         ]);
 
         if (insertError) throw insertError;
-        toast.success(`✅ Time In recorded for ${user.name ?? user.id}`);
+        showModernAlert('success', 'Time In Successful', 'Welcome! Your attendance has been recorded.', user.name ?? user.id, 'time_in');
       } else if (!existing.time_out) {
         // ✅ Currently timed in → Time Out
         const { error: updateError } = await supabase
@@ -79,7 +119,7 @@ const Scanner = () => {
           .eq("id", existing.id);
 
         if (updateError) throw updateError;
-        toast.success(`✅ Time Out recorded for ${user.name ?? user.id}`);
+        showModernAlert('error', 'Time Out Successful', 'Goodbye! Your departure has been recorded.', user.name ?? user.id, 'time_out');
       } else {
         // ✅ Currently timed out → Time In again (allows multiple in/out per day)
         const { error: updateError } = await supabase
@@ -92,11 +132,11 @@ const Scanner = () => {
           .eq("id", existing.id);
 
         if (updateError) throw updateError;
-        toast.success(`✅ Time In recorded again for ${user.name ?? user.id}`);
+        showModernAlert('success', 'Time In Successful', 'Welcome back! Your return has been recorded.', user.name ?? user.id, 'time_in');
       }
     } catch (err: any) {
       console.error(err);
-      toast.error("❌ Error recording attendance");
+      showModernAlert('error', 'System Error', 'Unable to record attendance. Please try again.', '', 'error');
     } finally {
       setLoading(false);
       setScannedCard(""); // clear input for next scan
@@ -105,7 +145,6 @@ const Scanner = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      <Toaster position="top-center" reverseOrder={false} />
       
       {/* Header - Absolute positioned over carousel */}
       <header className="absolute top-0 left-0 right-0 z-30 flex justify-between items-center p-6 lg:p-8">
@@ -264,6 +303,123 @@ const Scanner = () => {
           )}
         </div>
       </div>
+
+      {/* Modern Alert Modal */}
+      {showAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowAlert(false)}
+          />
+          
+          {/* Alert Modal */}
+          <div className={`relative bg-white/95 backdrop-blur-xl border-2 shadow-2xl rounded-3xl p-8 max-w-lg w-full mx-4 transform transition-all duration-500 ease-out ${
+            showAlert ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+          } ${
+            alertData.type === 'success' 
+              ? 'border-green-400 bg-gradient-to-br from-green-50/90 to-emerald-50/90' 
+              : (alertData.type === 'error' && alertData.action === 'time_out')
+                ? 'border-red-400 bg-gradient-to-br from-red-50/90 to-rose-50/90'
+                : alertData.type === 'error' 
+                  ? 'border-red-400 bg-gradient-to-br from-red-50/90 to-rose-50/90'
+                  : 'border-blue-400 bg-gradient-to-br from-blue-50/90 to-sky-50/90'
+          }`}>
+            
+            {/* Close Button */}
+            <button
+              onClick={() => setShowAlert(false)}
+              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/50 hover:bg-white/70 transition-all duration-200"
+            >
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Alert Icon */}
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 ${
+                alertData.type === 'success' 
+                  ? 'bg-gradient-to-br from-green-500 to-emerald-600' 
+                  : (alertData.type === 'error' && alertData.action === 'time_out')
+                    ? 'bg-gradient-to-br from-red-500 to-rose-600'
+                    : alertData.type === 'error' 
+                      ? 'bg-gradient-to-br from-red-500 to-rose-600'
+                      : 'bg-gradient-to-br from-blue-500 to-sky-600'
+              } shadow-lg animate-pulse`}>
+                {alertData.type === 'success' ? (
+                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                  </svg>
+                ) : (alertData.type === 'error' && alertData.action === 'time_out') ? (
+                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                ) : alertData.type === 'error' ? (
+                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                ) : (
+                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+              </div>
+              
+              {/* Alert Title */}
+              <h3 className={`text-2xl font-bold mb-2 ${
+                alertData.type === 'success' 
+                  ? 'text-green-800' 
+                  : (alertData.type === 'error' && alertData.action === 'time_out')
+                    ? 'text-red-800'
+                    : alertData.type === 'error' 
+                      ? 'text-red-800'
+                      : 'text-blue-800'
+              }`}>
+                {alertData.title}
+              </h3>
+              
+              {/* User Name */}
+              {alertData.userName && (
+                <div className="bg-white/60 backdrop-blur-sm rounded-2xl px-6 py-3 mb-4 border border-white/40">
+                  <p className="text-lg font-semibold text-gray-800">{alertData.userName}</p>
+                </div>
+              )}
+              
+              {/* Alert Message */}
+              <p className="text-gray-700 text-lg mb-4 leading-relaxed">
+                {alertData.message}
+              </p>
+              
+              {/* Time Display */}
+              <div className="flex items-center gap-2 text-gray-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="font-medium">{alertData.time}</span>
+              </div>
+            </div>
+
+            {/* Action Button */}
+            <div className="flex justify-center">
+              <button
+                onClick={() => setShowAlert(false)}
+                className={`px-8 py-3 rounded-2xl font-semibold text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 ${
+                  alertData.type === 'success' 
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700' 
+                    : (alertData.type === 'error' && alertData.action === 'time_out')
+                      ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700'
+                      : alertData.type === 'error' 
+                        ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700'
+                        : 'bg-gradient-to-r from-blue-500 to-sky-600 hover:from-blue-600 hover:to-sky-700'
+                }`}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

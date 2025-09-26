@@ -20,8 +20,21 @@ serve(async (req) => {
   }
 
   try {
-    const { rfid_id, name, email, role, department, hiredDate, semester, schoolYear } =
-      await req.json();
+    const requestBody = await req.json();
+    console.log("Received request body:", requestBody);
+    
+    const { 
+      rfid_id, 
+      name, 
+      email, 
+      role, 
+      department, 
+      hiredDate, 
+      semester, 
+      schoolYear,
+      status,
+      password
+    } = requestBody;
 
     if (!rfid_id || !name || !email || !role) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -30,33 +43,114 @@ serve(async (req) => {
       });
     }
 
+    console.log("=== EDGE FUNCTION DEBUG ===");
+    console.log("All received fields:");
+    console.log("- rfid_id:", rfid_id);
+    console.log("- name:", name);
+    console.log("- email:", email);
+    console.log("- role:", role);
+    console.log("- department:", department);
+    console.log("- hiredDate:", hiredDate);
+    console.log("- semester:", semester);
+    console.log("- schoolYear:", schoolYear);
+
     // Create auth user (id will be UUID)
     const { data: user, error: createError } =
       await supabase.auth.admin.createUser({
         email,
-        password: "password123",
+        password: password || "ChangePassword",
         email_confirm: true,
       });
 
     if (createError) throw createError;
 
-    // Insert user into "users" table with RFID
-    const { error: insertError } = await supabase.from("users").insert({
-      auth_id: user.user.id,       // auth UUID
-      id : rfid_id,                // RFID value
-      name,
-      email,
-      role,
-      department: department || null,
-      hiredDate: hiredDate || null,
-      semester: semester || null,
-      schoolYear: schoolYear || null,
-      status: "Active",
+    // Enhanced data processing to preserve user input values
+    const processField = (value, type = 'string') => {
+      console.log(`Processing field: "${value}" (${typeof value}) as ${type}`);
+      
+      // Handle null/undefined - only return null if truly null/undefined
+      if (value === null || value === undefined) {
+        console.log("Field is null/undefined, returning null");
+        return null;
+      }
+      
+      // Handle number conversion
+      if (type === 'number') {
+        if (typeof value === 'number' && value > 0) {
+          console.log(`Valid number: ${value}`);
+          return value;
+        }
+        if (typeof value === 'string' && value.trim() !== '') {
+          const num = parseInt(value.trim());
+          if (!isNaN(num) && num > 0) {
+            console.log(`Number conversion: "${value}" -> ${num}`);
+            return num;
+          }
+        }
+        console.log(`Invalid/empty number field: "${value}", returning null`);
+        return null;
+      }
+      
+      // Handle string processing - preserve all non-empty values
+      if (type === 'string') {
+        if (typeof value === 'string') {
+          const trimmed = value.trim();
+          console.log(`String processing: "${value}" -> "${trimmed}"`);
+          // Return the trimmed value if it's not empty, otherwise null
+          return trimmed !== '' ? trimmed : null;
+        } else if (value !== null && value !== undefined) {
+          const converted = String(value).trim();
+          console.log(`String conversion: ${value} -> "${converted}"`);
+          return converted !== '' ? converted : null;
+        }
+        console.log(`Empty string value, returning null`);
+        return null;
+      }
+      
+      console.log(`Returning as-is: ${value}`);
+      return value;
+    };
+
+    // Insert user into "users" table with remaining fields
+    const insertData = {
+      auth_id: user.user.id,                    // auth UUID
+      // Do NOT overwrite primary key `id` with RFID. Store RFID in dedicated column.
+      rfid_id: processField(rfid_id, 'number'),
+      name: processField(name),
+      email: processField(email),
+      role: processField(role),
+      department: processField(department),
+      hiredDate: processField(hiredDate),
+      semester: processField(semester, 'number'),
+      schoolYear: processField(schoolYear, 'number'),
+      status: processField(status) || "Active",
+    };
+
+    console.log("=== FINAL INSERT DATA ===");
+    console.log("Insert data prepared:", JSON.stringify(insertData, null, 2));
+    console.log("Field by field check:");
+    Object.entries(insertData).forEach(([key, value]) => {
+      console.log(`- ${key}: ${value} (${typeof value})`);
     });
 
-    if (insertError) throw insertError;
+    const { data: insertedUser, error: insertError } = await supabase
+      .from("users")
+      .insert(insertData)
+      .select();
 
-    return new Response(JSON.stringify({ user: user.user }), {
+    if (insertError) {
+      console.error("Insert error:", insertError);
+      throw insertError;
+    }
+
+    console.log("User inserted successfully:", insertedUser);
+
+    return new Response(JSON.stringify({ 
+      user: user.user,
+      insertedUser: insertedUser[0],
+      id: insertedUser[0]?.id,
+      user_id: insertedUser[0]?.id
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
