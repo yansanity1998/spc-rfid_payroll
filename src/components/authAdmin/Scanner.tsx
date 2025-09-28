@@ -16,6 +16,8 @@ const Scanner = () => {
     title: '',
     message: '',
     userName: '',
+    userRole: '',
+    profilePicture: '',
     time: '',
     action: '' // 'time_in', 'time_out', 'error'
   });
@@ -46,7 +48,15 @@ const Scanner = () => {
   }, [showAlert]);
 
   // Function to show modern alert
-  const showModernAlert = (type: 'success' | 'error' | 'info', title: string, message: string, userName: string = '', action: string = '') => {
+  const showModernAlert = (
+    type: 'success' | 'error' | 'info', 
+    title: string, 
+    message: string, 
+    userName: string = '', 
+    userRole: string = '',
+    profilePicture: string = '',
+    action: string = ''
+  ) => {
     const currentTime = new Date().toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -59,6 +69,8 @@ const Scanner = () => {
       title,
       message,
       userName,
+      userRole,
+      profilePicture,
       time: currentTime,
       action
     });
@@ -75,13 +87,13 @@ const Scanner = () => {
       // 🔍 Step 1: Find user with this cardId in users table
       const { data: user, error: userError } = await supabase
         .from("users")
-        .select("id, name") // only fetch what you need
+        .select("id, name, role, profile_picture") // fetch profile picture and role
         .eq("id", cardId)   // if RFID = users.id
         .maybeSingle();
 
       if (userError) throw userError;
       if (!user) {
-        showModernAlert('error', 'Card Not Found', `No user found for card ${cardId}`, '', 'error');
+        showModernAlert('error', 'Card Not Found', `No user found for card ${cardId}`, '', '', '', 'error');
         return;
       }
 
@@ -107,7 +119,7 @@ const Scanner = () => {
         ]);
 
         if (insertError) throw insertError;
-        showModernAlert('success', 'Time In Successful', 'Welcome! Your attendance has been recorded.', user.name ?? user.id, 'time_in');
+        showModernAlert('success', 'Time In Successful', 'Welcome! Your attendance has been recorded.', user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_in');
       } else if (!existing.time_out) {
         // ✅ Currently timed in → Time Out
         const { error: updateError } = await supabase
@@ -119,7 +131,7 @@ const Scanner = () => {
           .eq("id", existing.id);
 
         if (updateError) throw updateError;
-        showModernAlert('error', 'Time Out Successful', 'Goodbye! Your departure has been recorded.', user.name ?? user.id, 'time_out');
+        showModernAlert('error', 'Time Out Successful', 'Goodbye! Your departure has been recorded.', user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_out');
       } else {
         // ✅ Currently timed out → Time In again (allows multiple in/out per day)
         const { error: updateError } = await supabase
@@ -132,11 +144,11 @@ const Scanner = () => {
           .eq("id", existing.id);
 
         if (updateError) throw updateError;
-        showModernAlert('success', 'Time In Successful', 'Welcome back! Your return has been recorded.', user.name ?? user.id, 'time_in');
+        showModernAlert('success', 'Time In Successful', 'Welcome back! Your return has been recorded.', user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_in');
       }
     } catch (err: any) {
       console.error(err);
-      showModernAlert('error', 'System Error', 'Unable to record attendance. Please try again.', '', 'error');
+      showModernAlert('error', 'System Error', 'Unable to record attendance. Please try again.', '', '', '', 'error');
     } finally {
       setLoading(false);
       setScannedCard(""); // clear input for next scan
@@ -304,118 +316,230 @@ const Scanner = () => {
         </div>
       </div>
 
-      {/* Modern Alert Modal */}
+      {/* Modern Tapping System Modal */}
       {showAlert && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div 
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/80 backdrop-blur-md"
             onClick={() => setShowAlert(false)}
           />
           
-          {/* Alert Modal */}
-          <div className={`relative bg-white/95 backdrop-blur-xl border-2 shadow-2xl rounded-3xl p-8 max-w-lg w-full mx-4 transform transition-all duration-500 ease-out ${
-            showAlert ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-          } ${
-            alertData.type === 'success' 
-              ? 'border-green-400 bg-gradient-to-br from-green-50/90 to-emerald-50/90' 
-              : (alertData.type === 'error' && alertData.action === 'time_out')
-                ? 'border-red-400 bg-gradient-to-br from-red-50/90 to-rose-50/90'
-                : alertData.type === 'error' 
-                  ? 'border-red-400 bg-gradient-to-br from-red-50/90 to-rose-50/90'
-                  : 'border-blue-400 bg-gradient-to-br from-blue-50/90 to-sky-50/90'
+          {/* Modern Tapping Modal */}
+          <div className={`relative transform transition-all duration-700 ease-out ${
+            showAlert ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-8'
           }`}>
             
-            {/* Close Button */}
-            <button
-              onClick={() => setShowAlert(false)}
-              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/50 hover:bg-white/70 transition-all duration-200"
-            >
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-
-            {/* Alert Icon */}
-            <div className="flex flex-col items-center text-center mb-6">
-              <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 ${
+            {/* Main Modal Container */}
+            <div className={`relative bg-gradient-to-br from-slate-900/95 to-slate-800/95 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-3xl overflow-hidden max-w-lg w-full mx-4 ${
+              alertData.type === 'success' 
+                ? 'ring-4 ring-green-400/30' 
+                : (alertData.type === 'error' && alertData.action === 'time_out')
+                  ? 'ring-4 ring-orange-400/30'
+                  : alertData.type === 'error' 
+                    ? 'ring-4 ring-red-400/30'
+                    : 'ring-4 ring-blue-400/30'
+            }`}>
+              
+              {/* Animated Status Bar */}
+              <div className={`h-2 w-full ${
                 alertData.type === 'success' 
-                  ? 'bg-gradient-to-br from-green-500 to-emerald-600' 
+                  ? 'bg-gradient-to-r from-green-400 to-emerald-500' 
                   : (alertData.type === 'error' && alertData.action === 'time_out')
-                    ? 'bg-gradient-to-br from-red-500 to-rose-600'
+                    ? 'bg-gradient-to-r from-orange-400 to-amber-500'
                     : alertData.type === 'error' 
-                      ? 'bg-gradient-to-br from-red-500 to-rose-600'
-                      : 'bg-gradient-to-br from-blue-500 to-sky-600'
-              } shadow-lg animate-pulse`}>
-                {alertData.type === 'success' ? (
-                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                  </svg>
-                ) : (alertData.type === 'error' && alertData.action === 'time_out') ? (
-                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                ) : alertData.type === 'error' ? (
-                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                ) : (
-                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                )}
-              </div>
-              
-              {/* Alert Title */}
-              <h3 className={`text-2xl font-bold mb-2 ${
-                alertData.type === 'success' 
-                  ? 'text-green-800' 
-                  : (alertData.type === 'error' && alertData.action === 'time_out')
-                    ? 'text-red-800'
-                    : alertData.type === 'error' 
-                      ? 'text-red-800'
-                      : 'text-blue-800'
-              }`}>
-                {alertData.title}
-              </h3>
-              
-              {/* User Name */}
-              {alertData.userName && (
-                <div className="bg-white/60 backdrop-blur-sm rounded-2xl px-6 py-3 mb-4 border border-white/40">
-                  <p className="text-lg font-semibold text-gray-800">{alertData.userName}</p>
-                </div>
-              )}
-              
-              {/* Alert Message */}
-              <p className="text-gray-700 text-lg mb-4 leading-relaxed">
-                {alertData.message}
-              </p>
-              
-              {/* Time Display */}
-              <div className="flex items-center gap-2 text-gray-600">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="font-medium">{alertData.time}</span>
-              </div>
-            </div>
+                      ? 'bg-gradient-to-r from-red-400 to-rose-500'
+                      : 'bg-gradient-to-r from-blue-400 to-sky-500'
+              } animate-pulse`} />
 
-            {/* Action Button */}
-            <div className="flex justify-center">
+              {/* Close Button */}
               <button
                 onClick={() => setShowAlert(false)}
-                className={`px-8 py-3 rounded-2xl font-semibold text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 ${
-                  alertData.type === 'success' 
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700' 
-                    : (alertData.type === 'error' && alertData.action === 'time_out')
-                      ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700'
-                      : alertData.type === 'error' 
-                        ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700'
-                        : 'bg-gradient-to-r from-blue-500 to-sky-600 hover:from-blue-600 hover:to-sky-700'
-                }`}
+                className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-all duration-200 backdrop-blur-sm border border-white/10 z-10"
               >
-                Continue
+                <svg className="w-5 h-5 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
+
+              {/* Content Container */}
+              <div className="px-8 py-6">
+                
+                {/* Large Profile Picture Section */}
+                <div className="flex flex-col items-center mb-6">
+                  <div className="relative mb-4">
+                    {/* Outer Glow Ring */}
+                    <div className={`absolute inset-0 rounded-full blur-xl ${
+                      alertData.type === 'success' 
+                        ? 'bg-green-400/40' 
+                        : (alertData.type === 'error' && alertData.action === 'time_out')
+                          ? 'bg-orange-400/40'
+                          : alertData.type === 'error' 
+                            ? 'bg-red-400/40'
+                            : 'bg-blue-400/40'
+                    } animate-pulse`} />
+                    
+                    {/* Profile Picture Container */}
+                    <div className="relative">
+                      {alertData.profilePicture ? (
+                        <img
+                          src={alertData.profilePicture}
+                          alt={alertData.userName}
+                          className={`w-48 h-48 rounded-full object-cover border-4 shadow-2xl transition-all duration-500 ${
+                            alertData.type === 'success' 
+                              ? 'border-green-400' 
+                              : (alertData.type === 'error' && alertData.action === 'time_out')
+                                ? 'border-orange-400'
+                                : alertData.type === 'error' 
+                                  ? 'border-red-400'
+                                  : 'border-blue-400'
+                          }`}
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const nextElement = e.currentTarget.nextElementSibling as HTMLElement;
+                            if (nextElement) {
+                              nextElement.style.display = 'flex';
+                            }
+                          }}
+                        />
+                      ) : null}
+                      
+                      {/* Fallback Large Avatar */}
+                      <div 
+                        className={`w-48 h-48 rounded-full flex items-center justify-center border-4 shadow-2xl ${
+                          !alertData.profilePicture ? 'flex' : 'hidden'
+                        } ${
+                          alertData.type === 'success' 
+                            ? 'bg-gradient-to-br from-green-500 to-emerald-600 border-green-400' 
+                            : (alertData.type === 'error' && alertData.action === 'time_out')
+                              ? 'bg-gradient-to-br from-orange-500 to-amber-600 border-orange-400'
+                              : alertData.type === 'error' 
+                                ? 'bg-gradient-to-br from-red-500 to-rose-600 border-red-400'
+                                : 'bg-gradient-to-br from-blue-500 to-sky-600 border-blue-400'
+                        }`}
+                      >
+                        {alertData.userName ? (
+                          <span className="text-6xl font-bold text-white">
+                            {alertData.userName.charAt(0).toUpperCase()}
+                          </span>
+                        ) : (
+                          <svg className="w-24 h-24 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Large Status Badge */}
+                    <div className={`absolute -bottom-4 -right-4 w-16 h-16 rounded-full flex items-center justify-center border-4 border-slate-900 shadow-xl ${
+                      alertData.type === 'success' 
+                        ? 'bg-gradient-to-br from-green-500 to-emerald-600' 
+                        : (alertData.type === 'error' && alertData.action === 'time_out')
+                          ? 'bg-gradient-to-br from-orange-500 to-amber-600'
+                          : alertData.type === 'error' 
+                            ? 'bg-gradient-to-br from-red-500 to-rose-600'
+                            : 'bg-gradient-to-br from-blue-500 to-sky-600'
+                    } animate-bounce`}>
+                      {alertData.type === 'success' ? (
+                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                        </svg>
+                      ) : (alertData.type === 'error' && alertData.action === 'time_out') ? (
+                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                      ) : alertData.type === 'error' ? (
+                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      ) : (
+                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* User Information */}
+                {alertData.userName && (
+                  <div className="text-center mb-4">
+                    <h2 className="text-3xl font-bold text-white mb-2">
+                      {alertData.userName}
+                    </h2>
+                    {alertData.userRole && (
+                      <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold uppercase tracking-wider ${
+                        alertData.type === 'success' 
+                          ? 'bg-green-400/20 text-green-300 border border-green-400/30' 
+                          : (alertData.type === 'error' && alertData.action === 'time_out')
+                            ? 'bg-orange-400/20 text-orange-300 border border-orange-400/30'
+                            : alertData.type === 'error' 
+                              ? 'bg-red-400/20 text-red-300 border border-red-400/30'
+                              : 'bg-blue-400/20 text-blue-300 border border-blue-400/30'
+                      }`}>
+                        {alertData.userRole}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Status Message */}
+                <div className="text-center mb-4">
+                  <h3 className={`text-2xl font-bold mb-3 ${
+                    alertData.type === 'success' 
+                      ? 'text-green-400' 
+                      : (alertData.type === 'error' && alertData.action === 'time_out')
+                        ? 'text-orange-400'
+                        : alertData.type === 'error' 
+                          ? 'text-red-400'
+                          : 'text-blue-400'
+                  }`}>
+                    {alertData.title}
+                  </h3>
+                  
+                  <p className="text-white/80 text-lg leading-relaxed">
+                    {alertData.message}
+                  </p>
+                </div>
+
+                {/* Time and Date Display */}
+                <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
+                  <div className="flex items-center justify-center gap-3 text-white/70">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="font-mono text-lg font-semibold">{alertData.time}</span>
+                  </div>
+                  <div className="text-center mt-2">
+                    <span className="text-white/50 text-sm">
+                      {new Date().toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action Button */}
+                <div className="mt-6 flex justify-center">
+                  <button
+                    onClick={() => setShowAlert(false)}
+                    className={`px-8 py-4 rounded-2xl font-semibold text-white shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 text-lg ${
+                      alertData.type === 'success' 
+                        ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700' 
+                        : (alertData.type === 'error' && alertData.action === 'time_out')
+                          ? 'bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700'
+                          : alertData.type === 'error' 
+                            ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700'
+                            : 'bg-gradient-to-r from-blue-500 to-sky-600 hover:from-blue-600 hover:to-sky-700'
+                    }`}
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -1,20 +1,36 @@
 // src/components/SA/SANav.tsx
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { spclogo } from "../../utils";
 import supabase from "../../utils/supabase";
 import { useState, useEffect } from "react";
+import { Settings } from "../Settings/Settings";
 
 export const SANav = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string>("");
+  const [userProfilePicture, setUserProfilePicture] = useState<string>("");
+  const [userName, setUserName] = useState<string>("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user?.email) {
         setUserEmail(user.email);
+        
+        // Fetch user profile data from users table in background
+        supabase
+          .from('users')
+          .select('profile_picture, name')
+          .eq('auth_id', user.id)
+          .single()
+          .then(({ data: userData, error }) => {
+            if (userData && !error) {
+              setUserProfilePicture(userData.profile_picture || '');
+              setUserName(userData.name || '');
+            }
+          });
       }
     };
     getUser();
@@ -24,6 +40,7 @@ export const SANav = () => {
     { key: "dashboard", label: "Dashboard", link: "/SA/dashboard" },
     { key: "attendance", label: "Attendance", link: "/SA/attendance" },
     { key: "schedule", label: "Schedule", link: "/SA/schedule" },
+    { key: "payroll", label: "Payroll", link: "/SA/payroll" },
     { key: "events", label: "Events & Activities", link: "/SA/events" },
     { key: "request", label: "Request", link: "/SA/request" },
     { key: "reports", label: "Reports", link: "/SA/reports" },
@@ -55,6 +72,12 @@ export const SANav = () => {
         return (
           <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        );
+      case "payroll":
+        return (
+          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         );
       case "events":
@@ -89,6 +112,19 @@ export const SANav = () => {
     navigate("/");
   };
 
+  const handleProfileClick = () => {
+    setSettingsOpen(true);
+  };
+
+  const handleSettingsClose = () => {
+    setSettingsOpen(false);
+  };
+
+  const handleProfileUpdate = (updatedData: { name: string; profile_picture: string }) => {
+    setUserName(updatedData.name);
+    setUserProfilePicture(updatedData.profile_picture);
+  };
+
   return (
     <>
       {/* Hamburger button (mobile only) */}
@@ -115,12 +151,40 @@ export const SANav = () => {
       {/* Sidebar (desktop) */}
       <div className="hidden lg:flex w-70 min-h-screen fixed left-0 top-0 pr-2 py-6 flex-col justify-between bg-gradient-to-b from-red-900 via-red-800 to-red-900 shadow-2xl z-30">
         <div>
-          {/* Modern Logo Section */}
-          <div className="flex flex-col items-center justify-center px-4 py-6 mb-6">
-            <div className="bg-white backdrop-blur-md border border-white/20 rounded-2xl px-6 py-4 shadow-xl flex items-center gap-2 mb-2">
-              <img src={spclogo} alt="SPC Logo" className="h-12 w-auto drop-shadow-lg" />
+          {/* Modern Profile Section */}
+          <div className="flex flex-col items-center justify-center px-4 py-6 mb-3">
+            <div className="relative mb-4">
+              <button
+                onClick={handleProfileClick}
+                className="relative group focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 focus:ring-offset-red-900 rounded-full"
+              >
+                {userProfilePicture ? (
+                  <div className="w-20 h-20 rounded-full overflow-hidden ring-4 ring-white/30 shadow-xl group-hover:ring-yellow-400/50 transition-all duration-300">
+                    <img 
+                      src={userProfilePicture} 
+                      alt="Profile Picture" 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center ring-4 ring-white/30 shadow-xl group-hover:ring-yellow-400/50 group-hover:scale-105 transition-all duration-300">
+                    <span className="text-white text-2xl font-bold">
+                      {userName ? userName.charAt(0).toUpperCase() : userEmail.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-yellow-500 rounded-full border-2 border-white shadow-lg"></div>
+                {/* Settings icon overlay on hover */}
+                <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+              </button>
             </div>
             <h2 className="text-white font-bold text-xl tracking-wide whitespace-nowrap mb-1">Student Assistant</h2>
+            <p className="text-white/90 text-sm font-medium mb-1">{userName || 'User'}</p>
             {userEmail && <p className="text-white/70 text-xs font-medium">{userEmail}</p>}
           </div>
           
@@ -168,12 +232,40 @@ export const SANav = () => {
         <div className="fixed inset-0 backdrop-blur-sm bg-black/50 z-40 lg:hidden">
           <div className="fixed top-0 left-0 w-72 h-full bg-gradient-to-b from-red-900 via-red-800 to-red-900 shadow-2xl flex flex-col justify-between">
             <div>
-              {/* Mobile Logo Section */}
-              <div className="flex flex-col items-center justify-center px-4 py-6 mb-4">
-                <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-5 py-3 shadow-xl flex items-center gap-2 mb-2">
-                  <img src={spclogo} alt="SPC Logo" className="h-10 w-auto drop-shadow-lg" />
+              {/* Mobile Profile Section */}
+              <div className="flex flex-col items-center justify-center px-4 py-6 mb-2">
+                <div className="relative mb-3">
+                  <button
+                    onClick={handleProfileClick}
+                    className="relative group focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 focus:ring-offset-red-900 rounded-full"
+                  >
+                    {userProfilePicture ? (
+                      <div className="w-16 h-16 rounded-full overflow-hidden ring-3 ring-white/30 shadow-xl group-hover:ring-yellow-400/50 transition-all duration-300">
+                        <img 
+                          src={userProfilePicture} 
+                          alt="Profile Picture" 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center ring-3 ring-white/30 shadow-xl group-hover:ring-yellow-400/50 group-hover:scale-105 transition-all duration-300">
+                        <span className="text-white text-xl font-bold">
+                          {userName ? userName.charAt(0).toUpperCase() : userEmail.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-yellow-500 rounded-full border-2 border-white shadow-lg"></div>
+                    {/* Settings icon overlay on hover */}
+                    <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                  </button>
                 </div>
-                <h2 className="text-white font-bold text-lg tracking-wide whitespace-nowrap mb-1">Student Affairs</h2>
+                <h2 className="text-white font-bold text-lg tracking-wide whitespace-nowrap mb-1">Student Assistant</h2>
+                <p className="text-white/90 text-sm font-medium mb-1">{userName || 'User'}</p>
                 {userEmail && <p className="text-white/70 text-xs font-medium">{userEmail}</p>}
               </div>
               
@@ -218,6 +310,13 @@ export const SANav = () => {
           </div>
         </div>
       )}
+
+      {/* Settings Modal */}
+      <Settings
+        isOpen={settingsOpen}
+        onClose={handleSettingsClose}
+        onUpdate={handleProfileUpdate}
+      />
     </>
   );
 };

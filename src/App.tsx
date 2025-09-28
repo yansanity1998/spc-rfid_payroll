@@ -21,20 +21,24 @@ import { PayrollAcc } from "./components/Accounting/PayrollAcc";
 import { NavGuard } from "./components/Guard/NavGuard";
 import GuardDashboard from "./components/Guard/GuardDashboard";
 import GuardReports from "./components/Guard/GuardReports";
+import GuardScanner from "./components/Guard/GuardScanner";
 import FacDashboard from "./components/Faculty/FacDashboard";
 import { FacNav } from "./components/Faculty/FacNav";
 import Scanner from "./components/authAdmin/Scanner";
 import FacAttendance from "./components/Faculty/FacAttendance";
 import FacSchedule from "./components/Faculty/FacSchedule";
+import { FacPayroll } from "./components/Faculty/FacPayroll";
 import { FacRequest } from "./components/Faculty/FacRequest";
 import SADashboard from "./components/SA/SADashboard";
 import SAAttendance from "./components/SA/SAAttendance";
 import SASchedule from "./components/SA/SASchedule";
+import { SAPayroll } from "./components/SA/SAPayroll";
 import SAReports from "./components/SA/SAReports";
 import SAEvents from "./components/SA/SAEvents";
 import SARequest from "./components/SA/SARequest";
 import { SANav } from "./components/SA/SANav";
 import DiagnoseSARole from "./components/SA/DiagnoseSARole";
+import DiagnoseGuardRole from "./components/Guard/DiagnoseGuardRole";
 
 function AppContent() {
   const location = useLocation();
@@ -46,7 +50,7 @@ function AppContent() {
   const showNavBarSA = location.pathname.startsWith("/SA");
   
   // Check if current route should show full-screen layout (no navigation bars)
-  const isFullScreenRoute = location.pathname === "/" || location.pathname === "/login" || location.pathname === "/scanner";
+  const isFullScreenRoute = location.pathname === "/" || location.pathname === "/login" || location.pathname === "/scanner" || location.pathname === "/diagnose-sa" || location.pathname === "/diagnose-guard";
 
   return (
     <>
@@ -77,24 +81,28 @@ function AppContent() {
 
           {/* GUARD */}
           <Route path="/Guard/dashboard" element={<GuardDashboard />}/>
+          <Route path="/Guard/scanner" element={<GuardScanner />}/>
           <Route path="/Guard/reports" element={<GuardReports />}/>
 
           {/* FACULTY */}
           <Route path="/Faculty/dashboard" element={<FacDashboard />} />
           <Route path="/Faculty/attendance" element={<FacAttendance />} />
           <Route path="/Faculty/schedule" element={<FacSchedule />} />
+          <Route path="/Faculty/payroll" element={<FacPayroll />} />
           <Route path="/Faculty/request" element={<FacRequest />} />
 
           {/* STUDENT AFFAIRS */}
           <Route path="/SA/dashboard" element={<SADashboard />} />
           <Route path="/SA/attendance" element={<SAAttendance />} />
           <Route path="/SA/schedule" element={<SASchedule />} />
+          <Route path="/SA/payroll" element={<SAPayroll />} />
           <Route path="/SA/events" element={<SAEvents />} />
           <Route path="/SA/request" element={<SARequest />} />
           <Route path="/SA/reports" element={<SAReports />} />
 
-          {/* SA DIAGNOSTIC ROUTES */}
+          {/* DIAGNOSTIC ROUTES */}
           <Route path="/diagnose-sa" element={<DiagnoseSARole />} />
+          <Route path="/diagnose-guard" element={<DiagnoseGuardRole />} />
 
         </Routes>
       </main>

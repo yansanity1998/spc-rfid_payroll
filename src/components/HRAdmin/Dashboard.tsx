@@ -1,5 +1,5 @@
 // src/pages/Hero.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import supabase from "../../utils/supabase";
 
 const Dashboard = () => {
@@ -15,6 +15,10 @@ const Dashboard = () => {
 
   const [attendancePage, setAttendancePage] = useState(1);
   const attendanceRow = 5;
+
+  // Dynamic statistics state
+  const [activeToday, setActiveToday] = useState(0);
+  const [pendingRequests, setPendingRequests] = useState(0);
 
   // Helper function to format time in Philippine timezone with AM/PM
   const formatPhilippineTime = (timeString: string) => {
@@ -73,6 +77,35 @@ const Dashboard = () => {
 
   const attendanceLast = attendanceRow * attendancePage;
   const attendanceFirst = attendanceLast - attendanceRow;
+
+  // Calculate active employees today from class attendance
+  const calculateActiveToday = useCallback((attendanceData: any[]) => {
+    const today = new Date().toISOString().split('T')[0];
+    const todayAttendance = attendanceData.filter(record => {
+      const recordDate = record.att_date?.split('T')[0] || record.att_date;
+      return recordDate === today && record.attendance === 'Present';
+    });
+    
+    // Get unique users who are present today
+    const uniqueActiveUsers = new Set(todayAttendance.map(record => record.user_id));
+    return uniqueActiveUsers.size;
+  }, []);
+
+  // Calculate pending payroll requests
+  const calculatePendingRequests = useCallback((payrollRecords: any[]) => {
+    return payrollRecords.filter(record => record.status === 'Pending').length;
+  }, []);
+
+  // Update statistics
+  const updateStatistics = useCallback((attendanceData: any[], payrollRecords: any[]) => {
+    const active = calculateActiveToday(attendanceData);
+    const pending = calculatePendingRequests(payrollRecords);
+    
+    setActiveToday(active);
+    setPendingRequests(pending);
+    
+    console.log('[Dashboard] Statistics updated:', { active, pending });
+  }, [calculateActiveToday, calculatePendingRequests]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -163,8 +196,24 @@ const Dashboard = () => {
         `)
         .order("created_at", { ascending: false });
 
+      // Also fetch today's attendance for active count calculation
+      const today = new Date().toISOString().split('T')[0];
+      const { data: todayAttendanceData, error: todayAttendanceError } = await supabase
+        .from("class_attendance")
+        .select(`
+          user_id,
+          att_date,
+          attendance
+        `)
+        .gte('att_date', today)
+        .lte('att_date', today + 'T23:59:59');
+
       if (attendanceError) {
         console.error("Error fetching schedule attendance:", attendanceError);
+      }
+
+      if (todayAttendanceError) {
+        console.error("Error fetching today's attendance:", todayAttendanceError);
       }
 
       console.log("Fetched schedules:", schedulesData);
@@ -182,10 +231,15 @@ const Dashboard = () => {
           new Date(b.att_date).getTime() - new Date(a.att_date).getTime()
         )[0];
 
-        // If no attendance record exists, mark as absent
+        // Determine attendance status
         let attendanceStatus = 'Absent';
-        if (!mostRecentRecord) {
-          attendanceStatus = 'Absent';
+        if (mostRecentRecord) {
+          // Use the attendance field from the record, or derive from other fields
+          attendanceStatus = mostRecentRecord.attendance || 
+                           (mostRecentRecord.time_in ? 'Present' : 'Absent');
+        } else {
+          // No attendance record exists for this schedule
+          attendanceStatus = 'No Record';
         }
 
         return {
@@ -194,7 +248,7 @@ const Dashboard = () => {
           att_date: mostRecentRecord?.att_date || new Date().toISOString().split('T')[0],
           time_in: mostRecentRecord?.time_in || null,
           time_out: mostRecentRecord?.time_out || null,
-          attendance: mostRecentRecord?.attendance || attendanceStatus,
+          attendance: attendanceStatus,
           status: mostRecentRecord?.status || false
         };
       });
@@ -203,6 +257,17 @@ const Dashboard = () => {
       setEmployees(users || []);
       setPayrollData(payrollUsers || []);
       setScheduleAttendance(combinedScheduleData || []);
+
+      // Update statistics with real data
+      const flatPayrollRecords = (payrollUsers || []).flatMap((user) =>
+        user.payrolls.map((pr: any) => ({
+          ...pr,
+          name: user.name,
+          role: user.role,
+        }))
+      );
+      
+      updateStatistics(todayAttendanceData || [], flatPayrollRecords);
       
     } catch (error) {
       console.error("Error in fetchData:", error);
@@ -217,6 +282,18 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchData();
+  }, []);
+
+  // Auto-refresh functionality - refresh every 30 seconds
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      console.log('[Dashboard] Auto-refreshing data...');
+      fetchData();
+    }, 30000); // 30 seconds
+    
+    return () => {
+      clearInterval(intervalId);
+    };
   }, []);
 
   // flatten payrolls into one array and sort by most recent first
@@ -267,7 +344,12 @@ const Dashboard = () => {
                     </div>
                     <h2 className="text-lg font-semibold">Total Employees</h2>
                   </div>
-                  <p className="text-3xl font-bold">{employees.length}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-3xl font-bold">{employees.length}</p>
+                    {loading && (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    )}
+                  </div>
                   <p className="text-blue-100 text-sm mt-1">Active workforce</p>
                 </div>
               </div>
@@ -287,7 +369,12 @@ const Dashboard = () => {
                     </div>
                     <h2 className="text-lg font-semibold">Active Today</h2>
                   </div>
-                  <p className="text-3xl font-bold">87</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-3xl font-bold">{activeToday}</p>
+                    {loading && (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    )}
+                  </div>
                   <p className="text-green-100 text-sm mt-1">Present employees</p>
                 </div>
               </div>
@@ -307,7 +394,12 @@ const Dashboard = () => {
                     </div>
                     <h2 className="text-lg font-semibold">Pending Requests</h2>
                   </div>
-                  <p className="text-3xl font-bold">5</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-3xl font-bold">{pendingRequests}</p>
+                    {loading && (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    )}
+                  </div>
                   <p className="text-orange-100 text-sm mt-1">Awaiting approval</p>
                 </div>
               </div>

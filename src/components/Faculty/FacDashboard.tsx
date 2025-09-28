@@ -1,36 +1,35 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import supabase from "../../utils/supabase";
+// Note: Settings component will be imported when needed
 
 const FacDashboard = () => {
+  const navigate = useNavigate();
   const [faculty, setFaculty] = useState<any>(null);
-  const [attendanceStats, setAttendanceStats] = useState<any>(null);
+  const [attendance, setAttendance] = useState<any[]>([]);
   const [todayStatus, setTodayStatus] = useState<string>("Unknown");
-  const [requests, setRequests] = useState<any[]>([]);
   const [schedules, setSchedules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Color coding system for employee types
-  const getEmployeeTypeColor = (role: string) => {
-    switch (role) {
-      case "Administrator":
-        return "from-purple-500 to-purple-600 text-purple-800 bg-purple-100";
-      case "HR Personnel":
-        return "from-blue-500 to-blue-600 text-blue-800 bg-blue-100";
-      case "Accounting":
-        return "from-green-500 to-green-600 text-green-800 bg-green-100";
-      case "Faculty":
-        return "from-red-500 to-red-600 text-red-800 bg-red-100";
-      case "Staff":
-        return "from-orange-500 to-orange-600 text-orange-800 bg-orange-100";
-      case "SA":
-        return "from-yellow-500 to-yellow-600 text-yellow-800 bg-yellow-100";
-      case "Guard":
-        return "from-teal-500 to-teal-600 text-teal-800 bg-teal-100";
-      default:
-        return "from-gray-500 to-gray-600 text-gray-800 bg-gray-100";
-    }
+  // Quick action handlers
+  const handleViewAttendance = () => {
+    navigate('/Faculty/attendance');
   };
+
+  const handleViewSchedule = () => {
+    navigate('/Faculty/schedule');
+  };
+
+  const handleSubmitRequest = () => {
+    // For now, show an alert - you can replace this with actual request functionality
+    alert('Request submission feature coming soon! This will allow you to submit loans, gatepasses, and other requests.');
+  };
+
+  const handleProfileSettings = () => {
+    alert('Profile Settings: You can update your personal information through the navigation bar profile picture. Click on your profile picture in the top navigation to access settings.');
+  };
+
 
   const fetchData = async () => {
     setLoading(true);
@@ -59,115 +58,160 @@ const FacDashboard = () => {
 
       setFaculty(facultyData);
 
-      // Fetch attendance statistics using the same logic as the attendance page
-      console.log("Dashboard: Fetching attendance for faculty user:", facultyData.id, user.id);
+      console.log("Dashboard: Fetching class schedule attendance for user:", facultyData.id);
       
-      let attendanceData = null;
-      
-      // Try user_id first (most likely correct)
-      const { data: data1, error: error1 } = await supabase
-        .from("attendance")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("att_date", { ascending: false });
-      
-      console.log("Dashboard: Query with user_id =", user.id, "Results:", data1);
-      if (error1) console.log("Dashboard: Error with user_id query:", error1);
-      
-      if (data1 && data1.length > 0) {
-        attendanceData = data1;
-      } else {
-        // Try with faculty ID from users table
-        const { data: data2, error: error2 } = await supabase
-          .from("attendance")
-          .select("*")
-          .eq("user_id", facultyData.id)
-          .order("att_date", { ascending: false });
-        
-        console.log("Dashboard: Query with faculty ID =", facultyData.id, "Results:", data2);
-        if (error2) console.log("Dashboard: Error with faculty ID query:", error2);
-        
-        if (data2 && data2.length > 0) {
-          attendanceData = data2;
-        }
-      }
-
-      if (attendanceData && attendanceData.length > 0) {
-        // Process attendance data with status calculation and hours calculation
-        const processedData = attendanceData.map((row: any) => {
-          // Calculate hours worked
-          let hoursWorked = 0;
-          if (row.time_in && row.time_out) {
-            const timeIn = new Date(row.time_in);
-            const timeOut = new Date(row.time_out);
-            const diffMs = timeOut.getTime() - timeIn.getTime();
-            hoursWorked = diffMs / (1000 * 60 * 60); // Convert milliseconds to hours
-          }
-          
-          return {
-            ...row,
-            hours_worked: hoursWorked,
-            status: row.attendance === true
-              ? row.time_in && !row.time_out
-                ? "Present"
-                : row.time_out
-                  ? "Completed"
-                  : "Late"
-              : row.attendance === false
-                ? "Absent"
-                : row.time_in || row.time_out
-                  ? "Present" // Fallback: if there's time data but no attendance field
-                  : "Absent",
-          };
-        });
-        
-        console.log("Dashboard: Processed attendance data:", processedData);
-        
-        const totalDays = processedData.length;
-        const presentDays = processedData.filter(record => record.status === "Present" || record.status === "Completed").length;
-        const absentDays = processedData.filter(record => record.status === "Absent").length;
-        const lateDays = processedData.filter(record => record.status === "Late").length;
-        const totalHours = processedData.reduce((sum, record) => sum + (record.hours_worked || 0), 0);
-        
-        // Get today's status
-        const today = new Date().toISOString().split('T')[0];
-        const todayRecord = processedData.find(record => record.att_date === today);
-        setTodayStatus(todayRecord?.status || "No Record");
-        
-        setAttendanceStats({
-          totalDays,
-          presentDays,
-          absentDays,
-          lateDays,
-          totalHours,
-          attendanceRate: totalDays > 0 ? ((presentDays / totalDays) * 100).toFixed(1) : 0
-        });
-      } else {
-        console.log("Dashboard: No attendance data found");
-        setTodayStatus("No Record");
-      }
-
-      // Fetch recent requests (if you have a requests table)
-      const { data: requestsData, error: requestsError } = await supabase
-        .from("requests")
-        .select("*")
-        .eq("user_id", facultyData.id)
-        .order("created_at", { ascending: false })
-        .limit(5);
-
-      if (!requestsError && requestsData) {
-        setRequests(requestsData);
-      }
-
-      // Fetch schedules
-      const { data: schedulesData, error: schedulesError } = await supabase
+      // First, fetch user's schedules to identify what should have attendance records
+      const { data: userSchedules, error: schedulesError } = await supabase
         .from("schedules")
         .select("*")
-        .eq("user_id", facultyData.id)
-        .order("created_at", { ascending: false });
+        .eq("user_id", facultyData.id);
 
-      if (!schedulesError && schedulesData) {
-        setSchedules(schedulesData);
+      if (schedulesError) {
+        console.error("Dashboard: Error fetching user schedules:", schedulesError);
+      }
+
+      console.log("Dashboard: User schedules:", userSchedules);
+      
+      // Fetch class schedule attendance data with schedule details
+      const { data: attendanceData, error: attendanceError } = await supabase
+        .from("class_attendance")
+        .select(`
+          id,
+          user_id,
+          schedule_id,
+          att_date,
+          time_in,
+          time_out,
+          attendance,
+          status,
+          notes,
+          created_at,
+          schedules!inner (
+            id,
+            subject,
+            room,
+            day_of_week,
+            start_time,
+            end_time
+          )
+        `)
+        .eq("user_id", facultyData.id)
+        .order("att_date", { ascending: false });
+
+      if (attendanceError) {
+        console.error("Dashboard: Error fetching class attendance:", attendanceError);
+        setAttendance([]);
+      } else {
+        console.log("Dashboard: Raw class attendance data:", attendanceData);
+
+        // Combine attendance data with schedule data, similar to Faculty Attendance
+        const combinedData: any[] = [];
+        
+        if (userSchedules && userSchedules.length > 0) {
+          // For each schedule, find corresponding attendance records or mark as absent
+          for (const schedule of userSchedules) {
+            const scheduleAttendanceRecords = (attendanceData || []).filter(att => 
+              att.schedule_id === schedule.id
+            );
+            
+            if (scheduleAttendanceRecords.length > 0) {
+              // Process existing attendance records
+              scheduleAttendanceRecords.forEach((row: any) => {
+                // Calculate hours worked
+                let hoursWorked = 0;
+                if (row.time_in && row.time_out) {
+                  const timeIn = new Date(`1970-01-01T${row.time_in}`);
+                  const timeOut = new Date(`1970-01-01T${row.time_out}`);
+                  const diffMs = timeOut.getTime() - timeIn.getTime();
+                  hoursWorked = diffMs / (1000 * 60 * 60); // Convert milliseconds to hours
+                }
+                
+                // Determine status based on attendance field
+                let status = "Unknown";
+                if (row.attendance === "Present") {
+                  status = row.time_in && !row.time_out ? "Present" : row.time_out ? "Completed" : "Present";
+                } else if (row.attendance === "Late") {
+                  status = "Late";
+                } else if (row.attendance === "Absent") {
+                  status = "Absent";
+                } else {
+                  // Fallback logic
+                  status = row.time_in || row.time_out ? "Present" : "Absent";
+                }
+                
+                combinedData.push({
+                  ...row,
+                  hours_worked: hoursWorked,
+                  status: status,
+                  // Add schedule details for display
+                  subject: row.schedules?.subject || schedule.subject || 'N/A',
+                  room: row.schedules?.room || schedule.room || 'N/A',
+                  day_of_week: row.schedules?.day_of_week || schedule.day_of_week || 'N/A',
+                  start_time: row.schedules?.start_time || schedule.start_time || 'N/A',
+                  end_time: row.schedules?.end_time || schedule.end_time || 'N/A',
+                  // Keep original fields for compatibility
+                  remarks: row.notes || ''
+                });
+              });
+            } else {
+              // No attendance record for this schedule - create absent record
+              const today = new Date();
+              const absentRecord = {
+                id: `absent-${schedule.id}`,
+                user_id: facultyData.id,
+                schedule_id: schedule.id,
+                att_date: today.toISOString().split('T')[0], // Use today's date as example
+                time_in: null,
+                time_out: null,
+                attendance: "Absent",
+                status: false,
+                notes: null,
+                created_at: new Date().toISOString(),
+                hours_worked: 0,
+                // Add schedule details for display
+                subject: schedule.subject || 'N/A',
+                room: schedule.room || 'N/A',
+                day_of_week: schedule.day_of_week || 'N/A',
+                start_time: schedule.start_time || 'N/A',
+                end_time: schedule.end_time || 'N/A',
+                remarks: 'No attendance record'
+              };
+              
+              combinedData.push(absentRecord);
+            }
+          }
+        }
+        
+        // Sort by date descending, then by schedule time
+        const sortedData = combinedData.sort((a, b) => {
+          // Primary sort: by attendance date (most recent first)
+          const dateA = new Date(a.att_date || a.created_at);
+          const dateB = new Date(b.att_date || b.created_at);
+          const dateDiff = dateB.getTime() - dateA.getTime();
+          
+          if (dateDiff !== 0) {
+            return dateDiff;
+          }
+          
+          // Secondary sort: by schedule start time (earliest first for same date)
+          const timeA = a.start_time || '00:00:00';
+          const timeB = b.start_time || '00:00:00';
+          return timeA.localeCompare(timeB);
+        });
+        
+        console.log("Dashboard: Combined attendance data with absent records:", sortedData);
+        setAttendance(sortedData);
+
+        // Get today's status
+        const today = new Date().toISOString().split('T')[0];
+        const todayRecord = sortedData.find(record => record.att_date === today);
+        setTodayStatus(todayRecord?.status || todayRecord?.attendance || "No Record");
+      }
+
+
+      // Set schedules data
+      if (!schedulesError && userSchedules) {
+        setSchedules(userSchedules);
       }
 
     } catch (error) {
@@ -181,6 +225,55 @@ const FacDashboard = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Auto-refresh functionality - refresh every 30 seconds for real-time updates
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      console.log('[Dashboard] Auto-refreshing data...');
+      fetchData();
+    }, 30000); // 30 seconds
+    
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []);
+
+  // Calculate dynamic statistics based on attendance data (real-time)
+  const stats = useMemo(() => {
+    if (!attendance || attendance.length === 0) {
+      return {
+        totalDays: 0,
+        presentDays: 0,
+        lateDays: 0,
+        absentDays: 0,
+        totalHours: 0,
+        attendanceRate: "0"
+      };
+    }
+
+    const totalDays = attendance.length;
+    const presentDays = attendance.filter((record: any) => 
+      record.status === "Present" || record.status === "Completed" || record.attendance === "Present"
+    ).length;
+    const lateDays = attendance.filter((record: any) => 
+      record.status === "Late" || record.attendance === "Late"
+    ).length;
+    const absentDays = attendance.filter((record: any) => 
+      record.status === "Absent" || record.attendance === "Absent"
+    ).length;
+    // Use the calculated hours_worked from our processing
+    const totalHours = attendance.reduce((sum: number, record: any) => sum + (record.hours_worked || 0), 0);
+    const attendanceRate = totalDays > 0 ? (((presentDays + lateDays) / totalDays) * 100).toFixed(1) : "0";
+    
+    return {
+      totalDays,
+      presentDays,
+      lateDays,
+      absentDays,
+      totalHours,
+      attendanceRate
+    };
+  }, [attendance]);
 
   if (loading) {
     return (
@@ -242,23 +335,6 @@ const FacDashboard = () => {
             </div>
           </div>
 
-          {/* Profile Card */}
-          <div className="bg-gradient-to-br from-red-500 to-red-600 p-6 rounded-2xl shadow-xl text-white mb-6">
-            <div className="flex items-center gap-4">
-              <div className={`w-16 h-16 bg-gradient-to-br ${getEmployeeTypeColor(faculty?.role).split(' ').slice(0, 2).join(' ')} rounded-full flex items-center justify-center shadow-lg`}>
-                <span className="text-2xl font-bold text-white">
-                  {faculty?.name?.charAt(0)?.toUpperCase()}
-                </span>
-              </div>
-              <div className="flex-1">
-                <h2 className="text-xl font-bold">{faculty?.name}</h2>
-                <p className="text-red-100 mb-1">{faculty?.email}</p>
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getEmployeeTypeColor(faculty?.role).split(' ').slice(2).join(' ')}`}>
-                  {faculty?.role}
-                </span>
-              </div>
-            </div>
-          </div>
 
           {/* Today's Status Card */}
           <div className="mb-6">
@@ -295,8 +371,8 @@ const FacDashboard = () => {
             </div>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Stats Cards - Dynamic and Real-time */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
             {/* Attendance Rate */}
             <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
               <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
@@ -310,7 +386,7 @@ const FacDashboard = () => {
                     </div>
                     <h2 className="text-lg font-semibold">Attendance Rate</h2>
                   </div>
-                  <p className="text-3xl font-bold">{attendanceStats?.attendanceRate || 0}%</p>
+                  <p className="text-3xl font-bold">{stats.attendanceRate}%</p>
                   <p className="text-blue-100 text-sm mt-1">Overall performance</p>
                 </div>
               </div>
@@ -330,7 +406,7 @@ const FacDashboard = () => {
                     </div>
                     <h2 className="text-lg font-semibold">Total Hours</h2>
                   </div>
-                  <p className="text-3xl font-bold">{attendanceStats?.totalHours ? attendanceStats.totalHours.toFixed(1) : '0.0'}</p>
+                  <p className="text-3xl font-bold">{stats.totalHours.toFixed(1)}</p>
                   <p className="text-green-100 text-sm mt-1">Hours worked</p>
                 </div>
               </div>
@@ -350,28 +426,48 @@ const FacDashboard = () => {
                     </div>
                     <h2 className="text-lg font-semibold">Present Days</h2>
                   </div>
-                  <p className="text-3xl font-bold">{attendanceStats?.presentDays || 0}</p>
+                  <p className="text-3xl font-bold">{stats.presentDays}</p>
                   <p className="text-emerald-100 text-sm mt-1">Days attended</p>
                 </div>
               </div>
               <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
             </div>
 
-            {/* Pending Requests */}
-            <div className="group relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+            {/* Late Days */}
+            <div className="group relative overflow-hidden bg-gradient-to-br from-yellow-500 to-yellow-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
               <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
               <div className="relative z-10 flex items-center justify-between">
                 <div className="text-white">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
                       <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
-                    <h2 className="text-lg font-semibold">Requests</h2>
+                    <h2 className="text-lg font-semibold">Late Days</h2>
                   </div>
-                  <p className="text-3xl font-bold">{requests?.filter(r => r.status === 'Pending').length || 0}</p>
-                  <p className="text-orange-100 text-sm mt-1">Pending requests</p>
+                  <p className="text-3xl font-bold">{stats.lateDays}</p>
+                  <p className="text-yellow-100 text-sm mt-1">Days late</p>
+                </div>
+              </div>
+              <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
+            </div>
+
+            {/* Absent Days */}
+            <div className="group relative overflow-hidden bg-gradient-to-br from-red-500 to-red-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+              <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+              <div className="relative z-10 flex items-center justify-between">
+                <div className="text-white">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </div>
+                    <h2 className="text-lg font-semibold">Absent Days</h2>
+                  </div>
+                  <p className="text-3xl font-bold">{stats.absentDays}</p>
+                  <p className="text-red-100 text-sm mt-1">Days missed</p>
                 </div>
               </div>
               <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
@@ -392,41 +488,56 @@ const FacDashboard = () => {
               
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* View Attendance */}
-                <div className="group bg-white p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer border border-gray-200">
+                <div 
+                  onClick={handleViewAttendance}
+                  className="group bg-white p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer border border-gray-200 hover:border-blue-300"
+                >
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
                       <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                       </svg>
                     </div>
-                    <h3 className="font-semibold text-gray-800">View Attendance</h3>
+                    <div>
+                      <h3 className="font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">View Attendance</h3>
+                      <p className="text-xs text-blue-600 font-medium">{stats.totalDays} record{stats.totalDays !== 1 ? 's' : ''}</p>
+                    </div>
                   </div>
-                  <p className="text-gray-600 text-sm">Check your attendance records and work hours</p>
+                  <p className="text-gray-600 text-sm">Check your class attendance records and work hours</p>
                 </div>
 
                 {/* Submit Request */}
-                <div className="group bg-white p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer border border-gray-200">
+                <div 
+                  onClick={handleSubmitRequest}
+                  className="group bg-white p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer border border-gray-200 hover:border-green-300"
+                >
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
                       <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                       </svg>
                     </div>
-                    <h3 className="font-semibold text-gray-800">Submit Request</h3>
+                    <div>
+                      <h3 className="font-semibold text-gray-800 group-hover:text-green-600 transition-colors">Submit Request</h3>
+                      <p className="text-xs text-green-600 font-medium">Coming Soon</p>
+                    </div>
                   </div>
                   <p className="text-gray-600 text-sm">Request loans, gatepasses, or other services</p>
                 </div>
 
                 {/* View Schedule */}
-                <div className="group bg-white p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer border border-gray-200">
+                <div 
+                  onClick={handleViewSchedule}
+                  className="group bg-white p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer border border-gray-200 hover:border-red-300"
+                >
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                    <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center group-hover:bg-red-200 transition-colors">
                       <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-800">My Schedule</h3>
+                      <h3 className="font-semibold text-gray-800 group-hover:text-red-600 transition-colors">My Schedule</h3>
                       <p className="text-xs text-red-600 font-medium">{schedules?.length || 0} schedule{schedules?.length !== 1 ? 's' : ''}</p>
                     </div>
                   </div>
@@ -434,15 +545,21 @@ const FacDashboard = () => {
                 </div>
 
                 {/* Profile Settings */}
-                <div className="group bg-white p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer border border-gray-200">
+                <div 
+                  onClick={handleProfileSettings}
+                  className="group bg-white p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer border border-gray-200 hover:border-purple-300"
+                >
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
                       <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
                     </div>
-                    <h3 className="font-semibold text-gray-800">Profile Settings</h3>
+                    <div>
+                      <h3 className="font-semibold text-gray-800 group-hover:text-purple-600 transition-colors">Profile Settings</h3>
+                      <p className="text-xs text-purple-600 font-medium">Update Info</p>
+                    </div>
                   </div>
                   <p className="text-gray-600 text-sm">Update your personal information and preferences</p>
                 </div>

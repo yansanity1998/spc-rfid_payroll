@@ -16,7 +16,6 @@ interface Schedule {
 
 const FacSchedule: React.FC = () => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
@@ -55,32 +54,29 @@ const FacSchedule: React.FC = () => {
     fetchCurrentUser();
   }, []);
 
-  useEffect(() => {
-    if (currentUser) {
-      fetchSchedules();
-    }
-  }, [currentUser]);
-
   const fetchCurrentUser = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         console.log('Current authenticated user:', user.id);
         
-        // Check user in database
-        const { data: dbUser, error } = await supabase
+        // Check user in database in background
+        supabase
           .from('users')
           .select('*')
           .eq('auth_id', user.id)
-          .single();
-          
-        if (error) {
-          console.error('Error fetching user from database:', error);
-          showNotification('error', 'Failed to load user information');
-        } else {
-          console.log('Current user in database:', dbUser);
-          setCurrentUser(dbUser);
-        }
+          .single()
+          .then(({ data: dbUser, error }) => {
+            if (error) {
+              console.error('Error fetching user from database:', error);
+              showNotification('error', 'Failed to load user information');
+            } else {
+              console.log('Current user in database:', dbUser);
+              setCurrentUser(dbUser);
+              // Fetch schedules once user is loaded
+              fetchSchedulesWithUser(dbUser);
+            }
+          });
       }
     } catch (error) {
       console.error('Error checking current user:', error);
@@ -88,42 +84,47 @@ const FacSchedule: React.FC = () => {
     }
   };
 
-  const fetchSchedules = async () => {
+  const fetchSchedulesWithUser = async (user: any) => {
     try {
-      setLoading(true);
-      
-      if (!currentUser?.id) {
-        console.log('No current user ID available');
+      if (!user?.id) {
+        console.log('No user ID available');
         return;
       }
       
-      console.log('Fetching schedules for user ID:', currentUser.id);
+      console.log('Fetching schedules for user ID:', user.id);
       
-      const { data, error } = await supabase
+      // Fetch data in background without loading state
+      supabase
         .from('schedules')
         .select('*')
-        .eq('user_id', currentUser.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
-      }
-      
-      console.log('Schedules fetched from database:', data);
-      console.log('Number of schedules found:', data?.length || 0);
-      
-      setSchedules(data || []);
-      
-      if (data && data.length > 0) {
-        showNotification('success', `Found ${data.length} schedule${data.length > 1 ? 's' : ''}`);
-      }
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('Supabase error:', error);
+            showNotification('error', `Failed to load schedules: ${error?.message || 'Unknown error'}`);
+            setSchedules([]);
+          } else {
+            console.log('Schedules fetched from database:', data);
+            console.log('Number of schedules found:', data?.length || 0);
+            
+            setSchedules(data || []);
+            
+            if (data && data.length > 0) {
+              showNotification('success', `Found ${data.length} schedule${data.length > 1 ? 's' : ''}`);
+            }
+          }
+        });
     } catch (error: any) {
       console.error('Error fetching schedules:', error);
       showNotification('error', `Failed to load schedules: ${error?.message || 'Unknown error'}`);
       setSchedules([]);
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const fetchSchedules = async () => {
+    if (currentUser?.id) {
+      fetchSchedulesWithUser(currentUser);
     }
   };
 
@@ -181,26 +182,18 @@ const FacSchedule: React.FC = () => {
               </div>
               <button
                 onClick={fetchSchedules}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-red-900 text-white rounded-lg hover:bg-red-800 disabled:bg-gray-400 transition-colors text-sm"
+                className="flex items-center gap-2 px-4 py-2 bg-red-900 text-white rounded-lg hover:bg-red-800 transition-colors text-sm"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                {loading ? 'Refreshing...' : 'Refresh Schedule'}
+                Refresh Schedule
               </button>
             </div>
           </div>
 
           {/* Schedule Content */}
-          {loading ? (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-900 mx-auto"></div>
-                <p className="text-gray-600 mt-4">Loading your schedule...</p>
-              </div>
-            </div>
-          ) : schedules.length === 0 ? (
+          {schedules.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12">
               <div className="text-center">
                 <div className="mx-auto h-24 w-24 text-gray-400 mb-4">

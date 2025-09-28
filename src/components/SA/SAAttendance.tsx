@@ -2,104 +2,18 @@
 import { useEffect, useState, useCallback } from "react";
 import supabase from "../../utils/supabase";
 
+interface NotificationType {
+  type: 'success' | 'error' | 'info';
+  message: string;
+}
+
 const SAAttendance = () => {
   const [attendanceData, setAttendanceData] = useState<any[]>([]);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState<NotificationType | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [todayAttendance, setTodayAttendance] = useState<any>(null);
-  const [canCheckIn, setCanCheckIn] = useState(false);
-  const [canCheckOut, setCanCheckOut] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [refreshInterval, setRefreshInterval] = useState(30000); // 30 seconds
-  const [notification, setNotification] = useState<{type: 'success' | 'error' | 'info', message: string} | null>(null);
-  const [dateRange, setDateRange] = useState<'week' | 'month' | 'custom'>('month');
-  const [customStartDate, setCustomStartDate] = useState('');
-  const [customEndDate, setCustomEndDate] = useState('');
-  const [isExporting, setIsExporting] = useState(false);
-
-  // Helper function to format time in Philippine timezone with AM/PM (aligned with HRAdmin)
-  const formatPhilippineTime = (timeString: string) => {
-    if (!timeString) return "N/A";
-    
-    try {
-      console.log('🕐 Formatting time:', timeString);
-      
-      // Handle different date string formats from Supabase
-      let date: Date;
-      
-      if (timeString.includes('T')) {
-        // ISO format with time
-        if (!timeString.includes('Z') && !timeString.includes('+') && !timeString.includes('-', 10)) {
-          // No timezone info, assume UTC (common with Supabase)
-          date = new Date(timeString + 'Z');
-        } else {
-          date = new Date(timeString);
-        }
-      } else if (timeString.match(/^\d{2}:\d{2}:\d{2}$/)) {
-        // Time only format (HH:MM:SS) - treat as Philippine time for today
-        const today = new Date().toISOString().split('T')[0];
-        date = new Date(`${today}T${timeString}`);
-      } else if (timeString.match(/^\d{2}:\d{2}$/)) {
-        // Time only format (HH:MM) - treat as Philippine time for today  
-        const today = new Date().toISOString().split('T')[0];
-        date = new Date(`${today}T${timeString}:00`);
-      } else {
-        // Try to parse as-is
-        date = new Date(timeString);
-      }
-      
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        console.warn('❌ Invalid date format:', timeString);
-        return timeString;
-      }
-      
-      // Convert to Philippine time with AM/PM format (same as HRAdmin)
-      const result = date.toLocaleTimeString('en-PH', {
-        timeZone: 'Asia/Manila',
-        hour12: true,
-        hour: 'numeric',
-        minute: '2-digit'
-      });
-      
-      console.log('✅ Philippine time result:', result);
-      return result;
-    } catch (error) {
-      console.warn('❌ Error formatting time:', timeString, error);
-      return timeString;
-    }
-  };
-
-  // Helper function to format date in Philippine timezone
-  const formatPhilippineDate = (dateString: string) => {
-    if (!dateString) return "N/A";
-    
-    try {
-      // Handle date-only strings (YYYY-MM-DD format)
-      const date = dateString.includes('T') 
-        ? new Date(dateString)
-        : new Date(dateString + 'T00:00:00');
-      
-      if (isNaN(date.getTime())) {
-        console.warn('Invalid date format:', dateString);
-        return dateString;
-      }
-      
-      return date.toLocaleDateString('en-PH', {
-        timeZone: 'Asia/Manila',
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-    } catch (error) {
-      console.warn('Error formatting date:', dateString, error);
-      return dateString;
-    }
-  };
 
   const months = [
     "January", "February", "March", "April", "May", "June",
@@ -112,120 +26,76 @@ const SAAttendance = () => {
     setTimeout(() => setNotification(null), 5000);
   }, []);
 
-  // Filter attendance data based on search and status
-  const filteredAttendanceData = attendanceData.filter(record => {
-    const matchesSearch = searchTerm === "" || 
-      formatPhilippineDate(record.date).toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.status.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === "All" || record.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
-
-  // Get date range for data fetching
-  const getDateRange = useCallback(() => {
-    if (dateRange === 'week') {
-      const today = new Date();
-      const startOfWeek = new Date(today.setDate(today.getDate() - today.getDay()));
-      const endOfWeek = new Date(today.setDate(today.getDate() - today.getDay() + 6));
-      return { startDate: startOfWeek, endDate: endOfWeek };
-    } else if (dateRange === 'custom' && customStartDate && customEndDate) {
-      return { 
-        startDate: new Date(customStartDate), 
-        endDate: new Date(customEndDate) 
-      };
-    } else {
-      // Default to month
-      const startDate = new Date(selectedYear, selectedMonth, 1);
-      const endDate = new Date(selectedYear, selectedMonth + 1, 0);
-      return { startDate, endDate };
-    }
-  }, [dateRange, selectedMonth, selectedYear, customStartDate, customEndDate]);
-
-  // Export attendance data to CSV
-  const exportToCSV = useCallback(() => {
-    if (filteredAttendanceData.length === 0) {
-      showNotification('error', 'No data to export');
-      return;
-    }
-
-    setIsExporting(true);
-    
-    const headers = ['Date', 'Status', 'Check In', 'Check Out'];
-    const csvContent = [
-      headers.join(','),
-      ...filteredAttendanceData.map(record => [
-        formatPhilippineDate(record.date),
-        record.status,
-        formatPhilippineTime(record.check_in_time),
-        formatPhilippineTime(record.check_out_time)
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `SA_Attendance_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    window.URL.revokeObjectURL(url);
-    
-    setIsExporting(false);
-    showNotification('success', 'Attendance data exported successfully');
-  }, [filteredAttendanceData, formatPhilippineTime, showNotification]);
-
-  // Debug function to test database connection
-  const testDatabaseConnection = useCallback(async () => {
-    console.log("🧪 Testing database connection...");
-    showNotification('info', 'Testing database connection...');
+  // Helper function to format time in Philippine timezone with AM/PM
+  const formatPhilippineTime = (timeString: string) => {
+    if (!timeString) return "N/A";
     
     try {
-      // Test 1: Check Supabase connection
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      console.log("🔐 Auth test:", { user: user?.email, error: authError });
+      let date;
       
-      if (!user) {
-        showNotification('error', 'Not authenticated. Please log in.');
-        return;
-      }
-
-      // Test 2: Check users table access
-      const { data: usersData, error: usersError } = await supabase
-        .from("users")
-        .select("id, email, name, auth_id")
-        .limit(1);
-      
-      console.log("👥 Users table test:", { count: usersData?.length, error: usersError });
-
-      // Test 3: Check attendance table access
-      const { data: attendanceData, error: attendanceError } = await supabase
-        .from("attendance")
-        .select("id, user_id, date")
-        .limit(1);
-      
-      console.log("📊 Attendance table test:", { count: attendanceData?.length, error: attendanceError });
-
-      // Test 4: Check roles table access
-      const { data: rolesData, error: rolesError } = await supabase
-        .from("roles")
-        .select("id, role")
-        .eq("role", "SA")
-        .limit(1);
-      
-      console.log("🎭 Roles table test:", { count: rolesData?.length, error: rolesError });
-
-      if (usersError || attendanceError || rolesError) {
-        showNotification('error', 'Database connection issues detected. Check console for details.');
+      if (timeString.includes('T')) {
+        // Full ISO string format
+        date = new Date(timeString);
+      } else if (timeString.match(/^\d{2}:\d{2}(:\d{2})?$/)) {
+        // Time only format (HH:MM or HH:MM:SS) - treat as Philippine time for today  
+        const today = new Date().toISOString().split('T')[0];
+        date = new Date(`${today}T${timeString}`);
       } else {
-        showNotification('success', 'Database connection test passed!');
+        // Try to parse as-is
+        date = new Date(timeString);
       }
-
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return timeString;
+      }
+      
+      // Convert to Philippine time with AM/PM format
+      return date.toLocaleTimeString('en-PH', {
+        timeZone: 'Asia/Manila',
+        hour12: true,
+        hour: 'numeric',
+        minute: '2-digit'
+      });
     } catch (error) {
-      console.error("❌ Database test failed:", error);
-      showNotification('error', 'Database test failed. Check console for details.');
+      return timeString;
     }
-  }, [showNotification]);
+  };
+
+  // Helper function to format date
+  const formatPhilippineDate = (dateString: string) => {
+    if (!dateString) return "N/A";
+    
+    try {
+      const date = dateString.includes('T') 
+        ? new Date(dateString)
+        : new Date(dateString + 'T00:00:00');
+      
+      if (isNaN(date.getTime())) return dateString;
+      
+      return date.toLocaleDateString('en-PH', {
+        timeZone: 'Asia/Manila',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return dateString;
+    }
+  };
+
+
+  // Use all attendance data since filters are removed
+  const filteredAttendanceData = attendanceData;
+
+  // Get date range for data fetching (month only)
+  const getDateRange = useCallback(() => {
+    const startDate = new Date(selectedYear, selectedMonth, 1);
+    const endDate = new Date(selectedYear, selectedMonth + 1, 0);
+    return { startDate, endDate };
+  }, [selectedMonth, selectedYear]);
+
+
 
   const fetchUserData = async () => {
     try {
@@ -367,17 +237,17 @@ const SAAttendance = () => {
 
   const fetchAttendanceData = async (userId: number) => {
     try {
-      console.log("🔍 SA Attendance: Fetching attendance data for user ID:", userId);
+      console.log("🔍 SA Attendance: Fetching class schedule attendance for user ID:", userId);
       
       // Test database connection first
       const { error: testError } = await supabase
-        .from("attendance")
+        .from("class_attendance")
         .select("count")
         .limit(1);
         
       if (testError) {
         console.error("❌ Database connection test failed:", testError);
-        showNotification('error', 'Cannot connect to attendance database. Please try again.');
+        showNotification('error', 'Cannot connect to class attendance database. Please try again.');
         return [];
       }
       
@@ -387,37 +257,41 @@ const SAAttendance = () => {
       const startDateStr = startDate.toISOString().split('T')[0];
       const endDateStr = endDate.toISOString().split('T')[0];
       
-      console.log("📅 Date range:", { startDate: startDateStr, endDate: endDateStr, dateRange });
+      console.log("📅 Date range:", { startDate: startDateStr, endDate: endDateStr });
 
-      // First, get all attendance records for this user to debug
-      const { data: allUserData, error: allError } = await supabase
-        .from("attendance")
-        .select(`
-          *,
-          user:users (
-            id,
-            name,
-            role
-          )
-        `)
+      // First, fetch user's schedules to identify what should have attendance records
+      const { data: userSchedules, error: schedulesError } = await supabase
+        .from("schedules")
+        .select("*")
         .eq("user_id", userId);
-        
-      console.log("📊 All attendance records for user:", { 
-        userId, 
-        totalRecords: allUserData?.length || 0, 
-        records: allUserData?.slice(0, 5),
-        error: allError 
-      });
 
-      // Now get filtered data using correct field names (att_date, time_in, time_out)
+      if (schedulesError) {
+        console.error("SA Attendance: Error fetching user schedules:", schedulesError);
+      }
+
+      console.log("SA Attendance: User schedules:", userSchedules);
+
+      // Fetch class schedule attendance data with schedule details
       const { data, error } = await supabase
-        .from("attendance")
+        .from("class_attendance")
         .select(`
-          *,
-          user:users (
+          id,
+          user_id,
+          schedule_id,
+          att_date,
+          time_in,
+          time_out,
+          attendance,
+          status,
+          notes,
+          created_at,
+          schedules!inner (
             id,
-            name,
-            role
+            subject,
+            room,
+            day_of_week,
+            start_time,
+            end_time
           )
         `)
         .eq("user_id", userId)
@@ -426,302 +300,147 @@ const SAAttendance = () => {
         .order('att_date', { ascending: false });
 
       if (error) {
-        console.error("❌ Error fetching attendance:", error);
-        showNotification('error', `Failed to fetch attendance data: ${error.message}`);
+        console.error("❌ Error fetching class attendance:", error);
+        showNotification('error', `Failed to fetch class attendance data: ${error.message}`);
         return [];
       }
 
-      console.log("✅ Raw attendance data fetched:", { 
+      console.log("✅ Raw class attendance data fetched:", { 
         count: data?.length || 0, 
         dateRange: `${startDateStr} to ${endDateStr}`,
         sampleData: data?.slice(0, 3) 
       });
 
-      if (!data || data.length === 0) {
-        console.log("ℹ️ No attendance records found for the specified criteria");
-        showNotification('info', `No attendance records found for the selected period (${startDateStr} to ${endDateStr})`);
-        return [];
+      console.log("ℹ️ Processing class attendance records and schedules for absent detection");
+
+      // Combine attendance data with schedule data, similar to HR Admin Dashboard
+      const combinedData: any[] = [];
+      
+      if (userSchedules && userSchedules.length > 0) {
+        // For each schedule, find corresponding attendance records or mark as absent
+        for (const schedule of userSchedules) {
+          const scheduleAttendanceRecords = (data || []).filter(att => 
+            att.schedule_id === schedule.id &&
+            att.att_date >= startDateStr &&
+            att.att_date <= endDateStr
+          );
+          
+          if (scheduleAttendanceRecords.length > 0) {
+            // Process existing attendance records
+            scheduleAttendanceRecords.forEach((record: any) => {
+              combinedData.push({
+                id: record.id,
+                date: record.att_date,
+                check_in_time: record.time_in,
+                check_out_time: record.time_out,
+                user_id: record.user_id,
+                status: record.attendance || "Unknown",
+                subject: record.schedules?.subject || schedule.subject || 'N/A',
+                room: record.schedules?.room || schedule.room || 'N/A',
+                day_of_week: record.schedules?.day_of_week || schedule.day_of_week || 'N/A',
+                start_time: record.schedules?.start_time || schedule.start_time || 'N/A',
+                end_time: record.schedules?.end_time || schedule.end_time || 'N/A',
+                att_date: record.att_date,
+                time_in: record.time_in,
+                time_out: record.time_out,
+                attendance: record.attendance,
+                notes: record.notes,
+                created_at: record.created_at,
+                updated_at: record.updated_at
+              });
+            });
+          } else {
+            // No attendance record for this schedule in the date range - create absent record
+            const today = new Date();
+            const absentRecord = {
+              id: `absent-${schedule.id}`,
+              date: today.toISOString().split('T')[0],
+              check_in_time: null,
+              check_out_time: null,
+              user_id: userId,
+              status: "Absent",
+              subject: schedule.subject || 'N/A',
+              room: schedule.room || 'N/A',
+              day_of_week: schedule.day_of_week || 'N/A',
+              start_time: schedule.start_time || 'N/A',
+              end_time: schedule.end_time || 'N/A',
+              att_date: today.toISOString().split('T')[0],
+              time_in: null,
+              time_out: null,
+              attendance: "Absent",
+              notes: 'No attendance record',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            
+            combinedData.push(absentRecord);
+          }
+        }
       }
-
-      // Transform data to match expected format
-      const transformedData = data.map((record: any) => ({
-        id: record.id,
-        date: record.att_date, // Map att_date to date
-        check_in_time: record.time_in, // Map time_in to check_in_time
-        check_out_time: record.time_out, // Map time_out to check_out_time
-        user_id: record.user_id,
-        // Calculate status based on attendance field and times
-        status: record.attendance === true
-          ? record.time_in && !record.time_out
-            ? "Present"
-            : record.time_out
-              ? "Present" // Completed day
-              : "Late"
-          : record.attendance === false
-            ? "Absent"
-            : record.time_in || record.time_out
-              ? "Present" // Fallback: if there's time data but no attendance field
-              : "Absent",
-        // Keep original fields for debugging
-        att_date: record.att_date,
-        time_in: record.time_in,
-        time_out: record.time_out,
-        attendance: record.attendance,
-        created_at: record.created_at,
-        updated_at: record.updated_at
-      }));
-
-      console.log("✅ Transformed attendance data:", { 
-        count: transformedData.length,
-        sampleTransformed: transformedData.slice(0, 3)
+      
+      // Also include any attendance records that might not have matching schedules
+      if (data && data.length > 0) {
+        data.forEach((record: any) => {
+          // Check if this record is already included via schedule processing
+          const alreadyIncluded = combinedData.some(item => 
+            item.id === record.id && typeof item.id !== 'string'
+          );
+          
+          if (!alreadyIncluded) {
+            combinedData.push({
+              id: record.id,
+              date: record.att_date,
+              check_in_time: record.time_in,
+              check_out_time: record.time_out,
+              user_id: record.user_id,
+              status: record.attendance || "Unknown",
+              subject: record.schedules?.subject || 'N/A',
+              room: record.schedules?.room || 'N/A',
+              day_of_week: record.schedules?.day_of_week || 'N/A',
+              start_time: record.schedules?.start_time || 'N/A',
+              end_time: record.schedules?.end_time || 'N/A',
+              att_date: record.att_date,
+              time_in: record.time_in,
+              time_out: record.time_out,
+              attendance: record.attendance,
+              notes: record.notes,
+              created_at: record.created_at,
+              updated_at: record.updated_at
+            });
+          }
+        });
+      }
+      
+      // Sort by attendance date descending, then by schedule time
+      const sortedData = combinedData.sort((a, b) => {
+        // Primary sort: by attendance date (most recent first)
+        const dateA = new Date(a.att_date || a.created_at);
+        const dateB = new Date(b.att_date || b.created_at);
+        const dateDiff = dateB.getTime() - dateA.getTime();
+        
+        if (dateDiff !== 0) {
+          return dateDiff;
+        }
+        
+        // Secondary sort: by schedule start time (earliest first for same date)
+        const timeA = a.start_time || '00:00:00';
+        const timeB = b.start_time || '00:00:00';
+        return timeA.localeCompare(timeB);
       });
 
-      return transformedData;
+      console.log("✅ Combined SA attendance data with absent records:", { 
+        count: sortedData.length,
+        sampleTransformed: sortedData.slice(0, 3)
+      });
+
+      return sortedData;
     } catch (error) {
       console.error("❌ Error in fetchAttendanceData:", error);
-      showNotification('error', 'Unexpected error while fetching attendance data.');
+      showNotification('error', 'Unexpected error while fetching class attendance data.');
       return [];
     }
   };
 
-  const fetchTodayAttendance = async (userId: number) => {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      console.log("🔍 SA Attendance: Fetching today's attendance for user ID:", userId, "date:", today);
-      
-      // First check if there are any attendance records for this user at all
-      const { data: anyRecords } = await supabase
-        .from("attendance")
-        .select("att_date") // Use correct field name
-        .eq("user_id", userId)
-        .limit(5);
-        
-      console.log("📊 Any attendance records for user:", { 
-        userId, 
-        recordCount: anyRecords?.length || 0,
-        sampleDates: anyRecords?.map(r => r.att_date) 
-      });
-      
-      const { data, error } = await supabase
-        .from("attendance")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("att_date", today) // Use correct field name
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error("❌ Error fetching today's attendance:", error);
-        showNotification('error', `Failed to fetch today's attendance: ${error.message}`);
-        return null;
-      }
-
-      if (error && error.code === 'PGRST116') {
-        console.log("ℹ️ No attendance record found for today (", today, ")");
-        return null;
-      } else {
-        console.log("✅ Today's raw attendance found:", data);
-        
-        // Transform today's data to match expected format
-        const transformedData = {
-          id: data.id,
-          date: data.att_date,
-          check_in_time: data.time_in,
-          check_out_time: data.time_out,
-          user_id: data.user_id,
-          status: data.attendance === true
-            ? data.time_in && !data.time_out
-              ? "Present"
-              : data.time_out
-                ? "Present" // Completed day
-                : "Late"
-            : data.attendance === false
-              ? "Absent"
-              : data.time_in || data.time_out
-                ? "Present" // Fallback
-                : "Absent",
-          // Keep original fields
-          att_date: data.att_date,
-          time_in: data.time_in,
-          time_out: data.time_out,
-          attendance: data.attendance,
-          created_at: data.created_at,
-          updated_at: data.updated_at
-        };
-        
-        console.log("✅ Today's transformed attendance:", transformedData);
-        return transformedData;
-      }
-    } catch (error) {
-      console.error("❌ Error in fetchTodayAttendance:", error);
-      showNotification('error', 'Unexpected error occurred while fetching today\'s attendance.');
-      return null;
-    }
-  };
-
-  const handleCheckIn = async () => {
-    if (!currentUser) return;
-
-    try {
-      // Get current time in Manila timezone
-      const now = new Date();
-      
-      // Create a proper Manila time representation
-      const manilaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
-      const today = manilaTime.toISOString().split('T')[0];
-      
-      // Store the time in a format that preserves Manila timezone info
-      // We'll store it as an ISO string but adjusted for Manila time
-      const manilaHours = manilaTime.getHours();
-      const manilaMinutes = manilaTime.getMinutes();
-      const manilaSeconds = manilaTime.getSeconds();
-      
-      // Create Manila time string in HH:MM:SS format (24-hour)
-      const manilaTimeString = `${manilaHours.toString().padStart(2, '0')}:${manilaMinutes.toString().padStart(2, '0')}:${manilaSeconds.toString().padStart(2, '0')}`;
-      
-      console.log('🕐 Check-in time details:');
-      console.log('  - UTC now:', now.toISOString());
-      console.log('  - Manila time object:', manilaTime.toString());
-      console.log('  - Manila hours:', manilaHours, '(should be 15 for 3 PM)');
-      console.log('  - Manila time string:', manilaTimeString);
-      console.log('  - Today (Manila):', today);
-
-      // Determine attendance status based on Manila time (assuming 8:00 AM is the standard time)
-      const standardTime = new Date(`${today}T08:00:00`);
-      const isLate = manilaTime > standardTime;
-      
-      console.log('📊 Status calculation:');
-      console.log('  - Check-in time (Manila):', manilaTime.toString());
-      console.log('  - Standard time (8 AM):', standardTime.toString());
-      console.log('  - Is late?', isLate);
-
-      const { data, error } = await supabase
-        .from("attendance")
-        .insert([
-          {
-            user_id: currentUser.id,
-            att_date: today, // Use correct field name
-            time_in: manilaTimeString, // Store as HH:MM:SS in Manila time
-            attendance: true, // Mark as present
-            created_at: now.toISOString()
-          }
-        ])
-        .select()
-        .single();
-        
-      console.log('💾 Stored in database:');
-      console.log('  - att_date:', today);
-      console.log('  - time_in:', manilaTimeString);
-      console.log('  - attendance:', true);
-
-      if (error) {
-        console.error("Error checking in:", error);
-        showNotification('error', "Error checking in. Please try again.");
-        return;
-      }
-
-      // Transform the returned data
-      const transformedData = {
-        id: data.id,
-        date: data.att_date,
-        check_in_time: data.time_in,
-        check_out_time: data.time_out,
-        user_id: data.user_id,
-        status: isLate ? "Late" : "Present",
-        att_date: data.att_date,
-        time_in: data.time_in,
-        time_out: data.time_out,
-        attendance: data.attendance,
-        created_at: data.created_at,
-        updated_at: data.updated_at
-      };
-
-      setTodayAttendance(transformedData);
-      setCanCheckIn(false);
-      setCanCheckOut(true);
-      
-      const statusText = isLate ? "Late" : "Present";
-      const formattedTime = formatPhilippineTime(data.time_in);
-      console.log('🎉 Check-in successful:');
-      console.log('  - Stored time_in:', data.time_in);
-      console.log('  - Formatted display:', formattedTime);
-      
-      showNotification('success', `Successfully checked in at ${formattedTime} - Status: ${statusText}`);
-      
-      // Refresh attendance data
-      const updatedData = await fetchAttendanceData(currentUser.id);
-      setAttendanceData(updatedData);
-    } catch (error) {
-      console.error("Error in handleCheckIn:", error);
-      showNotification('error', "Error checking in. Please try again.");
-    }
-  };
-
-  const handleCheckOut = async () => {
-    if (!currentUser || !todayAttendance) return;
-
-    try {
-      // Get current time in Manila timezone
-      const now = new Date();
-      const manilaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
-      
-      // Create Manila time string in HH:MM:SS format (24-hour)
-      const manilaHours = manilaTime.getHours();
-      const manilaMinutes = manilaTime.getMinutes();
-      const manilaSeconds = manilaTime.getSeconds();
-      const manilaTimeString = `${manilaHours.toString().padStart(2, '0')}:${manilaMinutes.toString().padStart(2, '0')}:${manilaSeconds.toString().padStart(2, '0')}`;
-      
-      console.log('🕐 Check-out time details:');
-      console.log('  - UTC now:', now.toISOString());
-      console.log('  - Manila time object:', manilaTime.toString());
-      console.log('  - Manila time string:', manilaTimeString);
-
-      const { data, error } = await supabase
-        .from("attendance")
-        .update({
-          time_out: manilaTimeString, // Store as HH:MM:SS in Manila time
-          updated_at: now.toISOString()
-        })
-        .eq("id", todayAttendance.id)
-        .select()
-        .single();
-        
-      console.log('💾 Updated in database:');
-      console.log('  - time_out:', manilaTimeString);
-
-      if (error) {
-        console.error("Error checking out:", error);
-        showNotification('error', "Error checking out. Please try again.");
-        return;
-      }
-
-      // Transform the returned data
-      const transformedData = {
-        id: data.id,
-        date: data.att_date,
-        check_in_time: data.time_in,
-        check_out_time: data.time_out,
-        user_id: data.user_id,
-        status: "Present", // Completed day
-        att_date: data.att_date,
-        time_in: data.time_in,
-        time_out: data.time_out,
-        attendance: data.attendance,
-        created_at: data.created_at,
-        updated_at: data.updated_at
-      };
-
-      setTodayAttendance(transformedData);
-      setCanCheckOut(false);
-      showNotification('success', `Successfully checked out at ${formatPhilippineTime(data.time_out)}`);
-      
-      // Refresh attendance data
-      const updatedData = await fetchAttendanceData(currentUser.id);
-      setAttendanceData(updatedData);
-    } catch (error) {
-      console.error("Error in handleCheckOut:", error);
-      showNotification('error', "An unexpected error occurred. Please try again.");
-    }
-  };
 
   const loadData = async () => {
     console.log("🚀 SA Attendance: Starting data load process...");
@@ -738,32 +457,16 @@ const SAAttendance = () => {
       console.log("✅ User data loaded, setting current user...");
       setCurrentUser(userData);
       
-      console.log("🔄 Fetching attendance and today's data in parallel...");
-      const [attendanceData, todayData] = await Promise.all([
-        fetchAttendanceData(userData.id),
-        fetchTodayAttendance(userData.id)
-      ]);
+      console.log("🔄 Fetching attendance data...");
+      const attendanceData = await fetchAttendanceData(userData.id);
       
       console.log("📊 Setting attendance data:", { 
-        attendanceCount: attendanceData.length, 
-        todayData: todayData ? 'found' : 'not found',
+        attendanceCount: attendanceData.length,
         userId: userData.id,
         userEmail: userData.email
       });
       
       setAttendanceData(attendanceData);
-      setTodayAttendance(todayData);
-      
-      // Set check-in/out availability
-      if (todayData) {
-        setCanCheckIn(false);
-        setCanCheckOut(!todayData.check_out_time);
-        console.log("✅ Today's attendance found - Check In:", false, "Check Out:", !todayData.check_out_time);
-      } else {
-        setCanCheckIn(true);
-        setCanCheckOut(false);
-        console.log("ℹ️ No today's attendance - Check In:", true, "Check Out:", false);
-      }
       
       console.log("✅ SA Attendance: Data load completed successfully");
       
@@ -782,38 +485,27 @@ const SAAttendance = () => {
     }
   };
 
+
+
   useEffect(() => {
     loadData();
-  }, [selectedMonth, selectedYear, dateRange, customStartDate, customEndDate]);
+  }, [selectedMonth, selectedYear]);
 
-  // Auto-refresh functionality
-  useEffect(() => {
-    if (!autoRefresh || !currentUser) return;
-
-    const interval = setInterval(() => {
-      loadData();
-    }, refreshInterval);
-
-    return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval, currentUser]);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Present":
-        return "bg-green-100 text-green-800";
-      case "Absent":
-        return "bg-red-100 text-red-800";
-      case "Late":
-        return "bg-yellow-100 text-yellow-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
+  // Auto-refresh functionality removed
 
   const calculateStats = () => {
-    const present = filteredAttendanceData.filter(record => record.status === "Present").length;
-    const absent = filteredAttendanceData.filter(record => record.status === "Absent").length;
-    const late = filteredAttendanceData.filter(record => record.status === "Late").length;
+    const present = filteredAttendanceData.filter(record => {
+      const status = record.attendance || record.status || "";
+      return status === "Present" || status === true;
+    }).length;
+    const absent = filteredAttendanceData.filter(record => {
+      const status = record.attendance || record.status || "";
+      return status === "Absent" || status === false;
+    }).length;
+    const late = filteredAttendanceData.filter(record => {
+      const status = record.attendance || record.status || "";
+      return status === "Late";
+    }).length;
     const total = filteredAttendanceData.length;
     const attendanceRate = total > 0 ? ((present + late) / total * 100).toFixed(1) : "0";
 
@@ -868,202 +560,7 @@ const SAAttendance = () => {
           </div>
         )}
 
-        {/* Dynamic Controls */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Filters & Controls</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-            {/* Search */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-              <input
-                type="text"
-                placeholder="Search by date or status..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-              />
-            </div>
 
-            {/* Status Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status Filter</label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-              >
-                <option value="All">All Status</option>
-                <option value="Present">Present</option>
-                <option value="Late">Late</option>
-                <option value="Absent">Absent</option>
-              </select>
-            </div>
-
-            {/* Date Range */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
-              <select
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value as 'week' | 'month' | 'custom')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-              >
-                <option value="week">This Week</option>
-                <option value="month">This Month</option>
-                <option value="custom">Custom Range</option>
-              </select>
-            </div>
-
-            {/* Auto Refresh */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Auto Refresh</label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={autoRefresh}
-                  onChange={(e) => setAutoRefresh(e.target.checked)}
-                  className="rounded border-gray-300 text-yellow-600 focus:ring-yellow-500"
-                />
-                <span className="text-sm text-gray-600">
-                  {autoRefresh ? `Every ${refreshInterval/1000}s` : 'Disabled'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Custom Date Range */}
-          {dateRange === 'custom' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={() => loadData()}
-              className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Refresh
-            </button>
-            
-            <button
-              onClick={exportToCSV}
-              disabled={isExporting || filteredAttendanceData.length === 0}
-              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-                isExporting || filteredAttendanceData.length === 0
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-green-600 text-white hover:bg-green-700'
-              }`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              {isExporting ? 'Exporting...' : 'Export CSV'}
-            </button>
-
-            <select
-              value={refreshInterval}
-              onChange={(e) => setRefreshInterval(parseInt(e.target.value))}
-              disabled={!autoRefresh}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent disabled:bg-gray-100"
-            >
-              <option value={15000}>15 seconds</option>
-              <option value={30000}>30 seconds</option>
-              <option value={60000}>1 minute</option>
-              <option value={300000}>5 minutes</option>
-            </select>
-
-            <button
-              onClick={testDatabaseConnection}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Test DB
-            </button>
-          </div>
-        </div>
-
-        {/* Check In/Out Section */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">Today's Attendance</h2>
-          
-          {todayAttendance ? (
-            <div className="bg-gray-50 rounded-lg p-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600">Status</p>
-                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(todayAttendance.status)}`}>
-                    {todayAttendance.status}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Check In</p>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {formatPhilippineTime(todayAttendance.check_in_time) !== "N/A" ? formatPhilippineTime(todayAttendance.check_in_time) : "Not checked in"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Check Out</p>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {formatPhilippineTime(todayAttendance.check_out_time) !== "N/A" ? formatPhilippineTime(todayAttendance.check_out_time) : "Not checked out"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <p className="text-yellow-800">No attendance record for today</p>
-            </div>
-          )}
-
-          <div className="flex gap-4 mt-6">
-            <button
-              onClick={handleCheckIn}
-              disabled={!canCheckIn}
-              className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
-                canCheckIn
-                  ? "bg-green-600 hover:bg-green-700 text-white"
-                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
-              }`}
-            >
-              Check In
-            </button>
-            <button
-              onClick={handleCheckOut}
-              disabled={!canCheckOut}
-              className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
-                canCheckOut
-                  ? "bg-red-600 hover:bg-red-700 text-white"
-                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
-              }`}
-            >
-              Check Out
-            </button>
-          </div>
-        </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -1128,15 +625,12 @@ const SAAttendance = () => {
         <div className="bg-white rounded-xl shadow-lg p-6">
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h2 className="text-2xl font-semibold text-gray-900">Attendance Records</h2>
+              <h2 className="text-2xl font-semibold text-gray-900">Class Schedule Attendance Records</h2>
               <p className="text-sm text-gray-600 mt-1">
-                Showing {filteredAttendanceData.length} of {attendanceData.length} records
-                {searchTerm && ` • Filtered by: "${searchTerm}"`}
-                {statusFilter !== "All" && ` • Status: ${statusFilter}`}
+                Showing {filteredAttendanceData.length} class attendance records
               </p>
             </div>
-            {dateRange === 'month' && (
-              <div className="flex gap-4">
+            <div className="flex gap-4">
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
@@ -1159,8 +653,7 @@ const SAAttendance = () => {
                     </option>
                   ))}
                 </select>
-              </div>
-            )}
+            </div>
           </div>
 
           {filteredAttendanceData.length > 0 ? (
@@ -1172,35 +665,79 @@ const SAAttendance = () => {
                       Date
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Subject
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Schedule
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Time In
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Time Out
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Check In
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Check Out
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredAttendanceData.map((record, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatPhilippineDate(record.date)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(record.status)}`}>
-                          {record.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatPhilippineTime(record.check_in_time)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatPhilippineTime(record.check_out_time)}
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredAttendanceData.map((record, index) => {
+                    const displayStatus = record.attendance || record.status || 'Unknown';
+                    const displayDate = record.att_date || record.date;
+                    const displayCheckIn = record.time_in || record.check_in_time;
+                    const displayCheckOut = record.time_out || record.check_out_time;
+                    
+                    return (
+                      <tr key={record.id || index} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatPhilippineDate(displayDate)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex flex-col">
+                            <span className="font-medium text-gray-800">
+                              {record.subject || 'N/A'}
+                            </span>
+                            {record.room && (
+                              <span className="text-xs text-gray-500">Room: {record.room}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex flex-col">
+                            <span className="font-medium text-gray-700 text-sm">
+                              {record.day_of_week || 'N/A'}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {formatPhilippineTime(record.start_time)} - {formatPhilippineTime(record.end_time)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                          {formatPhilippineTime(displayCheckIn)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                          {formatPhilippineTime(displayCheckOut)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            displayStatus === "Present"
+                              ? "bg-green-100 text-green-800"
+                              : displayStatus === "Late"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : displayStatus === "Absent"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}>
+                            {displayStatus === "Present" ? "✅ Present" : 
+                             displayStatus === "Late" ? "⏰ Late" :
+                             displayStatus === "Absent" ? "❌ Absent" : 
+                             displayStatus}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1209,16 +746,9 @@ const SAAttendance = () => {
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
               </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No attendance records</h3>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No class attendance records</h3>
               <p className="mt-1 text-sm text-gray-500">
-                {searchTerm || statusFilter !== "All" 
-                  ? "No records match your current filters. Try adjusting your search or filter criteria."
-                  : dateRange === 'week' 
-                    ? "No attendance records found for this week"
-                    : dateRange === 'custom'
-                      ? "No attendance records found for the selected date range"
-                      : `No attendance records found for ${months[selectedMonth]} ${selectedYear}`
-                }
+                No class attendance records found for {months[selectedMonth]} {selectedYear}
               </p>
             </div>
           )}

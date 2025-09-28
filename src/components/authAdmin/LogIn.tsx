@@ -35,11 +35,11 @@ export const LogIn = () => {
     let debugMsg = "";
     const userEmail = data.user?.email;
 
-    console.log("=== SA LOGIN DEBUG START ===");
+    console.log("=== LOGIN DEBUG START ===");
     console.log("User ID:", userId);
     console.log("User Email:", userEmail);
 
-    // SIMPLIFIED SA DETECTION WITH DETAILED LOGGING
+    // COMPREHENSIVE ROLE DETECTION WITH DETAILED LOGGING
     
     // Step 1: Check if there's any SA role in the roles table
     console.log("Step 1: Checking for SA roles in roles table...");
@@ -143,14 +143,100 @@ export const LogIn = () => {
       }
     }
 
-    // Step 4: For non-SA roles, continue with regular logic
+    // Step 4: COMPREHENSIVE GUARD DETECTION (similar to SA detection)
+    if (!userRole) {
+      console.log("Step 4: Comprehensive Guard role detection...");
+      
+      // 4a: Check if there's any Guard role in the roles table
+      console.log("Step 4a: Checking for Guard roles in roles table...");
+      const { data: allGuardRoles, error: guardRolesError } = await supabase
+        .from("roles")
+        .select("*")
+        .eq("role", "Guard");
+
+      console.log("Guard Roles found:", allGuardRoles);
+      console.log("Guard Roles error:", guardRolesError);
+
+      if (!guardRolesError && allGuardRoles && allGuardRoles.length > 0) {
+        console.log(`Found ${allGuardRoles.length} Guard role(s) in roles table`);
+        
+        // If there's exactly one Guard role, assume it's the current user
+        if (allGuardRoles.length === 1) {
+          console.log("Only one Guard role found - assuming current user is Guard");
+          userRole = "Guard";
+          debugMsg += `Single Guard role found in roles table, assuming current user\n`;
+          localStorage.setItem("user", JSON.stringify(data.session));
+          localStorage.setItem("role", userRole);
+          toast.success("Welcome Guard! Redirecting to dashboard...");
+          navigate("/Guard/dashboard");
+          return;
+        }
+        
+        // If multiple Guard roles, try to match by ID
+        const matchingRole = allGuardRoles.find(role => role.id === userId);
+        if (matchingRole) {
+          console.log("Found matching Guard role by ID");
+          userRole = "Guard";
+          debugMsg += `Guard role found in roles table by ID match: ${userId}\n`;
+          localStorage.setItem("user", JSON.stringify(data.session));
+          localStorage.setItem("role", userRole);
+          toast.success("Welcome Guard! Redirecting to dashboard...");
+          navigate("/Guard/dashboard");
+          return;
+        }
+      }
+
+      // 4b: Check users table by email for Guard role
+      if (userEmail) {
+        console.log("Step 4b: Checking for Guard role by email...");
+        const { data: guardByEmail, error: guardEmailError } = await supabase
+          .from("users")
+          .select("*")
+          .eq("email", userEmail)
+          .eq("role", "Guard")
+          .single();
+
+        console.log("Guard profile by email:", guardByEmail);
+        console.log("Guard profile by email error:", guardEmailError);
+
+        if (!guardEmailError && guardByEmail) {
+          console.log("Guard role found in users table by email");
+          userRole = "Guard";
+          debugMsg += `Guard role found in users table by email: ${userEmail}\n`;
+          
+          // Fix auth_id mismatch if needed
+          if (guardByEmail.auth_id !== userId) {
+            console.log("Fixing Guard auth_id mismatch...");
+            const { error: updateError } = await supabase
+              .from("users")
+              .update({ auth_id: userId })
+              .eq("id", guardByEmail.id);
+            
+            if (!updateError) {
+              console.log("Guard Auth ID fixed successfully");
+              debugMsg += `Auth ID fixed for Guard user\n`;
+            } else {
+              console.log("Failed to fix Guard auth ID:", updateError);
+            }
+          }
+          
+          localStorage.setItem("user", JSON.stringify(data.session));
+          localStorage.setItem("role", userRole);
+          toast.success("Welcome Guard! Authentication fixed. Redirecting to dashboard...");
+          navigate("/Guard/dashboard");
+          return;
+        }
+      }
+    }
+
+    // Step 5: For other non-SA roles, continue with regular logic
     if (!userRole && userProfile?.role) {
       userRole = userProfile.role;
       debugMsg += `Role found in users table: ${userRole}\n`;
       console.log("Non-SA role found:", userRole);
     }
 
-    console.log("=== SA LOGIN DEBUG END ===");
+    console.log("=== LOGIN DEBUG END ===");
     console.log("Final userRole:", userRole);
 
     // If still no role found, show error

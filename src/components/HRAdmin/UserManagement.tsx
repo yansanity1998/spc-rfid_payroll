@@ -11,6 +11,20 @@ export const UserManagement = () => {
   const [editingRfid, setEditingRfid] = useState(false);
   const [newRfid, setNewRfid] = useState("");
   const [sortBy, setSortBy] = useState("All");
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [selectedUserInfo, setSelectedUserInfo] = useState<any>(null);
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (showInfoModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showInfoModal]);
 
   // Color coding system for employee types
   const getEmployeeTypeColor = (role: string) => {
@@ -47,9 +61,16 @@ export const UserManagement = () => {
     schoolYear: "",
     hiredDate: "",
     department: "",
+    age: "",
+    gender: "",
+    address: "",
+    contact_no: "",
+    positions: "",
+    profile_picture: null as File | null,
   });
 
   const [editUser, setEditUser] = useState<any | null>(null);
+
 
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
@@ -91,6 +112,20 @@ export const UserManagement = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Debug: Check form state before showing RFID scanner
+    console.log('=== FORM SUBMISSION DEBUG ===');
+    console.log('Current newUser state at form submission:', newUser);
+    console.log('Form validation:');
+    console.log('- Name filled:', !!newUser.name, '"' + newUser.name + '"');
+    console.log('- Email filled:', !!newUser.email, '"' + newUser.email + '"');
+    console.log('- Age filled:', !!newUser.age, '"' + newUser.age + '"');
+    console.log('- Gender filled:', !!newUser.gender, '"' + newUser.gender + '"');
+    console.log('- Address filled:', !!newUser.address, '"' + newUser.address + '"');
+    console.log('- Contact filled:', !!newUser.contact_no, '"' + newUser.contact_no + '"');
+    console.log('- Position filled:', !!newUser.positions, '"' + newUser.positions + '"');
+    console.log('- Profile picture:', newUser.profile_picture ? 'File selected: ' + newUser.profile_picture.name : 'No file');
+    
     // Show RFID scanner modal
     setScanningRfid(true);
   };
@@ -132,6 +167,12 @@ export const UserManagement = () => {
     console.log("- role:", `"${newUser.role}"`);
     console.log("- department:", `"${newUser.department}"`);
     console.log("- hiredDate:", `"${newUser.hiredDate}"`);
+    console.log("- age:", `"${newUser.age}"`);
+    console.log("- gender:", `"${newUser.gender}"`);
+    console.log("- address:", `"${newUser.address}"`);
+    console.log("- contact_no:", `"${newUser.contact_no}"`);
+    console.log("- positions:", `"${newUser.positions}"`);
+    console.log("- profile_picture:", newUser.profile_picture ? 'File selected' : 'No file');
 
     // Check if required fields are filled
     if (!newUser.name || !newUser.email) {
@@ -142,7 +183,7 @@ export const UserManagement = () => {
     }
 
 
-    // Prepare payload with only the remaining fields
+    // Prepare payload with all fields including new ones
     const payload = {
       rfid_id: Number(scannedCard),
       name: newUser.name,
@@ -155,6 +196,11 @@ export const UserManagement = () => {
         newUser.role === "Faculty" || newUser.role === "SA"
           ? newUser.department
           : null,
+      age: newUser.age ? parseInt(newUser.age) : null,
+      gender: newUser.gender || null,
+      address: newUser.address || null,
+      contact_no: newUser.contact_no || null,
+      positions: (newUser.role === "Faculty" || newUser.role === "SA" || newUser.role === "Staff") ? newUser.positions : null,
       status: "Active",
       password: "ChangePassword",
     };
@@ -166,6 +212,11 @@ export const UserManagement = () => {
     console.log("- email:", payload.email, typeof payload.email);
     console.log("- role:", payload.role, typeof payload.role);
     console.log("- department:", payload.department, typeof payload.department);
+    console.log("- age:", payload.age, typeof payload.age);
+    console.log("- gender:", payload.gender, typeof payload.gender);
+    console.log("- address:", payload.address, typeof payload.address);
+    console.log("- contact_no:", payload.contact_no, typeof payload.contact_no);
+    console.log("- positions:", payload.positions, typeof payload.positions);
     console.log("=== END DEBUG ===");
 
     try {
@@ -205,28 +256,92 @@ export const UserManagement = () => {
       const userId = data.user?.id || data.id || data.user_id;
       console.log('Extracted User ID:', userId);
 
-      // Update user with additional fields and profile image
+      // Update user with all additional fields including profile picture
       if (userId) {
         console.log('User created with ID:', userId);
-        const updateData: any = {};
+        const updateData: any = {
+          // Add all the new fields that Edge Function might not handle
+          age: newUser.age ? parseInt(newUser.age) : null,
+          gender: newUser.gender || null,
+          address: newUser.address || null,
+          contact_no: newUser.contact_no || null,
+          positions: (newUser.role === "Faculty" || newUser.role === "SA" || newUser.role === "Staff") ? newUser.positions : null,
+        };
         
-        
-        // Note: Edge Function now handles all fields directly, only profile picture needs separate upload
+        // Handle profile picture upload
+        if (newUser.profile_picture) {
+          try {
+            const fileExt = newUser.profile_picture.name.split('.').pop();
+            const fileName = `${userId}.${fileExt}`;
+            const filePath = `profile-pictures/${fileName}`;
+            
+            console.log('Uploading profile picture:', filePath);
+            
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('profile-pictures')
+              .upload(filePath, newUser.profile_picture, {
+                cacheControl: '3600',
+                upsert: true
+              });
+              
+            if (uploadError) {
+              console.error('Profile picture upload error:', uploadError);
+              toast.error('Failed to upload profile picture: ' + uploadError.message);
+            } else {
+              console.log('Profile picture uploaded successfully:', uploadData);
+              
+              // Get public URL
+              const { data: { publicUrl } } = supabase.storage
+                .from('profile-pictures')
+                .getPublicUrl(filePath);
+                
+              updateData.profile_picture = publicUrl;
+              console.log('Profile picture URL:', publicUrl);
+            }
+          } catch (error: any) {
+            console.error('Profile picture upload error:', error);
+            toast.error('Failed to upload profile picture: ' + error.message);
+          }
+        }
         
         console.log('Update data to be saved:', updateData);
         console.log('User ID for update:', userId);
         console.log('Update data keys:', Object.keys(updateData));
+        console.log('All field values:', {
+          age: updateData.age,
+          gender: updateData.gender,
+          address: updateData.address,
+          contact_no: updateData.contact_no,
+          positions: updateData.positions,
+          profile_picture: updateData.profile_picture
+        });
         
         // Update user record with additional fields
         if (Object.keys(updateData).length > 0) {
+          console.log('=== ATTEMPTING DATABASE UPDATE ===');
+          console.log('Update query details:');
+          console.log('- Table: users');
+          console.log('- User ID:', userId);
+          console.log('- Update data:', JSON.stringify(updateData, null, 2));
+          
           const { data: updateResult, error: updateError } = await supabase
             .from('users')
             .update(updateData)
             .eq('id', userId)
             .select();
             
+          console.log('=== DATABASE UPDATE RESULT ===');
+          console.log('- Error:', updateError);
+          console.log('- Result:', updateResult);
+          
           if (updateError) {
             console.error('Error updating user with additional fields:', updateError);
+            console.error('Error details:', {
+              message: updateError.message,
+              details: updateError.details,
+              hint: updateError.hint,
+              code: updateError.code
+            });
             toast.error('User created but failed to save additional information: ' + updateError.message);
             
             // Try to verify what was actually saved
@@ -275,10 +390,50 @@ export const UserManagement = () => {
           const foundUserId = foundUsers[0].id;
           console.log('Found user by email with ID:', foundUserId);
           
-          const updateData: any = {};
+          const updateData: any = {
+            // Add all the new fields that Edge Function might not handle
+            age: newUser.age ? parseInt(newUser.age) : null,
+            gender: newUser.gender || null,
+            address: newUser.address || null,
+            contact_no: newUser.contact_no || null,
+            positions: (newUser.role === "Faculty" || newUser.role === "SA" || newUser.role === "Staff") ? newUser.positions : null,
+          };
           
+          // Handle profile picture upload for fallback user
+          if (newUser.profile_picture) {
+            try {
+              const fileExt = newUser.profile_picture.name.split('.').pop();
+              const fileName = `${foundUserId}.${fileExt}`;
+              const filePath = `profile-pictures/${fileName}`;
+              
+              console.log('Uploading profile picture for fallback user:', filePath);
+              
+              const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('profile-pictures')
+                .upload(filePath, newUser.profile_picture, {
+                  cacheControl: '3600',
+                  upsert: true
+                });
+                
+              if (uploadError) {
+                console.error('Fallback profile picture upload error:', uploadError);
+              } else {
+                console.log('Fallback profile picture uploaded successfully:', uploadData);
+                
+                // Get public URL
+                const { data: { publicUrl } } = supabase.storage
+                  .from('profile-pictures')
+                  .getPublicUrl(filePath);
+                  
+                updateData.profile_picture = publicUrl;
+                console.log('Fallback profile picture URL:', publicUrl);
+              }
+            } catch (error: any) {
+              console.error('Fallback profile picture upload error:', error);
+            }
+          }
           
-          // Note: Edge Function now handles all fields directly, only profile picture needs separate upload
+          console.log('Fallback update data:', updateData);
           
           if (Object.keys(updateData).length > 0) {
             const { error: updateError } = await supabase
@@ -318,6 +473,12 @@ export const UserManagement = () => {
         schoolYear: "",
         hiredDate: "",
         department: "",
+        age: "",
+        gender: "",
+        address: "",
+        contact_no: "",
+        positions: "",
+        profile_picture: null,
       });
       fetchUsers();
     } catch (err: any) {
@@ -334,9 +495,8 @@ export const UserManagement = () => {
     e.preventDefault();
     if (!editUser) return;
 
-    const { error } = await supabase
-      .from("users")
-      .update({
+    try {
+      const updateData: any = {
         name: editUser.name,
         email: editUser.email,
         role: editUser.role,
@@ -345,15 +505,66 @@ export const UserManagement = () => {
         schoolYear: editUser.schoolYear,
         hiredDate: editUser.hiredDate,
         department: editUser.department,
-      })
-      .eq("id", editUser.id);
+        age: editUser.age ? parseInt(editUser.age) : null,
+        gender: editUser.gender || null,
+        address: editUser.address || null,
+        contact_no: editUser.contact_no || null,
+        positions: (editUser.role === "Faculty" || editUser.role === "SA" || editUser.role === "Staff") ? editUser.positions : null,
+      };
 
-    if (error) {
-      alert(error.message);
-    } else {
-      showEdit(false);
-      setEditUser(null);
-      fetchUsers();
+      // Handle profile picture upload if a new one was selected
+      if (editUser.newProfilePicture) {
+        try {
+          const fileExt = editUser.newProfilePicture.name.split('.').pop();
+          const fileName = `${editUser.id}.${fileExt}`;
+          const filePath = `profile-pictures/${fileName}`;
+          
+          console.log('Uploading new profile picture:', filePath);
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('profile-pictures')
+            .upload(filePath, editUser.newProfilePicture, {
+              cacheControl: '3600',
+              upsert: true
+            });
+            
+          if (uploadError) {
+            console.error('Profile picture upload error:', uploadError);
+            toast.error('Failed to upload profile picture: ' + uploadError.message);
+          } else {
+            console.log('Profile picture uploaded successfully:', uploadData);
+            
+            // Get public URL
+            const { data: { publicUrl } } = supabase.storage
+              .from('profile-pictures')
+              .getPublicUrl(filePath);
+              
+            updateData.profile_picture = publicUrl;
+            console.log('New profile picture URL:', publicUrl);
+          }
+        } catch (error: any) {
+          console.error('Profile picture upload error:', error);
+          toast.error('Failed to upload profile picture: ' + error.message);
+        }
+      }
+
+      const { error } = await supabase
+        .from("users")
+        .update(updateData)
+        .eq("id", editUser.id);
+
+      if (error) {
+        console.error('User update error:', error);
+        toast.error('Failed to update user: ' + error.message);
+      } else {
+        toast.success('User updated successfully!');
+        showEdit(false);
+        setEditUser(null);
+        fetchUsers();
+      }
+    } catch (err: any) {
+      console.error('User update error:', err);
+      toast.error('Failed to update user: ' + err.message);
     }
   };
 
@@ -460,9 +671,12 @@ export const UserManagement = () => {
             <table className="min-w-full border-collapse text-sm">
               <thead className="bg-gradient-to-r from-red-600 to-red-700 text-white sticky top-0 z-10">
                 <tr>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Profile</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Name</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Email</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Employee Type</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Position</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Information</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Department</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Hired Date</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Status</th>
@@ -473,6 +687,21 @@ export const UserManagement = () => {
                 {currentUsers.length > 0 ? (
                   currentUsers.map((user) => (
                     <tr key={user.id} className="hover:bg-white/80 transition-all duration-200 group">
+                      <td className="px-3 py-3 border-b border-gray-200">
+                        <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
+                          {user.profile_picture ? (
+                            <img
+                              src={user.profile_picture}
+                              alt={user.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-3 py-3 border-b border-gray-200">
                         <div className="flex flex-col">
                           <span className="font-semibold text-gray-800 text-sm">{user.name || 'No Name'}</span>
@@ -485,6 +714,23 @@ export const UserManagement = () => {
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium shadow-sm ${getEmployeeTypeColor(user.role).split(' ').slice(2).join(' ')}`}>
                           {user.role || 'No Role Assigned'}
                         </span>
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
+                        {user.positions || '--'}
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200">
+                        <button
+                          onClick={() => {
+                            setSelectedUserInfo(user);
+                            setShowInfoModal(true);
+                          }}
+                          className="px-3 py-1.5 bg-white border border-red-800 text-red-800 rounded-md hover:bg-red-50 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-1"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Info
+                        </button>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
                         {user.department || '--'}
@@ -533,7 +779,7 @@ export const UserManagement = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7} className="text-center py-12">
+                    <td colSpan={9} className="text-center py-12">
                       <div className="flex flex-col items-center gap-4">
                         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
                           <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -743,6 +989,129 @@ export const UserManagement = () => {
                 </div>
               )}
               
+              {/* Profile Picture Upload */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Profile Picture</label>
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center border-2 border-dashed border-gray-300">
+                    {newUser.profile_picture ? (
+                      <img
+                        src={URL.createObjectURL(newUser.profile_picture)}
+                        alt="Preview"
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setNewUser({ ...newUser, profile_picture: file });
+                        }
+                      }}
+                      className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Upload a profile picture (JPG, PNG, etc.)</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Positions Field - Conditional based on role */}
+              {(newUser.role === "Faculty" || newUser.role === "SA" || newUser.role === "Staff") && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Position</label>
+                  <select
+                    value={newUser.positions}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, positions: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                    required
+                  >
+                    <option value="">-- Select Position --</option>
+                    {newUser.role === "Faculty" && (
+                      <>
+                        <option value="Dean">Dean</option>
+                        <option value="Program Head">Program Head</option>
+                        <option value="Full Time">Full Time</option>
+                        <option value="Part Time">Part Time</option>
+                      </>
+                    )}
+                    {(newUser.role === "SA" || newUser.role === "Staff") && (
+                      <>
+                        <option value="Full Time">Full Time</option>
+                        <option value="Part Time">Part Time</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+              )}
+              
+              {/* Personal Information */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Age</label>
+                <input
+                  type="number"
+                  value={newUser.age}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, age: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  placeholder="Enter age"
+                  min="18"
+                  max="100"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Gender</label>
+                <select
+                  value={newUser.gender}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, gender: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                >
+                  <option value="">-- Select Gender --</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Contact Number</label>
+                <input
+                  type="tel"
+                  value={newUser.contact_no}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, contact_no: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  placeholder="Enter contact number"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Address</label>
+                <textarea
+                  value={newUser.address}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, address: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 resize-none"
+                  placeholder="Enter full address"
+                  rows={3}
+                />
+              </div>
+              
             </div>
 
             {/* Modern Modal Buttons */}
@@ -921,10 +1290,14 @@ export const UserManagement = () => {
                         <option value="Dean">Dean</option>
                         <option value="Program Head">Program Head</option>
                         <option value="Full Time">Full Time</option>
+                        <option value="Part Time">Part Time</option>
                       </>
                     )}
                     {(editUser.role === "SA" || editUser.role === "Staff") && (
-                      <option value="Full Time">Full Time</option>
+                      <>
+                        <option value="Full Time">Full Time</option>
+                        <option value="Part Time">Part Time</option>
+                      </>
                     )}
                   </select>
                 </div>
@@ -1177,6 +1550,151 @@ export const UserManagement = () => {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Modern Information Modal */}
+      {showInfoModal && selectedUserInfo && (
+        <div className="fixed inset-0 backdrop-blur-md bg-black/60 z-[60] flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white border border-gray-200 shadow-2xl rounded-2xl overflow-hidden transform transition-all duration-300 scale-100 sticky">
+            {/* Modern Header with Red Gradient */}
+            <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-red-600/20 to-red-700/20 backdrop-blur-sm"></div>
+              <div className="relative z-10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-white">Employee Information</h2>
+                      <p className="text-red-100 text-sm">{selectedUserInfo.name}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowInfoModal(false);
+                      setSelectedUserInfo(null);
+                    }}
+                    className="w-10 h-10 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center transition-all duration-200 group"
+                  >
+                    <svg className="w-5 h-5 text-white group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Modern Content Area */}
+            <div className="p-4 bg-gradient-to-br from-gray-50 to-white">
+              <div className="grid grid-cols-1 gap-3">
+                {/* Age Card */}
+                <div className="group bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:shadow-lg transition-all duration-300 hover:border-red-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-red-300 rounded-md flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-300">
+                        <svg className="w-4 h-4 text-red-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 0V6a2 2 0 012-2h4a2 2 0 012 2v1m-6 0h8m-8 0H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-2" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-800">Age</h3>
+                        <p className="text-xs text-gray-500">Years old</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-lg font-bold text-gray-800">{selectedUserInfo.age || '--'}</span>
+                      {!selectedUserInfo.age && <p className="text-xs text-gray-400 mt-1">Not specified</p>}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Gender Card */}
+                <div className="group bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:shadow-lg transition-all duration-300 hover:border-red-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-red-300 rounded-md flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-300">
+                        <svg className="w-4 h-4 text-red-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-800">Gender</h3>
+                        <p className="text-xs text-gray-500">Identity</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-semibold text-gray-800">{selectedUserInfo.gender || 'Not specified'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contact Number Card */}
+                <div className="group bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:shadow-lg transition-all duration-300 hover:border-red-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-red-300 rounded-md flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-300">
+                        <svg className="w-4 h-4 text-red-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-800">Contact Number</h3>
+                        <p className="text-xs text-gray-500">Phone</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-semibold text-gray-800">{selectedUserInfo.contact_no || 'Not specified'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Address Card */}
+                <div className="group bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:shadow-lg transition-all duration-300 hover:border-red-200">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-red-300 rounded-md flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-300 flex-shrink-0">
+                      <svg className="w-4 h-4 text-red-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-bold text-gray-800 mb-1">Address</h3>
+                      <p className="text-xs text-gray-500 mb-1">Home location</p>
+                      <div className="bg-gray-50 rounded-md p-2 border border-gray-100">
+                        <p className="text-sm text-gray-800 leading-relaxed">
+                          {selectedUserInfo.address || 'Not specified'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modern Footer */}
+            <div className="bg-gradient-to-r from-gray-100 to-gray-50 px-4 py-3 border-t border-gray-200">
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowInfoModal(false);
+                    setSelectedUserInfo(null);
+                  }}
+                  className="group relative overflow-hidden bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-2 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Close Information
+                  <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

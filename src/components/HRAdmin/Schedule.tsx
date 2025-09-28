@@ -7,6 +7,9 @@ interface User {
   name: string;
   email: string;
   role: string;
+  profile_picture?: string;
+  first_name?: string;
+  last_name?: string;
 }
 
 interface Schedule {
@@ -31,6 +34,10 @@ const Schedule: React.FC = () => {
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
   
+  // Enhanced user selection states
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  
   // RFID Scanner states
   const [showScanner, setShowScanner] = useState(false);
   const [scannedCard, setScannedCard] = useState('');
@@ -46,6 +53,8 @@ const Schedule: React.FC = () => {
     title: '',
     message: '',
     userName: '',
+    userRole: '',
+    profilePicture: '',
     subject: '',
     room: '',
     status: '',
@@ -173,6 +182,8 @@ const Schedule: React.FC = () => {
     title: string, 
     message: string, 
     userName: string = '', 
+    userRole: string = '',
+    profilePicture: string = '',
     subject: string = '', 
     room: string = '', 
     status: string = '', 
@@ -190,6 +201,8 @@ const Schedule: React.FC = () => {
       title,
       message,
       userName,
+      userRole,
+      profilePicture,
       subject,
       room,
       status,
@@ -294,20 +307,23 @@ const Schedule: React.FC = () => {
       console.log('All users from database:', allUsers);
       console.log('Total users found:', allUsers?.length || 0);
 
-      // Filter for Faculty and SA users (case-insensitive)
+      // Filter for Faculty and SA users (case-insensitive) and format the data
       const filteredUsers = allUsers?.filter(user => {
         if (!user.role) return false;
         const role = user.role.toString().trim().toLowerCase();
         const isMatch = role === 'faculty' || role === 'sa';
         console.log(`User ${user.first_name} ${user.last_name} has role: "${user.role}" (${role}) - Match: ${isMatch}`);
         return isMatch;
-      }) || [];
+      }).map(user => ({
+        ...user,
+        name: user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown User'
+      })) || [];
 
       console.log('Filtered Faculty/SA users:', filteredUsers);
       console.log('Filtered users count:', filteredUsers.length);
 
-      // Sort by first name
-      filteredUsers.sort((a, b) => (a.first_name || '').localeCompare(b.first_name || ''));
+      // Sort by name
+      filteredUsers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
       setUsers(filteredUsers);
       
@@ -802,7 +818,7 @@ const Schedule: React.FC = () => {
       console.log('🔍 Step 1: Looking for user with card ID:', cardId);
       const { data: user, error: userError } = await supabase
         .from('users')
-        .select('id, name, role')
+        .select('id, name, role, profile_picture')
         .eq('id', cardId)
         .maybeSingle();
         
@@ -812,7 +828,7 @@ const Schedule: React.FC = () => {
       }
       if (!user) {
         console.log('❌ No user found for card:', cardId);
-        showModernAlert('error', 'Card Not Found', `No user found for card ${cardId}`, '', '', '', '', 'error');
+        showModernAlert('error', 'Card Not Found', `No user found for card ${cardId}`, '', '', '', '', '', '', 'error');
         return;
       }
       
@@ -831,7 +847,7 @@ const Schedule: React.FC = () => {
         console.log('❌ No schedule found for today');
         console.log('📅 Current day:', currentDay, 'Current time:', currentTime);
         console.log('📅 User schedules:', schedules.filter(s => s.user_id === user.id));
-        showModernAlert('error', 'No Schedule Found', `No class schedule for ${currentDay}`, user.name, '', '', `Current time: ${formatPhilippineTime(currentTime)}`, 'error');
+        showModernAlert('error', 'No Schedule Found', `No class schedule for ${currentDay}`, user.name, user.role || '', user.profile_picture || '', '', '', `Current time: ${formatPhilippineTime(currentTime)}`, 'error');
         return;
       }
       
@@ -847,7 +863,7 @@ const Schedule: React.FC = () => {
         
         if (earlySchedules.length > 0) {
           const nextSchedule = earlySchedules[0];
-          showModernAlert('error', 'Too Early!', `Class starts at ${formatPhilippineTime(nextSchedule.start_time)}`, user.name, nextSchedule.subject || 'N/A', nextSchedule.room || 'N/A', `Current time: ${formatPhilippineTime(currentTime)}`, 'error');
+          showModernAlert('error', 'Too Early!', `Class starts at ${formatPhilippineTime(nextSchedule.start_time)}`, user.name, user.role || '', user.profile_picture || '', nextSchedule.subject || 'N/A', nextSchedule.room || 'N/A', `Current time: ${formatPhilippineTime(currentTime)}`, 'error');
         } else if (lateSchedules.length > 0) {
           // Mark all ended schedules as absent if not already recorded
           for (const schedule of lateSchedules) {
@@ -863,7 +879,7 @@ const Schedule: React.FC = () => {
               await createAbsentRecord(user, schedule, today);
             }
           }
-          showModernAlert('error', 'Classes Ended!', 'Marked as ABSENT for missed classes', user.name, '', '', `Current time: ${formatPhilippineTime(currentTime)}`, 'error');
+          showModernAlert('error', 'Classes Ended!', 'Marked as ABSENT for missed classes', user.name, user.role || '', user.profile_picture || '', '', '', `Current time: ${formatPhilippineTime(currentTime)}`, 'error');
         }
         return;
       }
@@ -982,18 +998,18 @@ const Schedule: React.FC = () => {
           
           if (currentRecord?.time_out && !currentRecord?.status) {
             // Time Out recorded
-            showModernAlert('error', 'Time Out Successful', 'Your departure has been recorded.', user.name, schedule.subject || 'N/A', schedule.room || 'N/A', 'Checked Out', 'time_out');
+            showModernAlert('error', 'Time Out Successful', 'Your departure has been recorded.', user.name, user.role || '', user.profile_picture || '', schedule.subject || 'N/A', schedule.room || 'N/A', 'Checked Out', 'time_out');
           } else if (currentRecord?.status) {
             // Time In recorded (first time or again)
             const action = currentRecord?.time_out ? 'Time In Again' : 'Time In';
             const statusText = currentRecord?.attendance === 'Late' ? 'Late' : currentRecord?.attendance === 'Present' ? 'Present' : 'Checked In';
-            showModernAlert('success', `${action} Successful`, 'Your attendance has been recorded.', user.name, schedule.subject || 'N/A', schedule.room || 'N/A', statusText, 'time_in');
+            showModernAlert('success', `${action} Successful`, 'Your attendance has been recorded.', user.name, user.role || '', user.profile_picture || '', schedule.subject || 'N/A', schedule.room || 'N/A', statusText, 'time_in');
           }
         } else {
-          showModernAlert('success', 'Multiple Classes Updated', `${recordedCount} attendance actions recorded successfully!`, user.name, 'Multiple Subjects', '', 'Updated', 'time_in');
+          showModernAlert('success', 'Multiple Classes Updated', `${recordedCount} attendance actions recorded successfully!`, user.name, user.role || '', user.profile_picture || '', 'Multiple Subjects', '', 'Updated', 'time_in');
         }
       } else if (alreadyRecordedCount > 0) {
-        showModernAlert('info', 'No New Actions', `${alreadyRecordedCount} subject(s) already processed`, user.name, '', '', 'Already Processed', 'info');
+        showModernAlert('info', 'No New Actions', `${alreadyRecordedCount} subject(s) already processed`, user.name, user.role || '', user.profile_picture || '', '', '', 'Already Processed', 'info');
       }
       
     } catch (error: any) {
@@ -1021,7 +1037,7 @@ const Schedule: React.FC = () => {
         errorMessage = 'Class attendance table does not exist. Please run the SQL script to create it.';
       }
       
-      showModernAlert('error', 'System Error', errorMessage, '', '', '', '', 'error');
+      showModernAlert('error', 'System Error', errorMessage, '', '', '', '', '', '', 'error');
     } finally {
       setScannerLoading(false);
       setScannedCard(''); // Clear input for next scan
@@ -1038,6 +1054,51 @@ const Schedule: React.FC = () => {
 
 
   const selectedUserData = users.find(user => user.id.toString() === selectedUser);
+
+  // Enhanced user selection helper functions
+  const filteredUsers = users.filter(user => {
+    if (!userSearchTerm) return true;
+    const searchLower = userSearchTerm.toLowerCase();
+    return (
+      user.name?.toLowerCase().includes(searchLower) ||
+      user.email?.toLowerCase().includes(searchLower) ||
+      user.role?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  const getRoleColor = (role: string) => {
+    switch (role?.toLowerCase()) {
+      case 'faculty':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'sa':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'administrator':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'hr personnel':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'accounting':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'guard':
+        return 'bg-teal-100 text-teal-800 border-teal-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getUserInitials = (name: string) => {
+    if (!name) return '??';
+    const names = name.split(' ');
+    if (names.length >= 2) {
+      return (names[0][0] + names[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const handleUserSelect = (userId: string) => {
+    setSelectedUser(userId);
+    setShowUserDropdown(false);
+    setUserSearchTerm('');
+  };
 
   return (
     <div className="flex-1 p-6 lg:ml-70 bg-gray-50 min-h-screen">
@@ -1201,7 +1262,7 @@ const Schedule: React.FC = () => {
                       console.log('🔍 DEBUG: All users:', users);
                       console.log('🔍 DEBUG: Current date:', getRealTimeFullDate());
                       console.log('🔍 DEBUG: Current time:', getRealTimeWithSeconds());
-                      showModernAlert('info', 'Debug Info', 'Debug information logged to console', '', '', '', '', 'info');
+                      showModernAlert('info', 'Debug Info', 'Debug information logged to console', '', '', '', '', '', '', 'info');
                     }}
                     className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-sm rounded-lg transition-colors"
                   >
@@ -1211,7 +1272,7 @@ const Schedule: React.FC = () => {
                     onClick={async () => {
                       console.log('🔍 Manually checking for absent schedules...');
                       await checkAndMarkAbsentSchedules();
-                      showModernAlert('info', 'Absent Check Complete', 'Checked all schedules and marked absent users', '', '', '', '', 'info');
+                      showModernAlert('info', 'Absent Check Complete', 'Checked all schedules and marked absent users', '', '', '', '', '', '', 'info');
                     }}
                     className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-white text-sm rounded-lg transition-colors"
                   >
@@ -1303,36 +1364,215 @@ const Schedule: React.FC = () => {
         )}
 
 
-        {/* User Selection */}
+        {/* Enhanced User Selection */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Select User</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Choose Faculty or SA User
-              </label>
-              <select
-                value={selectedUser}
-                onChange={(e) => setSelectedUser(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select a user...</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.name} ({user.role}) - {user.email}
-                  </option>
-                ))}
-              </select>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+              </svg>
             </div>
-            {selectedUserData && (
-              <div className="bg-blue-50 rounded-lg p-4">
-                <h3 className="font-medium text-blue-900">Selected User:</h3>
-                <p className="text-blue-800">
-                  {selectedUserData.name}
-                </p>
-                <p className="text-blue-600 text-sm">
-                  {selectedUserData.role} • {selectedUserData.email}
-                </p>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Select User</h2>
+              <p className="text-sm text-gray-600">Choose a Faculty or SA user to manage their schedule</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Custom Dropdown */}
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Search and Select User
+              </label>
+              
+              {/* Search Input */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search by name, email, or role..."
+                  value={userSearchTerm}
+                  onChange={(e) => {
+                    setUserSearchTerm(e.target.value);
+                    setShowUserDropdown(true);
+                  }}
+                  onFocus={() => setShowUserDropdown(true)}
+                  className="w-full p-3 pl-10 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                {userSearchTerm && (
+                  <button
+                    onClick={() => {
+                      setUserSearchTerm('');
+                      setShowUserDropdown(false);
+                    }}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    <svg className="h-4 w-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+
+              {/* Dropdown Results */}
+              {showUserDropdown && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                  {loading ? (
+                    <div className="p-4 text-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                      <p className="text-sm text-gray-500 mt-2">Loading users...</p>
+                    </div>
+                  ) : filteredUsers.length === 0 ? (
+                    <div className="p-4 text-center">
+                      <svg className="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                      </svg>
+                      <p className="text-sm text-gray-500">No users found</p>
+                      <p className="text-xs text-gray-400">Try adjusting your search terms</p>
+                    </div>
+                  ) : (
+                    <div className="py-2">
+                      {filteredUsers.map((user) => (
+                        <button
+                          key={user.id}
+                          onClick={() => handleUserSelect(user.id.toString())}
+                          className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors duration-150 flex items-center gap-3 ${
+                            selectedUser === user.id.toString() ? 'bg-blue-50 border-r-2 border-blue-500' : ''
+                          }`}
+                        >
+                          {/* User Avatar */}
+                          <div className="flex-shrink-0">
+                            {user.profile_picture ? (
+                              <img
+                                src={user.profile_picture}
+                                alt={user.name}
+                                className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-medium text-sm">
+                                {getUserInitials(user.name)}
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* User Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {user.name}
+                              </p>
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getRoleColor(user.role)}`}>
+                                {user.role}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 truncate">
+                              {user.email}
+                            </p>
+                          </div>
+                          
+                          {/* Selection Indicator */}
+                          {selectedUser === user.id.toString() && (
+                            <div className="flex-shrink-0">
+                              <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Click outside to close dropdown */}
+              {showUserDropdown && (
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowUserDropdown(false)}
+                />
+              )}
+            </div>
+
+            {/* Selected User Display */}
+            {selectedUserData ? (
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
+                <div className="flex items-center gap-4 mb-4">
+                  {/* User Avatar */}
+                  <div className="flex-shrink-0">
+                    {selectedUserData.profile_picture ? (
+                      <img
+                        src={selectedUserData.profile_picture}
+                        alt={selectedUserData.name}
+                        className="w-16 h-16 rounded-full object-cover border-3 border-white shadow-lg"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                        {getUserInitials(selectedUserData.name)}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* User Info */}
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">
+                      {selectedUserData.name}
+                    </h3>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getRoleColor(selectedUserData.role)}`}>
+                        {selectedUserData.role}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      {selectedUserData.email}
+                    </p>
+                  </div>
+                  
+                  {/* Clear Selection Button */}
+                  <button
+                    onClick={() => {
+                      setSelectedUser('');
+                      setUserSearchTerm('');
+                      setShowUserDropdown(false);
+                    }}
+                    className="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 hover:bg-white rounded-lg transition-colors duration-200"
+                    title="Clear selection"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                {/* Quick Stats */}
+                <div className="bg-white bg-opacity-60 rounded-lg p-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Ready to manage schedule</span>
+                    <div className="flex items-center gap-1 text-green-600">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="font-medium">Selected</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 rounded-xl p-6 border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-center">
+                <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mb-3">
+                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <h3 className="text-sm font-medium text-gray-900 mb-1">No User Selected</h3>
+                <p className="text-xs text-gray-500">Search and select a user to manage their schedule</p>
               </div>
             )}
           </div>
@@ -1646,158 +1886,272 @@ const Schedule: React.FC = () => {
           </>
         )}
 
-        {/* Modern Alert Modal */}
+        {/* Modern Tapping System Modal */}
         {showAlert && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop */}
             <div 
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
               onClick={() => setShowAlert(false)}
             />
             
-            {/* Alert Modal */}
-            <div className={`relative bg-white/95 backdrop-blur-xl border-2 shadow-2xl rounded-3xl p-8 max-w-lg w-full mx-4 transform transition-all duration-500 ease-out ${
-              showAlert ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-            } ${
-              alertData.type === 'success' 
-                ? 'border-green-400 bg-gradient-to-br from-green-50/90 to-emerald-50/90' 
-                : (alertData.type === 'error' && alertData.action === 'time_out')
-                  ? 'border-red-400 bg-gradient-to-br from-red-50/90 to-rose-50/90'
-                  : alertData.type === 'error' 
-                    ? 'border-red-400 bg-gradient-to-br from-red-50/90 to-rose-50/90'
-                    : 'border-blue-400 bg-gradient-to-br from-blue-50/90 to-sky-50/90'
+            {/* Modern Tapping Modal */}
+            <div className={`relative transform transition-all duration-700 ease-out ${
+              showAlert ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-8'
             }`}>
               
-              {/* Close Button */}
-              <button
-                onClick={() => setShowAlert(false)}
-                className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/50 hover:bg-white/70 transition-all duration-200"
-              >
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-
-              {/* Alert Icon */}
-              <div className="flex flex-col items-center text-center mb-6">
-                <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 ${
+              {/* Main Modal Container */}
+              <div className={`relative bg-gradient-to-br from-slate-900/95 to-slate-800/95 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-3xl overflow-hidden max-w-lg w-full mx-4 ${
+                alertData.type === 'success' 
+                  ? 'ring-4 ring-green-400/30' 
+                  : (alertData.type === 'error' && alertData.action === 'time_out')
+                    ? 'ring-4 ring-orange-400/30'
+                    : alertData.type === 'error' 
+                      ? 'ring-4 ring-red-400/30'
+                      : 'ring-4 ring-blue-400/30'
+              }`}>
+                
+                {/* Animated Status Bar */}
+                <div className={`h-2 w-full ${
                   alertData.type === 'success' 
-                    ? 'bg-gradient-to-br from-green-500 to-emerald-600' 
+                    ? 'bg-gradient-to-r from-green-400 to-emerald-500' 
                     : (alertData.type === 'error' && alertData.action === 'time_out')
-                      ? 'bg-gradient-to-br from-red-500 to-rose-600'
+                      ? 'bg-gradient-to-r from-orange-400 to-amber-500'
                       : alertData.type === 'error' 
-                        ? 'bg-gradient-to-br from-red-500 to-rose-600'
-                        : 'bg-gradient-to-br from-blue-500 to-sky-600'
-                } shadow-lg animate-pulse`}>
-                  {alertData.type === 'success' ? (
-                    <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                    </svg>
-                  ) : (alertData.type === 'error' && alertData.action === 'time_out') ? (
-                    <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                  ) : alertData.type === 'error' ? (
-                    <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                  ) : (
-                    <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  )}
-                </div>
-                
-                {/* Alert Title */}
-                <h3 className={`text-2xl font-bold mb-2 ${
-                  alertData.type === 'success' 
-                    ? 'text-green-800' 
-                    : (alertData.type === 'error' && alertData.action === 'time_out')
-                      ? 'text-red-800'
-                      : alertData.type === 'error' 
-                        ? 'text-red-800'
-                        : 'text-blue-800'
-                }`}>
-                  {alertData.title}
-                </h3>
-                
-                {/* User Name */}
-                {alertData.userName && (
-                  <div className="bg-white/60 backdrop-blur-sm rounded-2xl px-6 py-3 mb-4 border border-white/40">
-                    <p className="text-lg font-semibold text-gray-800">{alertData.userName}</p>
-                  </div>
-                )}
-                
-                {/* Subject and Room Info */}
-                {(alertData.subject || alertData.room) && (
-                  <div className="bg-white/40 backdrop-blur-sm rounded-xl p-4 mb-4 border border-white/30 w-full">
-                    {alertData.subject && (
-                      <div className="flex items-center gap-2 mb-2">
-                        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                        </svg>
-                        <span className="font-medium text-gray-700">Subject:</span>
-                        <span className="text-gray-800">{alertData.subject}</span>
-                      </div>
-                    )}
-                    {alertData.room && (
-                      <div className="flex items-center gap-2">
-                        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        <span className="font-medium text-gray-700">Room:</span>
-                        <span className="text-gray-800">{alertData.room}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {/* Status Badge */}
-                {alertData.status && (
-                  <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold mb-4 ${
-                    alertData.status.includes('Present') || alertData.status.includes('Checked In') 
-                      ? 'bg-green-100 text-green-800 border border-green-200'
-                      : alertData.status.includes('Late')
-                        ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
-                        : alertData.status.includes('Checked Out')
-                          ? 'bg-red-100 text-red-800 border border-red-200'
-                          : 'bg-gray-100 text-gray-800 border border-gray-200'
-                  }`}>
-                    {alertData.status}
-                  </div>
-                )}
-                
-                {/* Alert Message */}
-                <p className="text-gray-700 text-lg mb-4 leading-relaxed">
-                  {alertData.message}
-                </p>
-                
-                {/* Time Display */}
-                <div className="flex items-center gap-2 text-gray-600">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="font-medium">{alertData.time}</span>
-                </div>
-              </div>
+                        ? 'bg-gradient-to-r from-red-400 to-rose-500'
+                        : 'bg-gradient-to-r from-blue-400 to-sky-500'
+                } animate-pulse`} />
 
-              {/* Action Button */}
-              <div className="flex justify-center">
+                {/* Close Button */}
                 <button
                   onClick={() => setShowAlert(false)}
-                  className={`px-8 py-3 rounded-2xl font-semibold text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 ${
-                    alertData.type === 'success' 
-                      ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700' 
-                      : (alertData.type === 'error' && alertData.action === 'time_out')
-                        ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700'
-                        : alertData.type === 'error' 
-                          ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700'
-                          : 'bg-gradient-to-r from-blue-500 to-sky-600 hover:from-blue-600 hover:to-sky-700'
-                  }`}
+                  className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-all duration-200 backdrop-blur-sm border border-white/10 z-10"
                 >
-                  Continue
+                  <svg className="w-5 h-5 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
+
+                {/* Content Container */}
+                <div className="px-8 py-6">
+
+                  {/* Large Profile Picture Section */}
+                  <div className="flex flex-col items-center mb-6">
+                    <div className="relative mb-4">
+                      {/* Outer Glow Ring */}
+                      <div className={`absolute inset-0 rounded-full blur-xl ${
+                        alertData.type === 'success' 
+                          ? 'bg-green-400/40' 
+                          : (alertData.type === 'error' && alertData.action === 'time_out')
+                            ? 'bg-orange-400/40'
+                            : alertData.type === 'error' 
+                              ? 'bg-red-400/40'
+                              : 'bg-blue-400/40'
+                      } animate-pulse`} />
+                      
+                      {/* Profile Picture Container */}
+                      <div className="relative">
+                        {alertData.profilePicture ? (
+                          <img
+                            src={alertData.profilePicture}
+                            alt={alertData.userName}
+                            className={`w-48 h-48 rounded-full object-cover border-4 shadow-2xl transition-all duration-500 ${
+                              alertData.type === 'success' 
+                                ? 'border-green-400' 
+                                : (alertData.type === 'error' && alertData.action === 'time_out')
+                                  ? 'border-orange-400'
+                                  : alertData.type === 'error' 
+                                    ? 'border-red-400'
+                                    : 'border-blue-400'
+                            }`}
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const nextElement = e.currentTarget.nextElementSibling as HTMLElement;
+                              if (nextElement) {
+                                nextElement.style.display = 'flex';
+                              }
+                            }}
+                          />
+                        ) : null}
+                        
+                        {/* Fallback Large Avatar */}
+                        <div 
+                          className={`w-48 h-48 rounded-full flex items-center justify-center border-4 shadow-2xl ${
+                            !alertData.profilePicture ? 'flex' : 'hidden'
+                          } ${
+                            alertData.type === 'success' 
+                              ? 'bg-gradient-to-br from-green-500 to-emerald-600 border-green-400' 
+                              : (alertData.type === 'error' && alertData.action === 'time_out')
+                                ? 'bg-gradient-to-br from-orange-500 to-amber-600 border-orange-400'
+                                : alertData.type === 'error' 
+                                  ? 'bg-gradient-to-br from-red-500 to-rose-600 border-red-400'
+                                  : 'bg-gradient-to-br from-blue-500 to-sky-600 border-blue-400'
+                          }`}
+                        >
+                          {alertData.userName ? (
+                            <span className="text-6xl font-bold text-white">
+                              {alertData.userName.charAt(0).toUpperCase()}
+                            </span>
+                          ) : (
+                            <svg className="w-24 h-24 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Large Status Badge */}
+                      <div className={`absolute -bottom-4 -right-4 w-16 h-16 rounded-full flex items-center justify-center border-4 border-slate-900 shadow-xl ${
+                        alertData.type === 'success' 
+                          ? 'bg-gradient-to-br from-green-500 to-emerald-600' 
+                          : (alertData.type === 'error' && alertData.action === 'time_out')
+                            ? 'bg-gradient-to-br from-orange-500 to-amber-600'
+                            : alertData.type === 'error' 
+                              ? 'bg-gradient-to-br from-red-500 to-rose-600'
+                              : 'bg-gradient-to-br from-blue-500 to-sky-600'
+                      } animate-bounce`}>
+                        {alertData.type === 'success' ? (
+                          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                          </svg>
+                        ) : (alertData.type === 'error' && alertData.action === 'time_out') ? (
+                          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                          </svg>
+                        ) : alertData.type === 'error' ? (
+                          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        ) : (
+                          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                
+                  {/* User Information */}
+                  {alertData.userName && (
+                    <div className="text-center mb-4">
+                      <h2 className="text-3xl font-bold text-white mb-2">
+                        {alertData.userName}
+                      </h2>
+                      {alertData.userRole && (
+                        <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold uppercase tracking-wider ${
+                          alertData.type === 'success' 
+                            ? 'bg-green-400/20 text-green-300 border border-green-400/30' 
+                            : (alertData.type === 'error' && alertData.action === 'time_out')
+                              ? 'bg-orange-400/20 text-orange-300 border border-orange-400/30'
+                              : alertData.type === 'error' 
+                                ? 'bg-red-400/20 text-red-300 border border-red-400/30'
+                                : 'bg-blue-400/20 text-blue-300 border border-blue-400/30'
+                        }`}>
+                          {alertData.userRole}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Status Message */}
+                  <div className="text-center mb-4">
+                    <h3 className={`text-2xl font-bold mb-3 ${
+                      alertData.type === 'success' 
+                        ? 'text-green-400' 
+                        : (alertData.type === 'error' && alertData.action === 'time_out')
+                          ? 'text-orange-400'
+                          : alertData.type === 'error' 
+                            ? 'text-red-400'
+                            : 'text-blue-400'
+                    }`}>
+                      {alertData.title}
+                    </h3>
+                    
+                    <p className="text-white/80 text-lg leading-relaxed">
+                      {alertData.message}
+                    </p>
+                  </div>
+
+                  {/* Subject and Room Info */}
+                  {(alertData.subject || alertData.room) && (
+                    <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 mb-4 border border-white/10">
+                      {alertData.subject && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                          </svg>
+                          <span className="font-medium text-white/70">Subject:</span>
+                          <span className="text-white">{alertData.subject}</span>
+                        </div>
+                      )}
+                      {alertData.room && (
+                        <div className="flex items-center gap-2">
+                          <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          <span className="font-medium text-white/70">Room:</span>
+                          <span className="text-white">{alertData.room}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Status Badge */}
+                  {alertData.status && (
+                    <div className="text-center mb-4">
+                      <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold ${
+                        alertData.status.includes('Present') || alertData.status.includes('Checked In') 
+                          ? 'bg-green-400/20 text-green-300 border border-green-400/30'
+                          : alertData.status.includes('Late')
+                            ? 'bg-yellow-400/20 text-yellow-300 border border-yellow-400/30'
+                            : alertData.status.includes('Checked Out')
+                              ? 'bg-red-400/20 text-red-300 border border-red-400/30'
+                              : 'bg-blue-400/20 text-blue-300 border border-blue-400/30'
+                      }`}>
+                        {alertData.status}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Time and Date Display */}
+                  <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10 mb-6">
+                    <div className="flex items-center justify-center gap-3 text-white/70">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="font-mono text-lg font-semibold">{alertData.time}</span>
+                    </div>
+                    <div className="text-center mt-2">
+                      <span className="text-white/50 text-sm">
+                        {new Date().toLocaleDateString('en-US', { 
+                          weekday: 'long', 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Action Button */}
+                  <div className="flex justify-center">
+                    <button
+                      onClick={() => setShowAlert(false)}
+                      className={`px-8 py-4 rounded-2xl font-semibold text-white shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 text-lg ${
+                        alertData.type === 'success' 
+                          ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700' 
+                          : (alertData.type === 'error' && alertData.action === 'time_out')
+                            ? 'bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700'
+                            : alertData.type === 'error' 
+                              ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700'
+                              : 'bg-gradient-to-r from-blue-500 to-sky-600 hover:from-blue-600 hover:to-sky-700'
+                      }`}
+                    >
+                      Continue
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
