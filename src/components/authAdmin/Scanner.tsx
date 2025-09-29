@@ -77,12 +77,105 @@ const Scanner = () => {
     setShowAlert(true);
   };
 
+  // Determine which session (morning or afternoon) based on current time
+  const getCurrentSession = (currentTime: Date) => {
+    const phTime = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+
+    const timePH = phTime.format(currentTime);
+    const [hour, minute] = timePH.split(':').map(Number);
+    const timeMinutes = hour * 60 + minute;
+
+    // Morning session: 7:00 AM - 12:00 PM
+    if (timeMinutes >= 7 * 60 && timeMinutes < 12 * 60) {
+      return 'morning';
+    }
+    // Afternoon session: 1:00 PM - 7:00 PM
+    if (timeMinutes >= 13 * 60 && timeMinutes < 19 * 60) {
+      return 'afternoon';
+    }
+    // Default to morning if before 7 AM, afternoon if after 7 PM
+    return timeMinutes < 12 * 60 ? 'morning' : 'afternoon';
+  };
+
+  // Calculate penalties with 15-minute grace period
+  const calculatePenalties = (timeIn: Date, timeOut: Date | null, session: 'morning' | 'afternoon') => {
+    const penalties = {
+      lateMinutes: 0,
+      overtimeMinutes: 0,
+      latePenalty: 0,
+      overtimePenalty: 0,
+      totalPenalty: 0,
+      notes: [] as string[]
+    };
+
+    // Philippine timezone
+    const phTime = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+
+    const timeInPH = phTime.format(timeIn);
+    const [timeInHour, timeInMinute] = timeInPH.split(':').map(Number);
+    const timeInMinutes = timeInHour * 60 + timeInMinute;
+
+    // Schedule times with 15-minute grace period
+    const morningStartMinutes = 7 * 60; // 7:00 AM
+    const morningGraceMinutes = morningStartMinutes + 15; // 7:15 AM (grace period)
+    const afternoonStartMinutes = 13 * 60; // 1:00 PM
+    const afternoonGraceMinutes = afternoonStartMinutes + 15; // 1:15 PM (grace period)
+    const afternoonEndMinutes = 19 * 60; // 7:00 PM
+
+    // Calculate late minutes for morning session
+    if (session === 'morning') {
+      if (timeInMinutes > morningGraceMinutes) {
+        penalties.lateMinutes = timeInMinutes - morningGraceMinutes;
+        penalties.latePenalty = penalties.lateMinutes * 1; // ₱1 per minute late after grace period
+        penalties.notes.push(`Late for morning session by ${penalties.lateMinutes} minutes (after 15-min grace period)`);
+      }
+    }
+    
+    // Calculate late minutes for afternoon session
+    if (session === 'afternoon') {
+      if (timeInMinutes > afternoonGraceMinutes) {
+        penalties.lateMinutes = timeInMinutes - afternoonGraceMinutes;
+        penalties.latePenalty = penalties.lateMinutes * 1; // ₱1 per minute late after grace period
+        penalties.notes.push(`Late for afternoon session by ${penalties.lateMinutes} minutes (after 15-min grace period)`);
+      }
+    }
+
+    // Check overtime if time out is provided
+    if (timeOut) {
+      const timeOutPH = phTime.format(timeOut);
+      const [timeOutHour, timeOutMinute] = timeOutPH.split(':').map(Number);
+      const timeOutMinutes = timeOutHour * 60 + timeOutMinute;
+
+      // Check overtime past 7:00 PM
+      if (timeOutMinutes > afternoonEndMinutes) {
+        penalties.overtimeMinutes = timeOutMinutes - afternoonEndMinutes;
+        penalties.overtimePenalty = penalties.overtimeMinutes * 0.5; // ₱0.50 per minute overtime
+        penalties.notes.push(`Overtime by ${penalties.overtimeMinutes} minutes past 7:00 PM`);
+      }
+    }
+
+    penalties.totalPenalty = penalties.latePenalty + penalties.overtimePenalty;
+    return penalties;
+  };
+
   const handleScan = async (cardId: string) => {
     setLoading(true);
     setMessage("");
 
     try {
       const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+      const now = new Date();
+      const currentSession = getCurrentSession(now);
 
       // 🔍 Step 1: Find user with this cardId in users table
       const { data: user, error: userError } = await supabase
@@ -97,54 +190,136 @@ const Scanner = () => {
         return;
       }
 
-      // 🔍 Step 2: Check if user already has attendance today
-      const { data: existing, error: fetchError } = await supabase
+      // Check if user has a valid role for default scheduling
+      const validRoles = ['Faculty', 'SA', 'Accounting', 'Staff'];
+      if (!validRoles.includes(user.role)) {
+        showModernAlert('error', 'Invalid Role', `Role ${user.role} is not configured for attendance tracking.`, user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'error');
+        return;
+      }
+
+      // 🔍 Step 2: Check existing attendance records for today (both morning and afternoon)
+      const { data: existingRecords, error: fetchError } = await supabase
         .from("attendance")
         .select("*")
         .eq("user_id", user.id)
         .eq("att_date", today)
-        .maybeSingle();
+        .order("created_at", { ascending: true });
 
       if (fetchError) throw fetchError;
 
-      if (!existing) {
-        // ✅ First scan of the day → Time In
+      // Separate morning and afternoon records
+      const morningRecord = existingRecords?.find(record => {
+        if (!record.time_in) return false;
+        const timeIn = new Date(record.time_in);
+        const session = getCurrentSession(timeIn);
+        return session === 'morning';
+      });
+
+      const afternoonRecord = existingRecords?.find(record => {
+        if (!record.time_in) return false;
+        const timeIn = new Date(record.time_in);
+        const session = getCurrentSession(timeIn);
+        return session === 'afternoon';
+      });
+
+      console.log(`[Scanner] Current session: ${currentSession}`);
+      console.log(`[Scanner] Morning record:`, morningRecord ? 'exists' : 'none');
+      console.log(`[Scanner] Afternoon record:`, afternoonRecord ? 'exists' : 'none');
+
+      // 🚫 Check if user has completed both sessions (prevent multiple entries)
+      const morningCompleted = morningRecord && morningRecord.time_in && morningRecord.time_out;
+      const afternoonCompleted = afternoonRecord && afternoonRecord.time_in && afternoonRecord.time_out;
+      
+      if (morningCompleted && afternoonCompleted) {
+        console.log(`[Scanner] User ${user.name} has completed both morning and afternoon sessions - blocking further taps`);
+        showModernAlert(
+          'info', 
+          'All Sessions Completed', 
+          'You have already completed both morning and afternoon sessions for today. No additional attendance recording is needed.', 
+          user.name ?? user.id, 
+          user.role ?? '', 
+          user.profile_picture ?? '', 
+          'completed'
+        );
+        return;
+      }
+
+      // Determine current session record
+      const currentRecord = currentSession === 'morning' ? morningRecord : afternoonRecord;
+
+      if (!currentRecord) {
+        // ✅ First scan for this session → Time In
+        const penalties = calculatePenalties(now, null, currentSession);
+        
         const { error: insertError } = await supabase.from("attendance").insert([
           {
             user_id: user.id,
             att_date: today,
-            time_in: new Date().toISOString(),
+            time_in: now.toISOString(),
             status: true,
+            late_minutes: penalties.lateMinutes,
+            penalty_amount: penalties.latePenalty,
+            notes: `${currentSession.charAt(0).toUpperCase() + currentSession.slice(1)} session - ${penalties.notes.join('; ') || 'On time'}`
           },
         ]);
 
         if (insertError) throw insertError;
-        showModernAlert('success', 'Time In Successful', 'Welcome! Your attendance has been recorded.', user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_in');
-      } else if (!existing.time_out) {
-        // ✅ Currently timed in → Time Out
+        
+        const sessionName = currentSession === 'morning' ? 'Morning' : 'Afternoon';
+        const penaltyMessage = penalties.latePenalty > 0 
+          ? `${sessionName} Time In! Penalty: ₱${penalties.latePenalty} for being ${penalties.lateMinutes} minutes late (after 15-min grace period).`
+          : `${sessionName} Time In! Welcome! Your attendance has been recorded.`;
+          
+        showModernAlert('success', 'Time In Successful', penaltyMessage, user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_in');
+      } else if (!currentRecord.time_out) {
+        // ✅ Currently timed in for this session → Time Out
+        const timeInDate = new Date(currentRecord.time_in);
+        const penalties = calculatePenalties(timeInDate, now, currentSession);
+        
         const { error: updateError } = await supabase
           .from("attendance")
           .update({
-            time_out: new Date().toISOString(),
+            time_out: now.toISOString(),
             status: false,
+            overtime_minutes: penalties.overtimeMinutes,
+            penalty_amount: penalties.totalPenalty,
+            notes: `${currentSession.charAt(0).toUpperCase() + currentSession.slice(1)} session - ${penalties.notes.join('; ') || currentRecord.notes || 'Completed'}`
           })
-          .eq("id", existing.id);
+          .eq("id", currentRecord.id);
 
         if (updateError) throw updateError;
-        showModernAlert('error', 'Time Out Successful', 'Goodbye! Your departure has been recorded.', user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_out');
+        
+        const sessionName = currentSession === 'morning' ? 'Morning' : 'Afternoon';
+        const penaltyMessage = penalties.overtimePenalty > 0 
+          ? `${sessionName} Time Out! Overtime penalty: ₱${penalties.overtimePenalty} for ${penalties.overtimeMinutes} minutes past 7:00 PM.`
+          : `${sessionName} Time Out! Your departure has been recorded.`;
+          
+        showModernAlert('error', 'Time Out Successful', penaltyMessage, user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_out');
       } else {
-        // ✅ Currently timed out → Time In again (allows multiple in/out per day)
+        // ✅ Already completed this session → Time In again for same session
+        const penalties = calculatePenalties(now, null, currentSession);
+        
         const { error: updateError } = await supabase
           .from("attendance")
           .update({
-            time_in: new Date().toISOString(),
+            time_in: now.toISOString(),
             time_out: null, // Clear previous time_out
             status: true,
+            late_minutes: penalties.lateMinutes,
+            overtime_minutes: 0, // Reset overtime since this is a new time in
+            penalty_amount: penalties.latePenalty, // Only late penalty for new time in
+            notes: `${currentSession.charAt(0).toUpperCase() + currentSession.slice(1)} session (return) - ${penalties.notes.join('; ') || 'On time'}`
           })
-          .eq("id", existing.id);
+          .eq("id", currentRecord.id);
 
         if (updateError) throw updateError;
-        showModernAlert('success', 'Time In Successful', 'Welcome back! Your return has been recorded.', user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_in');
+        
+        const sessionName = currentSession === 'morning' ? 'Morning' : 'Afternoon';
+        const penaltyMessage = penalties.latePenalty > 0 
+          ? `${sessionName} Return! Penalty: ₱${penalties.latePenalty} for being ${penalties.lateMinutes} minutes late (after 15-min grace period).`
+          : `${sessionName} Return! Welcome back! Your return has been recorded.`;
+          
+        showModernAlert('success', 'Time In Successful', penaltyMessage, user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_in');
       }
     } catch (err: any) {
       console.error(err);
@@ -338,7 +513,9 @@ const Scanner = () => {
                   ? 'ring-4 ring-orange-400/30'
                   : alertData.type === 'error' 
                     ? 'ring-4 ring-red-400/30'
-                    : 'ring-4 ring-blue-400/30'
+                    : alertData.type === 'info'
+                      ? 'ring-4 ring-blue-400/30'
+                      : 'ring-4 ring-blue-400/30'
             }`}>
               
               {/* Animated Status Bar */}
@@ -349,7 +526,9 @@ const Scanner = () => {
                     ? 'bg-gradient-to-r from-orange-400 to-amber-500'
                     : alertData.type === 'error' 
                       ? 'bg-gradient-to-r from-red-400 to-rose-500'
-                      : 'bg-gradient-to-r from-blue-400 to-sky-500'
+                      : alertData.type === 'info'
+                        ? 'bg-gradient-to-r from-blue-400 to-sky-500'
+                        : 'bg-gradient-to-r from-blue-400 to-sky-500'
               } animate-pulse`} />
 
               {/* Close Button */}
@@ -376,7 +555,9 @@ const Scanner = () => {
                           ? 'bg-orange-400/40'
                           : alertData.type === 'error' 
                             ? 'bg-red-400/40'
-                            : 'bg-blue-400/40'
+                            : alertData.type === 'info'
+                              ? 'bg-blue-400/40'
+                              : 'bg-blue-400/40'
                     } animate-pulse`} />
                     
                     {/* Profile Picture Container */}
@@ -392,7 +573,9 @@ const Scanner = () => {
                                 ? 'border-orange-400'
                                 : alertData.type === 'error' 
                                   ? 'border-red-400'
-                                  : 'border-blue-400'
+                                  : alertData.type === 'info'
+                                    ? 'border-blue-400'
+                                    : 'border-blue-400'
                           }`}
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';
@@ -415,7 +598,9 @@ const Scanner = () => {
                               ? 'bg-gradient-to-br from-orange-500 to-amber-600 border-orange-400'
                               : alertData.type === 'error' 
                                 ? 'bg-gradient-to-br from-red-500 to-rose-600 border-red-400'
-                                : 'bg-gradient-to-br from-blue-500 to-sky-600 border-blue-400'
+                                : alertData.type === 'info'
+                                  ? 'bg-gradient-to-br from-blue-500 to-sky-600 border-blue-400'
+                                  : 'bg-gradient-to-br from-blue-500 to-sky-600 border-blue-400'
                         }`}
                       >
                         {alertData.userName ? (
@@ -438,7 +623,9 @@ const Scanner = () => {
                           ? 'bg-gradient-to-br from-orange-500 to-amber-600'
                           : alertData.type === 'error' 
                             ? 'bg-gradient-to-br from-red-500 to-rose-600'
-                            : 'bg-gradient-to-br from-blue-500 to-sky-600'
+                            : alertData.type === 'info'
+                              ? 'bg-gradient-to-br from-blue-500 to-sky-600'
+                              : 'bg-gradient-to-br from-blue-500 to-sky-600'
                     } animate-bounce`}>
                       {alertData.type === 'success' ? (
                         <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -451,6 +638,10 @@ const Scanner = () => {
                       ) : alertData.type === 'error' ? (
                         <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      ) : alertData.type === 'info' ? (
+                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       ) : (
                         <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -475,7 +666,9 @@ const Scanner = () => {
                             ? 'bg-orange-400/20 text-orange-300 border border-orange-400/30'
                             : alertData.type === 'error' 
                               ? 'bg-red-400/20 text-red-300 border border-red-400/30'
-                              : 'bg-blue-400/20 text-blue-300 border border-blue-400/30'
+                              : alertData.type === 'info'
+                                ? 'bg-blue-400/20 text-blue-300 border border-blue-400/30'
+                                : 'bg-blue-400/20 text-blue-300 border border-blue-400/30'
                       }`}>
                         {alertData.userRole}
                       </div>
@@ -492,7 +685,9 @@ const Scanner = () => {
                         ? 'text-orange-400'
                         : alertData.type === 'error' 
                           ? 'text-red-400'
-                          : 'text-blue-400'
+                          : alertData.type === 'info'
+                            ? 'text-blue-400'
+                            : 'text-blue-400'
                   }`}>
                     {alertData.title}
                   </h3>
@@ -533,7 +728,9 @@ const Scanner = () => {
                           ? 'bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700'
                           : alertData.type === 'error' 
                             ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700'
-                            : 'bg-gradient-to-r from-blue-500 to-sky-600 hover:from-blue-600 hover:to-sky-700'
+                            : alertData.type === 'info'
+                              ? 'bg-gradient-to-r from-blue-500 to-sky-600 hover:from-blue-600 hover:to-sky-700'
+                              : 'bg-gradient-to-r from-blue-500 to-sky-600 hover:from-blue-600 hover:to-sky-700'
                     }`}
                   >
                     Continue

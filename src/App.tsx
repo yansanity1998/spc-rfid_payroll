@@ -15,6 +15,16 @@ import { Requests } from "./components/HRAdmin/Requests";
 import Reports from "./components/HRAdmin/Reports";
 import Dashboard from "./components/HRAdmin/Dashboard";
 import Schedule from "./components/HRAdmin/Schedule";
+
+// HR Personnel Components
+import { NavBar as HRNavBar } from "./components/HR/NavBar";
+import HRDashboard from "./components/HR/Dashboard";
+import { UserManagement as HRUserManagement } from "./components/HR/UserManagement";
+import { Attendance as HRAttendance } from "./components/HR/Attendance";
+import { Payroll as HRPayroll } from "./components/HR/Payroll";
+import { Requests as HRRequests } from "./components/HR/Requests";
+import HRReports from "./components/HR/Reports";
+import HRSchedule from "./components/HR/Schedule";
 import AccDashboard from "./components/Accounting/Dashboard";
 import { NavAccounting } from "./components/Accounting/NavAcc";
 import { PayrollAcc } from "./components/Accounting/PayrollAcc";
@@ -39,27 +49,41 @@ import SARequest from "./components/SA/SARequest";
 import { SANav } from "./components/SA/SANav";
 import DiagnoseSARole from "./components/SA/DiagnoseSARole";
 import DiagnoseGuardRole from "./components/Guard/DiagnoseGuardRole";
+import StaffDashboard from "./components/Staff/StaffDashboard";
+import StaffAttendance from "./components/Staff/StaffAttendance";
+import StaffSchedule from "./components/Staff/StaffSchedule";
+import { StaffPayroll } from "./components/Staff/StaffPayroll";
+import StaffReports from "./components/Staff/StaffReports";
+import { StaffNav } from "./components/Staff/StaffNav";
+import DiagnoseStaffRole from "./components/Staff/DiagnoseStaffRole";
+
 
 function AppContent() {
   const location = useLocation();
 
   const showNavBarHR = location.pathname.startsWith("/hrAdmin");
+  const showNavBarHRPersonnel = location.pathname.startsWith("/HR");
   const showNavBarACC = location.pathname.startsWith("/accounting");
   const showNavBarGuard = location.pathname.startsWith("/Guard");
   const showNavBarFaculty = location.pathname.startsWith("/Faculty");
   const showNavBarSA = location.pathname.startsWith("/SA");
+  const showNavBarStaff = location.pathname.startsWith("/Staff");
+
   
   // Check if current route should show full-screen layout (no navigation bars)
-  const isFullScreenRoute = location.pathname === "/" || location.pathname === "/login" || location.pathname === "/scanner" || location.pathname === "/diagnose-sa" || location.pathname === "/diagnose-guard";
+  const isFullScreenRoute = location.pathname === "/" || location.pathname === "/login" || location.pathname === "/scanner" || location.pathname === "/diagnose-sa" || location.pathname === "/diagnose-guard" || location.pathname === "/diagnose-staff";
 
   return (
     <>
       <main className={isFullScreenRoute ? "" : "flex bg-gray-50"}>
         {!isFullScreenRoute && showNavBarHR && <NavBar />}
+        {!isFullScreenRoute && showNavBarHRPersonnel && <HRNavBar />}
         {!isFullScreenRoute && showNavBarACC && <NavAccounting />}
         {!isFullScreenRoute && showNavBarGuard && <NavGuard />}
         {!isFullScreenRoute && showNavBarFaculty && <FacNav />}
         {!isFullScreenRoute && showNavBarSA && <SANav />}
+        {!isFullScreenRoute && showNavBarStaff && <StaffNav />}
+
 
         <Routes>
           <Route path="/" element={<LandingPage />} />
@@ -74,6 +98,15 @@ function AppContent() {
           <Route path="/hrAdmin/payroll" element={<Payroll />} />
           <Route path="/hrAdmin/requests" element={<Requests />} />
           <Route path="/hrAdmin/reports" element={<Reports />} />
+
+          {/* HR PERSONNEL */}
+          <Route path="/HR/dashboard" element={<HRDashboard />} />
+          <Route path="/HR/userManagement" element={<HRUserManagement />} />
+          <Route path="/HR/attendance" element={<HRAttendance />} />
+          <Route path="/HR/schedule" element={<HRSchedule />} />
+          <Route path="/HR/payroll" element={<HRPayroll />} />
+          <Route path="/HR/requests" element={<HRRequests />} />
+          <Route path="/HR/reports" element={<HRReports />} />
 
           {/* ACCOUNTING */}
           <Route path="/accounting/dashboard" element={<AccDashboard />}/>
@@ -100,9 +133,18 @@ function AppContent() {
           <Route path="/SA/request" element={<SARequest />} />
           <Route path="/SA/reports" element={<SAReports />} />
 
+          {/* STAFF */}
+          <Route path="/Staff/dashboard" element={<StaffDashboard />} />
+          <Route path="/Staff/attendance" element={<StaffAttendance />} />
+          <Route path="/Staff/schedule" element={<StaffSchedule />} />
+          <Route path="/Staff/payroll" element={<StaffPayroll />} />
+          <Route path="/Staff/reports" element={<StaffReports />} />
+
           {/* DIAGNOSTIC ROUTES */}
           <Route path="/diagnose-sa" element={<DiagnoseSARole />} />
           <Route path="/diagnose-guard" element={<DiagnoseGuardRole />} />
+          <Route path="/diagnose-staff" element={<DiagnoseStaffRole />} />
+  
 
         </Routes>
       </main>

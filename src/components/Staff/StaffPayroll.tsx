@@ -1,7 +1,6 @@
-// src/components/Faculty/FacPayroll.tsx
+// src/components/Staff/StaffPayroll.tsx
 import { useEffect, useState } from "react";
 import supabase from "../../utils/supabase";
-import { FacNav } from "./FacNav";
 
 interface PayrollRecord {
   id: number;
@@ -23,7 +22,7 @@ interface PayrollRecord {
   other_deductions?: number;
 }
 
-export const FacPayroll = () => {
+export const StaffPayroll = () => {
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [search, setSearch] = useState("");
@@ -161,10 +160,8 @@ export const FacPayroll = () => {
   const pendingRecords = payrollRecords.filter(record => record.status.toLowerCase() === 'pending');
 
   return (
-    <div className="min-h-screen w-full lg:ml-70 py-5 roboto px-3 sm:px-5 bg-red-200">
-      <FacNav />
-      <main className="flex flex-col w-full max-w-7xl mx-auto p-4 sm:p-6 bg-white border border-gray-200 shadow-2xl rounded-2xl">
-        <section className="flex-shrink-0 space-y-6 sm:space-y-8">
+    <div className="flex-1 lg:ml-70 p-4 lg:p-8 bg-gray-50 min-h-screen">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-2xl p-6 text-white shadow-xl">
@@ -362,7 +359,6 @@ export const FacPayroll = () => {
             </div>
           )}
         </div>
-        </section>
 
         {/* Payroll Details Modal */}
         {showDetailsModal && selectedPayroll && (
@@ -555,7 +551,7 @@ export const FacPayroll = () => {
             </div>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 };

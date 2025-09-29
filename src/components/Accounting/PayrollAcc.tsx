@@ -47,7 +47,7 @@ export const PayrollAcc = () => {
     status: "Pending",
   });
 
-  // Calculate penalties for a user - aligned with HRAdmin Dashboard class schedule attendance
+  // Calculate penalties for a user - aligned with HRAdmin Attendance.tsx (both regular and class schedule attendance)
   const calculatePenalties = async (userId: number, period?: string): Promise<{
     totalPenalty: number;
     breakdown: {
@@ -58,16 +58,91 @@ export const PayrollAcc = () => {
       lateRecords?: any[];
       absentRecords?: any[];
       attendanceRecords?: any[];
+      classScheduleRecords?: any[];
       dateRange?: { startDate: string; endDate: string };
     };
   }> => {
     try {
       console.log('🔍 [PayrollAcc] Calculating penalties for user:', userId, 'period:', period);
-      
-      console.log('📅 [PayrollAcc] Using EXACT same logic as Dashboard.tsx class schedule attendance');
+      console.log('📅 [PayrollAcc] Using BOTH regular attendance (dual session) AND class schedule attendance - aligned with HRAdmin Attendance.tsx');
 
-      // Fetch attendance records (same as Dashboard.tsx)
+      // Calculate date range for penalty calculation
+      let startDate: string;
+      let endDate: string;
+      
+      if (period) {
+        // If period is specified, use it to calculate date range
+        const periodDate = new Date(period);
+        startDate = new Date(periodDate.getFullYear(), periodDate.getMonth(), 1).toISOString().split('T')[0];
+        endDate = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).toISOString().split('T')[0];
+      } else {
+        // Default to last 15 days
+        endDate = new Date().toISOString().split('T')[0];
+        const start = new Date();
+        start.setDate(start.getDate() - 15);
+        startDate = start.toISOString().split('T')[0];
+      }
+
+      console.log('📅 [PayrollAcc] Date range:', startDate, 'to', endDate);
+
+      // 🔥 PART 1: Fetch regular attendance records (dual session) with penalty data
       const { data: attendanceData, error: attendanceError } = await supabase
+        .from("attendance")
+        .select(`
+          id,
+          user_id,
+          att_date,
+          time_in,
+          time_out,
+          late_minutes,
+          overtime_minutes,
+          penalty_amount,
+          notes,
+          created_at,
+          user:users (
+            id,
+            name,
+            role
+          )
+        `)
+        .eq('user_id', userId)
+        .gte('att_date', startDate)
+        .lte('att_date', endDate)
+        .order("att_date", { ascending: false });
+
+      if (attendanceError) {
+        console.error('❌ [PayrollAcc] Error fetching regular attendance:', attendanceError);
+      }
+
+      // 🔥 PART 2: Fetch class schedule attendance data (same as HRAdmin Attendance.tsx)
+      const { data: schedulesData, error: schedulesError } = await supabase
+        .from("schedules")
+        .select(`
+          id,
+          user_id,
+          day_of_week,
+          start_time,
+          end_time,
+          subject,
+          room,
+          notes,
+          created_at,
+          users (
+            id,
+            name,
+            email,
+            role
+          )
+        `)
+        .eq('user_id', userId)
+        .order("created_at", { ascending: false });
+
+      if (schedulesError) {
+        console.error('❌ [PayrollAcc] Error fetching schedules:', schedulesError);
+      }
+
+      // Fetch class attendance records
+      const { data: classAttendanceData, error: classAttendanceError } = await supabase
         .from("class_attendance")
         .select(`
           id,
@@ -81,39 +156,65 @@ export const PayrollAcc = () => {
           created_at
         `)
         .eq('user_id', userId)
+        .gte('att_date', startDate)
+        .lte('att_date', endDate)
         .order("created_at", { ascending: false });
 
-      if (attendanceError) {
-        console.error('❌ [PayrollAcc] Error fetching class attendance:', attendanceError);
-        return { totalPenalty: 0, breakdown: { lateMinutes: 0, absentCount: 0 } };
+      if (classAttendanceError) {
+        console.error('❌ [PayrollAcc] Error fetching class attendance:', classAttendanceError);
       }
 
-      // Fetch user's schedules (same as Dashboard.tsx)
-      const { data: schedulesData, error: schedulesError } = await supabase
-        .from("schedules")
-        .select(`
-          id,
-          user_id,
-          day_of_week,
-          start_time,
-          end_time,
-          subject,
-          room
-        `)
-        .eq('user_id', userId);
+      console.log('📊 [PayrollAcc] Fetched regular attendance records:', attendanceData?.length || 0);
+      console.log('📊 [PayrollAcc] Fetched schedules:', schedulesData?.length || 0);
+      console.log('📊 [PayrollAcc] Fetched class attendance records:', classAttendanceData?.length || 0);
 
-      if (schedulesError) {
-        console.error('❌ [PayrollAcc] Error fetching schedules:', schedulesError);
-        return { totalPenalty: 0, breakdown: { lateMinutes: 0, absentCount: 0 } };
+      // 🔥 PART 3: Process regular attendance penalties (dual session)
+      let totalPenalty = 0;
+      let totalLateMinutes = 0;
+      let totalLatePenalty = 0;
+      let totalAbsentPenalty = 0;
+      let absentCount = 0;
+      
+      const lateRecords: any[] = [];
+      const absentRecords: any[] = [];
+
+      // Process regular attendance records
+      for (const record of attendanceData || []) {
+        // Add penalty amount from database (dual session penalties)
+        const recordPenalty = record.penalty_amount || 0;
+        totalPenalty += recordPenalty;
+        
+        // Track late records (records with late_minutes > 0)
+        if (record.late_minutes && record.late_minutes > 0) {
+          totalLateMinutes += record.late_minutes;
+          totalLatePenalty += record.late_minutes; // ₱1 per minute late
+          lateRecords.push({
+            ...record,
+            status: 'Late',
+            minutes_late: record.late_minutes,
+            source: 'regular_attendance',
+            session: record.notes?.includes('Morning') ? 'Morning' : record.notes?.includes('Afternoon') ? 'Afternoon' : 'Unknown'
+          });
+          console.log(`⏰ [PayrollAcc] Regular attendance late on ${record.att_date}: ${record.late_minutes} minutes = ₱${record.late_minutes}`);
+        }
+        
+        // Track absent records (no time_in and time_out)
+        if (!record.time_in && !record.time_out) {
+          absentCount++;
+          totalAbsentPenalty += 240; // ₱240 per absent day
+          absentRecords.push({
+            ...record,
+            status: 'Absent',
+            source: 'regular_attendance'
+          });
+          console.log(`❌ [PayrollAcc] Regular attendance absent on ${record.att_date}: ₱240 penalty`);
+        }
       }
 
-      console.log('📊 [PayrollAcc] Fetched attendance records:', attendanceData?.length || 0);
-      console.log('📊 [PayrollAcc] Fetched user schedules:', schedulesData?.length || 0);
-
-      // Combine schedules with their most recent attendance records (EXACT same logic as Dashboard.tsx)
+      // 🔥 PART 4: Process class schedule attendance (same logic as HRAdmin Attendance.tsx)
       const combinedScheduleData = (schedulesData || []).map(schedule => {
         // Find the most recent attendance record for this schedule
-        const attendanceRecords = (attendanceData || []).filter(att => 
+        const attendanceRecords = (classAttendanceData || []).filter(att => 
           att.schedule_id === schedule.id
         );
         
@@ -122,7 +223,7 @@ export const PayrollAcc = () => {
           new Date(b.att_date).getTime() - new Date(a.att_date).getTime()
         )[0];
 
-        // If no attendance record exists, mark as absent (same as Dashboard.tsx)
+        // If no attendance record exists, mark as absent (same as HRAdmin Attendance.tsx)
         let attendanceStatus = 'Absent';
         if (!mostRecentRecord) {
           attendanceStatus = 'Absent';
@@ -139,37 +240,20 @@ export const PayrollAcc = () => {
         };
       });
 
-      console.log('📊 [PayrollAcc] Combined schedule data:', combinedScheduleData?.length || 0);
+      // Filter class schedule records within date range
+      const filteredClassScheduleData = combinedScheduleData.filter(record => {
+        const recordDate = record.att_date;
+        return recordDate >= startDate && recordDate <= endDate;
+      });
 
-      // Debug: Log all attendance types found
-      const attendanceTypes = combinedScheduleData?.map(r => r.attendance) || [];
-      console.log('📊 [PayrollAcc] Attendance types found:', [...new Set(attendanceTypes)]);
+      // Separate late and absent class schedule records
+      const classLateRecords = filteredClassScheduleData.filter(record => record.attendance === 'Late') || [];
+      const classAbsentRecords = filteredClassScheduleData.filter(record => record.attendance === 'Absent') || [];
 
-      // Separate late and absent records from combined data (same as what Dashboard shows)
-      const lateRecords = combinedScheduleData?.filter(record => record.attendance === 'Late') || [];
-      const absentRecords = combinedScheduleData?.filter(record => record.attendance === 'Absent') || [];
-      
-      const lateCount = lateRecords.length;
-      const absentCount = absentRecords.length;
+      console.log('📊 [PayrollAcc] Class schedule - Late:', classLateRecords.length, 'Absent:', classAbsentRecords.length);
 
-      console.log('📈 [PayrollAcc] Dashboard-aligned penalty counts - Late:', lateCount, 'Absent:', absentCount);
-      console.log('📈 [PayrollAcc] Late schedules found:', lateRecords.length);
-      console.log('📈 [PayrollAcc] Absent schedules found:', absentRecords.length);
-      
-      // Debug: Show sample records
-      if (lateRecords.length > 0) {
-        console.log('📈 [PayrollAcc] Sample late schedule:', lateRecords[0]);
-      }
-      if (absentRecords.length > 0) {
-        console.log('📈 [PayrollAcc] Sample absent schedule:', absentRecords[0]);
-      }
-
-      // Calculate late penalties: ₱1 per minute late
-      let totalLatePenalty = 0;
-      let totalLateMinutes = 0;
-      
-      for (const record of lateRecords) {
-        // Schedule data is directly in the record now (not nested)
+      // Calculate class schedule late penalties: ₱1 per minute late
+      for (const record of classLateRecords) {
         if (record.time_in && record.start_time) {
           // Parse time_in (timestamp) and start_time (HH:MM:SS format)
           const timeIn = new Date(record.time_in);
@@ -185,18 +269,38 @@ export const PayrollAcc = () => {
           if (minutesLate > 0) {
             totalLateMinutes += minutesLate;
             totalLatePenalty += minutesLate; // ₱1 per minute late
-            console.log(`⏰ [PayrollAcc] ${record.subject} on ${record.att_date}: ${minutesLate} minutes late = ₱${minutesLate}`);
+            totalPenalty += minutesLate;
+            lateRecords.push({
+              ...record,
+              status: 'Late',
+              minutes_late: minutesLate,
+              source: 'class_schedule'
+            });
+            console.log(`⏰ [PayrollAcc] Class schedule late - ${record.subject} on ${record.att_date}: ${minutesLate} minutes = ₱${minutesLate}`);
           }
         }
       }
 
-      // Uses EXACT same logic as Dashboard.tsx - combines schedules with attendance records
+      // Calculate class schedule absent penalties: ₱240 per absent class
+      const classAbsentPenalty = classAbsentRecords.length * 240;
+      totalAbsentPenalty += classAbsentPenalty;
+      totalPenalty += classAbsentPenalty;
+      absentCount += classAbsentRecords.length;
 
-      // Calculate absent penalties: ₱240 per absent class
-      const totalAbsentPenalty = absentCount * 240;
-      const totalPenalty = totalLatePenalty + totalAbsentPenalty;
+      // Add class absent records to tracking
+      for (const record of classAbsentRecords) {
+        absentRecords.push({
+          ...record,
+          status: 'Absent',
+          source: 'class_schedule'
+        });
+        console.log(`❌ [PayrollAcc] Class schedule absent - ${record.subject} on ${record.att_date}: ₱240 penalty`);
+      }
 
-      console.log('💰 [PayrollAcc] Calculated penalties - Late: ₱' + totalLatePenalty + ' (' + lateCount + ' occurrences), Absent: ₱' + totalAbsentPenalty + ' (' + absentCount + ' classes), Total: ₱' + totalPenalty);
+      console.log('💰 [PayrollAcc] TOTAL PENALTIES (Regular + Class Schedule):');
+      console.log('💰 [PayrollAcc] - Total late minutes:', totalLateMinutes, '= ₱' + totalLatePenalty);
+      console.log('💰 [PayrollAcc] - Total absent count:', absentCount, '= ₱' + totalAbsentPenalty);
+      console.log('💰 [PayrollAcc] - GRAND TOTAL: ₱' + totalPenalty);
 
       return {
         totalPenalty,
@@ -207,7 +311,9 @@ export const PayrollAcc = () => {
           absentPenalty: totalAbsentPenalty,
           lateRecords,
           absentRecords,
-          attendanceRecords: combinedScheduleData
+          attendanceRecords: attendanceData || [],
+          classScheduleRecords: filteredClassScheduleData || [],
+          dateRange: { startDate, endDate }
         }
       };
     } catch (error) {
@@ -659,7 +765,8 @@ export const PayrollAcc = () => {
                           <input
                             type="number"
                             className="border-2 border-gray-300 rounded-lg px-3 py-1 w-24 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                            value={editData.gross || pr.gross}
+                            value={editData.gross !== undefined ? editData.gross : pr.gross}
+                            onFocus={(e) => e.target.select()}
                             onChange={(e) =>
                               setEditData({
                                 ...editData,
@@ -678,7 +785,8 @@ export const PayrollAcc = () => {
                           <input
                             type="number"
                             className="border-2 border-gray-300 rounded-lg px-3 py-1 w-24 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                            value={editData.deductions || pr.deductions}
+                            value={editData.deductions !== undefined ? editData.deductions : pr.deductions}
+                            onFocus={(e) => e.target.select()}
                             onChange={(e) =>
                               setEditData({
                                 ...editData,
@@ -725,7 +833,7 @@ export const PayrollAcc = () => {
                             <button
                               onClick={() => {
                                 setEditing(pr.id);
-                                // Initialize editData with current values to prevent undefined issues
+                                // Initialize editData with current values
                                 setEditData({
                                   gross: pr.gross,
                                   deductions: pr.deductions

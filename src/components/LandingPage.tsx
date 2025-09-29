@@ -68,7 +68,7 @@ const ModernLoginForm = ({ onClose }: { onClose: () => void }) => {
     onClose();
     switch (userRole) {
       case "HR Personnel":
-        navigate("/hrPersonnel/dashboard");
+        navigate("/HR/dashboard");
         break;
       case "Accounting":
         navigate("/accounting/payroll");
@@ -81,6 +81,12 @@ const ModernLoginForm = ({ onClose }: { onClose: () => void }) => {
         break;
       case "Guard":
         navigate("/Guard/dashboard");
+        break;
+      case "Staff":
+        navigate("/Staff/dashboard");
+        break;
+      case "SA":
+        navigate("/SA/dashboard");
         break;
       default:
         toast.error("Role not assigned. Contact admin.");

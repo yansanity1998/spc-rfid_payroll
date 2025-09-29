@@ -11,6 +11,16 @@ interface PayrollRecord {
   net: number;
   status: string;
   created_at: string;
+  user_id?: number;
+  basic_salary?: number;
+  overtime_pay?: number;
+  allowances?: number;
+  penalties?: number;
+  sss?: number;
+  philhealth?: number;
+  pagibig?: number;
+  tax?: number;
+  other_deductions?: number;
 }
 
 export const SAPayroll = () => {
@@ -19,6 +29,8 @@ export const SAPayroll = () => {
   const [search, setSearch] = useState("");
   const [sortByPeriod, setSortByPeriod] = useState("");
   const [sortByStatus, setSortByStatus] = useState("");
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedPayroll, setSelectedPayroll] = useState<PayrollRecord | null>(null);
 
   useEffect(() => {
     fetchCurrentUserPayroll();
@@ -47,7 +59,7 @@ export const SAPayroll = () => {
 
           setCurrentUser(userData);
 
-          // Fetch payroll records for this user
+          // Fetch payroll records for this user with detailed breakdown
           supabase
             .from("payrolls")
             .select("*")
@@ -66,6 +78,34 @@ export const SAPayroll = () => {
     }
   };
 
+  const handleViewDetails = (payroll: PayrollRecord) => {
+    setSelectedPayroll(payroll);
+    setShowDetailsModal(true);
+  };
+
+  const closeDetailsModal = () => {
+    setShowDetailsModal(false);
+    setSelectedPayroll(null);
+  };
+
+  // Calculate actual penalties from the payroll data
+  const calculateActualPenalties = (payroll: PayrollRecord) => {
+    // If penalties field exists and has value, use it
+    if (payroll.penalties && payroll.penalties > 0) {
+      return payroll.penalties;
+    }
+    
+    // Otherwise, calculate from total deductions minus known deductions
+    const knownDeductions = (payroll.sss || 0) + 
+                           (payroll.philhealth || 0) + 
+                           (payroll.pagibig || 0) + 
+                           (payroll.tax || 0) + 
+                           (payroll.other_deductions || 0);
+    
+    const calculatedPenalties = payroll.deductions - knownDeductions;
+    return calculatedPenalties > 0 ? calculatedPenalties : 0;
+  };
+
   // Filter and sort payroll records
   const filteredRecords = payrollRecords.filter((record) => {
     const matchesSearch = record.period.toLowerCase().includes(search.toLowerCase()) ||
@@ -79,6 +119,7 @@ export const SAPayroll = () => {
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "paid":
+      case "finalized":
         return "bg-green-100 text-green-800 border-green-200";
       case "pending":
         return "bg-yellow-100 text-yellow-800 border-yellow-200";
@@ -114,7 +155,9 @@ export const SAPayroll = () => {
   const totalGross = payrollRecords.reduce((sum, record) => sum + record.gross, 0);
   const totalDeductions = payrollRecords.reduce((sum, record) => sum + record.deductions, 0);
   const totalNet = payrollRecords.reduce((sum, record) => sum + record.net, 0);
-  const paidRecords = payrollRecords.filter(record => record.status.toLowerCase() === 'paid');
+  const paidRecords = payrollRecords.filter(record => 
+    record.status.toLowerCase() === 'paid' || record.status.toLowerCase() === 'finalized'
+  );
   const pendingRecords = payrollRecords.filter(record => record.status.toLowerCase() === 'pending');
 
   return (
@@ -274,6 +317,7 @@ export const SAPayroll = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Pay</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Created</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -299,6 +343,18 @@ export const SAPayroll = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-600">{formatDate(record.created_at)}</div>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => handleViewDetails(record)}
+                          className="inline-flex items-center px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded-md hover:bg-yellow-700 transition-colors duration-200 shadow-sm hover:shadow-md"
+                        >
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          View Details
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -307,6 +363,198 @@ export const SAPayroll = () => {
           )}
         </div>
         </section>
+
+        {/* Payroll Details Modal */}
+        {showDetailsModal && selectedPayroll && (
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-md flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-yellow-600 to-yellow-700 px-6 py-4 rounded-t-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Payroll Details</h2>
+                    <p className="text-yellow-100 text-sm">Period: {selectedPayroll.period}</p>
+                  </div>
+                  <button
+                    onClick={closeDetailsModal}
+                    className="text-white hover:text-yellow-200 transition-colors duration-200"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Earnings Section */}
+                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <h3 className="text-lg font-semibold text-green-800 mb-4 flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                      </svg>
+                      Earnings
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-700">Basic Salary:</span>
+                        <span className="font-semibold text-green-600">
+                          {formatCurrency(selectedPayroll.basic_salary || 0)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-700">Overtime Pay:</span>
+                        <span className="font-semibold text-green-600">
+                          {formatCurrency(selectedPayroll.overtime_pay || 0)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-700">Allowances:</span>
+                        <span className="font-semibold text-green-600">
+                          {formatCurrency(selectedPayroll.allowances || 0)}
+                        </span>
+                      </div>
+                      <div className="border-t border-green-300 pt-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-lg font-semibold text-green-800">Total Gross:</span>
+                          <span className="text-lg font-bold text-green-600">
+                            {formatCurrency(selectedPayroll.gross)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Deductions Section */}
+                  <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+                    <h3 className="text-lg font-semibold text-red-800 mb-4 flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                      </svg>
+                      Deductions
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-700">SSS:</span>
+                        <span className="font-semibold text-red-600">
+                          {formatCurrency(selectedPayroll.sss || 0)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-700">PhilHealth:</span>
+                        <span className="font-semibold text-red-600">
+                          {formatCurrency(selectedPayroll.philhealth || 0)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-700">Pag-IBIG:</span>
+                        <span className="font-semibold text-red-600">
+                          {formatCurrency(selectedPayroll.pagibig || 0)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-700">Tax:</span>
+                        <span className="font-semibold text-red-600">
+                          {formatCurrency(selectedPayroll.tax || 0)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-700">Penalties:</span>
+                        <span className="font-semibold text-red-600">
+                          {formatCurrency(calculateActualPenalties(selectedPayroll))}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-700">Other Deductions:</span>
+                        <span className="font-semibold text-red-600">
+                          {formatCurrency(selectedPayroll.other_deductions || 0)}
+                        </span>
+                      </div>
+                      <div className="border-t border-red-300 pt-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-lg font-semibold text-red-800">Total Deductions:</span>
+                          <span className="text-lg font-bold text-red-600">
+                            {formatCurrency(selectedPayroll.deductions)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Summary Section */}
+                <div className="mt-6 bg-blue-50 rounded-lg p-4 border border-blue-200">
+                  <h3 className="text-lg font-semibold text-blue-800 mb-4 flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    Payroll Summary
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <p className="text-sm text-gray-600">Gross Pay</p>
+                      <p className="text-xl font-bold text-green-600">{formatCurrency(selectedPayroll.gross)}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm text-gray-600">Total Deductions</p>
+                      <p className="text-xl font-bold text-red-600">{formatCurrency(selectedPayroll.deductions)}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm text-gray-600">Net Pay</p>
+                      <p className="text-2xl font-bold text-blue-600">{formatCurrency(selectedPayroll.net)}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between">
+                    <div className="flex items-center">
+                      <span className="text-sm text-gray-600 mr-2">Status:</span>
+                      <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(selectedPayroll.status)}`}>
+                        {selectedPayroll.status}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Created: {formatDate(selectedPayroll.created_at)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Penalties Breakdown (if any) */}
+                {calculateActualPenalties(selectedPayroll) > 0 && (
+                  <div className="mt-6 bg-orange-50 rounded-lg p-4 border border-orange-200">
+                    <h3 className="text-lg font-semibold text-orange-800 mb-4 flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      Penalties Breakdown
+                    </h3>
+                    <div className="bg-white rounded p-3 border border-orange-300">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-700">Total Penalties Applied:</span>
+                        <span className="font-bold text-orange-600">
+                          {formatCurrency(calculateActualPenalties(selectedPayroll))}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        This includes late arrival penalties, absent day penalties, and other attendance-related deductions.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="bg-gray-50 px-6 py-4 rounded-b-xl flex justify-end">
+                <button
+                  onClick={closeDetailsModal}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors duration-200"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

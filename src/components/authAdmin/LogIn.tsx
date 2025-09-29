@@ -13,6 +13,10 @@ export const LogIn = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    console.log("🚀 LOGIN FORM SUBMITTED!");
+    console.log("Email:", email);
+    alert("Login form submitted! Check console for details.");
 
     // 1. Sign in
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -38,11 +42,51 @@ export const LogIn = () => {
     console.log("=== LOGIN DEBUG START ===");
     console.log("User ID:", userId);
     console.log("User Email:", userEmail);
+    console.log("Looking for Staff role specifically...");
 
     // COMPREHENSIVE ROLE DETECTION WITH DETAILED LOGGING
     
-    // Step 1: Check if there's any SA role in the roles table
-    console.log("Step 1: Checking for SA roles in roles table...");
+    // Step 1: Check if there's any Staff role in the roles table
+    console.log("Step 1: Checking for Staff roles in roles table...");
+    const { data: allStaffRoles, error: staffRolesError } = await supabase
+      .from("roles")
+      .select("*")
+      .eq("role", "Staff");
+
+    console.log("Staff Roles found:", allStaffRoles);
+    console.log("Staff Roles error:", staffRolesError);
+
+    if (!staffRolesError && allStaffRoles && allStaffRoles.length > 0) {
+      console.log(`Found ${allStaffRoles.length} Staff role(s) in roles table`);
+      
+      // If there's exactly one Staff role, assume it's the current user
+      if (allStaffRoles.length === 1) {
+        console.log("Only one Staff role found - assuming current user is Staff");
+        userRole = "Staff";
+        debugMsg += `Single Staff role found in roles table, assuming current user\n`;
+        localStorage.setItem("user", JSON.stringify(data.session));
+        localStorage.setItem("role", userRole);
+        toast.success("Welcome Staff! Redirecting to dashboard...");
+        navigate("/Staff/dashboard");
+        return;
+      }
+      
+      // If multiple Staff roles, try to match by ID
+      const matchingRole = allStaffRoles.find(role => role.id === userId);
+      if (matchingRole) {
+        console.log("Found matching Staff role by ID");
+        userRole = "Staff";
+        debugMsg += `Staff role found in roles table by ID match: ${userId}\n`;
+        localStorage.setItem("user", JSON.stringify(data.session));
+        localStorage.setItem("role", userRole);
+        toast.success("Welcome Staff! Redirecting to dashboard...");
+        navigate("/Staff/dashboard");
+        return;
+      }
+    }
+
+    // Step 2: Check if there's any SA role in the roles table
+    console.log("Step 2: Checking for SA roles in roles table...");
     const { data: allSARoles, error: saRolesError } = await supabase
       .from("roles")
       .select("*")
@@ -80,8 +124,8 @@ export const LogIn = () => {
       }
     }
 
-    // Step 2: Check users table by auth_id
-    console.log("Step 2: Checking users table by auth_id...");
+    // Step 3: Check users table by auth_id
+    console.log("Step 3: Checking users table by auth_id...");
     const { data: userProfile, error: userError } = await supabase
       .from("users")
       .select("*")
@@ -90,21 +134,60 @@ export const LogIn = () => {
 
     console.log("User profile by auth_id:", userProfile);
     console.log("User profile error:", userError);
-
-    if (!userError && userProfile?.role === "SA") {
-      console.log("SA role found in users table by auth_id");
-      userRole = "SA";
-      debugMsg += `SA role found in users table by auth_id: ${userId}\n`;
-      localStorage.setItem("user", JSON.stringify(data.session));
-      localStorage.setItem("role", userRole);
-      toast.success("Welcome SA! Redirecting to dashboard...");
-      navigate("/SA/dashboard");
-      return;
+    
+    if (userProfile) {
+      console.log("Found user profile - Role:", userProfile.role);
+      console.log("User status:", userProfile.status);
     }
 
-    // Step 3: Check users table by email
+    if (!userError && userProfile) {
+      // Check if user account is active
+      if (userProfile.status !== "Active") {
+        toast.error("Your account has been deactivated. Please contact an administrator.");
+        return;
+      }
+      
+      // Handle SA role
+      if (userProfile.role === "SA") {
+        console.log("SA role found in users table by auth_id");
+        userRole = "SA";
+        debugMsg += `SA role found in users table by auth_id: ${userId}\n`;
+        localStorage.setItem("user", JSON.stringify(data.session));
+        localStorage.setItem("role", userRole);
+        toast.success("Welcome SA! Redirecting to dashboard...");
+        navigate("/SA/dashboard");
+        return;
+      }
+      
+      
+      // Handle Guard role
+      if (userProfile.role === "Guard") {
+        console.log("Guard role found in users table by auth_id");
+        userRole = "Guard";
+        debugMsg += `Guard role found in users table by auth_id: ${userId}\n`;
+        localStorage.setItem("user", JSON.stringify(data.session));
+        localStorage.setItem("role", userRole);
+        toast.success("Welcome Guard! Redirecting to dashboard...");
+        navigate("/Guard/dashboard");
+        return;
+      }
+      
+      // Handle Staff role
+      if (userProfile.role === "Staff") {
+        console.log("Staff role found in users table by auth_id");
+        userRole = "Staff";
+        debugMsg += `Staff role found in users table by auth_id: ${userId}\n`;
+        localStorage.setItem("user", JSON.stringify(data.session));
+        localStorage.setItem("role", userRole);
+        toast.success("Welcome Staff! Redirecting to dashboard...");
+        navigate("/Staff/dashboard");
+        return;
+      }
+    }
+
+    // Step 4: Check users table by email
     if (userEmail) {
-      console.log("Step 3: Checking users table by email...");
+      console.log("Step 4: Checking users table by email...");
       const { data: userByEmail, error: emailError } = await supabase
         .from("users")
         .select("*")
@@ -115,6 +198,11 @@ export const LogIn = () => {
       console.log("User profile by email error:", emailError);
 
       if (!emailError && userByEmail?.role === "SA") {
+        // Check if user account is active
+        if (userByEmail.status !== "Active") {
+          toast.error("Your account has been deactivated. Please contact an administrator.");
+          return;
+        }
         console.log("SA role found in users table by email");
         userRole = "SA";
         debugMsg += `SA role found in users table by email: ${userEmail}\n`;
@@ -141,14 +229,48 @@ export const LogIn = () => {
         navigate("/SA/dashboard");
         return;
       }
+
+      // Check for Staff role by email
+      if (!emailError && userByEmail?.role === "Staff") {
+        // Check if user account is active
+        if (userByEmail.status !== "Active") {
+          toast.error("Your account has been deactivated. Please contact an administrator.");
+          return;
+        }
+        console.log("Staff role found in users table by email");
+        userRole = "Staff";
+        debugMsg += `Staff role found in users table by email: ${userEmail}\n`;
+        
+        // Fix auth_id mismatch if needed
+        if (userByEmail.auth_id !== userId) {
+          console.log("Fixing Staff auth_id mismatch...");
+          const { error: updateError } = await supabase
+            .from("users")
+            .update({ auth_id: userId })
+            .eq("id", userByEmail.id);
+          
+          if (!updateError) {
+            console.log("Staff Auth ID fixed successfully");
+            debugMsg += `Auth ID fixed for Staff user\n`;
+          } else {
+            console.log("Failed to fix Staff auth ID:", updateError);
+          }
+        }
+        
+        localStorage.setItem("user", JSON.stringify(data.session));
+        localStorage.setItem("role", userRole);
+        toast.success("Welcome Staff! Authentication fixed. Redirecting to dashboard...");
+        navigate("/Staff/dashboard");
+        return;
+      }
     }
 
-    // Step 4: COMPREHENSIVE GUARD DETECTION (similar to SA detection)
+    // Step 5: COMPREHENSIVE GUARD DETECTION (similar to SA detection)
     if (!userRole) {
-      console.log("Step 4: Comprehensive Guard role detection...");
+      console.log("Step 5: Comprehensive Guard role detection...");
       
-      // 4a: Check if there's any Guard role in the roles table
-      console.log("Step 4a: Checking for Guard roles in roles table...");
+      // 5a: Check if there's any Guard role in the roles table
+      console.log("Step 5a: Checking for Guard roles in roles table...");
       const { data: allGuardRoles, error: guardRolesError } = await supabase
         .from("roles")
         .select("*")
@@ -186,9 +308,9 @@ export const LogIn = () => {
         }
       }
 
-      // 4b: Check users table by email for Guard role
+      // 5b: Check users table by email for Guard role
       if (userEmail) {
-        console.log("Step 4b: Checking for Guard role by email...");
+        console.log("Step 5b: Checking for Guard role by email...");
         const { data: guardByEmail, error: guardEmailError } = await supabase
           .from("users")
           .select("*")
@@ -200,6 +322,11 @@ export const LogIn = () => {
         console.log("Guard profile by email error:", guardEmailError);
 
         if (!guardEmailError && guardByEmail) {
+          // Check if user account is active
+          if (guardByEmail.status !== "Active") {
+            toast.error("Your account has been deactivated. Please contact an administrator.");
+            return;
+          }
           console.log("Guard role found in users table by email");
           userRole = "Guard";
           debugMsg += `Guard role found in users table by email: ${userEmail}\n`;
@@ -229,11 +356,17 @@ export const LogIn = () => {
       }
     }
 
-    // Step 5: For other non-SA roles, continue with regular logic
+
+    // Step 6: For other non-SA/Guard/Staff roles, continue with regular logic
     if (!userRole && userProfile?.role) {
+      // Check if user account is active
+      if (userProfile.status !== "Active") {
+        toast.error("Your account has been deactivated. Please contact an administrator.");
+        return;
+      }
       userRole = userProfile.role;
       debugMsg += `Role found in users table: ${userRole}\n`;
-      console.log("Non-SA role found:", userRole);
+      console.log("Non-SA/Guard role found:", userRole);
     }
 
     console.log("=== LOGIN DEBUG END ===");
@@ -252,7 +385,7 @@ export const LogIn = () => {
     // 5. Redirect based on role
     switch (userRole) {
       case "HR Personnel":
-        navigate("/hrPersonnel/dashboard");
+        navigate("/HR/dashboard");
         break;
       case "Accounting":
         navigate("/accounting/payroll");
@@ -270,6 +403,11 @@ export const LogIn = () => {
         // SA should have been handled earlier, but keeping as fallback
         toast.success("Welcome SA! Redirecting to dashboard...");
         navigate("/SA/dashboard");
+        break;
+      case "Staff":
+        // Staff should have been handled earlier, but keeping as fallback
+        toast.success("Welcome Staff! Redirecting to dashboard...");
+        navigate("/Staff/dashboard");
         break;
       default:
         toast.error(`Role not assigned. Debug info: ${debugMsg}`);

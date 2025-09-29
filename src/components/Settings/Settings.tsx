@@ -98,29 +98,84 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onUpdate })
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
+      console.log('[Settings] Starting file upload:', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        userId: user.id
+      });
+
+      // Check if bucket exists first
+      const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
+      console.log('[Settings] Available buckets:', buckets);
+      
+      if (bucketError) {
+        console.error('[Settings] Error listing buckets:', bucketError);
+        throw new Error('Cannot access storage buckets');
+      }
+
+      const profileBucket = buckets?.find(bucket => bucket.id === 'profile-pictures');
+      if (!profileBucket) {
+        console.error('[Settings] Profile pictures bucket not found');
+        throw new Error('Profile pictures storage not configured');
+      }
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      const filePath = `profile-pictures/${fileName}`;
+      const filePath = `${fileName}`; // Simplified path without subfolder
 
-      const { error: uploadError } = await supabase.storage
+      console.log('[Settings] Uploading to path:', filePath);
+
+      // Try uploading with upsert to overwrite existing files
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('profile-pictures')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
 
-      if (uploadError) throw uploadError;
+      console.log('[Settings] Upload result:', { uploadData, uploadError });
+
+      if (uploadError) {
+        console.error('[Settings] Storage upload error:', uploadError);
+        // Try alternative upload method
+        console.log('[Settings] Trying alternative upload method...');
+        
+        const { data: retryData, error: retryError } = await supabase.storage
+          .from('profile-pictures')
+          .upload(filePath, file, { upsert: true });
+          
+        if (retryError) {
+          throw retryError;
+        }
+        console.log('[Settings] Retry upload successful:', retryData);
+      }
 
       const { data: { publicUrl } } = supabase.storage
         .from('profile-pictures')
         .getPublicUrl(filePath);
+
+      console.log('[Settings] Generated public URL:', publicUrl);
 
       setUserData(prev => ({
         ...prev,
         profile_picture: publicUrl
       }));
 
-      toast.success('Profile picture uploaded successfully');
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      toast.error('Failed to upload profile picture');
+      toast.success('Profile picture uploaded successfully! Click "Update Profile" to save changes.');
+    } catch (error: any) {
+      console.error('[Settings] Error uploading file:', error);
+      
+      // Provide more specific error messages
+      if (error.message?.includes('storage') || error.message?.includes('bucket')) {
+        toast.error('Storage not configured properly. Please run the SQL fix script.');
+      } else if (error.message?.includes('permission') || error.message?.includes('policy')) {
+        toast.error('Storage permission denied. Please run the SQL fix script.');
+      } else if (error.message?.includes('not found')) {
+        toast.error('Storage bucket not found. Please run the SQL fix script.');
+      } else {
+        toast.error(`Failed to upload profile picture: ${error.message || 'Unknown error'}`);
+      }
     } finally {
       setUploading(false);
     }
@@ -134,9 +189,10 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onUpdate })
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
-      const { error } = await supabase
-        .from('users')
-        .update({
+      console.log('[Settings] Attempting to update user profile:', {
+        auth_id: user.id,
+        email: user.email,
+        updateData: {
           name: userData.name,
           age: userData.age,
           gender: userData.gender,
@@ -144,10 +200,92 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onUpdate })
           contact_no: userData.contact_no,
           positions: userData.positions,
           profile_picture: userData.profile_picture
-        })
-        .eq('auth_id', user.id);
+        }
+      });
 
-      if (error) throw error;
+      // First, check if user exists in users table
+      const { data: existingUser, error: checkError } = await supabase
+        .from('users')
+        .select('id, auth_id, email')
+        .eq('auth_id', user.id)
+        .single();
+
+      console.log('[Settings] Existing user check:', { existingUser, checkError });
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('[Settings] Error checking existing user:', checkError);
+        throw checkError;
+      }
+
+      if (!existingUser) {
+        // Try to find user by email as fallback
+        const { data: userByEmail, error: emailError } = await supabase
+          .from('users')
+          .select('id, auth_id, email')
+          .eq('email', user.email)
+          .single();
+
+        console.log('[Settings] User by email check:', { userByEmail, emailError });
+
+        if (userByEmail) {
+          // Update the auth_id for this user
+          const { error: authUpdateError } = await supabase
+            .from('users')
+            .update({ auth_id: user.id })
+            .eq('email', user.email);
+
+          if (authUpdateError) {
+            console.error('[Settings] Error updating auth_id:', authUpdateError);
+            throw authUpdateError;
+          }
+          console.log('[Settings] Updated auth_id for user found by email');
+        } else {
+          throw new Error('User record not found in database. Please contact administrator.');
+        }
+      }
+
+      // Now perform the update
+      const updateData = {
+        name: userData.name || null,
+        age: userData.age || null,
+        gender: userData.gender || null,
+        address: userData.address || null,
+        contact_no: userData.contact_no || null,
+        positions: userData.positions || null,
+        profile_picture: userData.profile_picture || null
+      };
+
+      const { data, error } = await supabase
+        .from('users')
+        .update(updateData)
+        .eq('auth_id', user.id)
+        .select();
+
+      console.log('[Settings] Update result:', { data, error });
+
+      if (error) {
+        console.error('[Settings] Database update error:', error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        console.warn('[Settings] No rows updated - trying alternative update method');
+        
+        // Try updating by email as fallback
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('users')
+          .update(updateData)
+          .eq('email', user.email)
+          .select();
+
+        if (fallbackError || !fallbackData || fallbackData.length === 0) {
+          throw new Error('Failed to update user profile. Please contact administrator.');
+        }
+        
+        console.log('[Settings] Fallback update successful:', fallbackData[0]);
+      }
+
+      console.log('[Settings] Profile updated successfully:', data?.[0] || 'via fallback');
 
       // Call the onUpdate callback to refresh the navbar
       onUpdate({
@@ -155,11 +293,23 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onUpdate })
         profile_picture: userData.profile_picture
       });
 
-      toast.success('Profile updated successfully');
+      toast.success('Profile updated successfully!');
       onClose();
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      toast.error('Failed to update profile');
+    } catch (error: any) {
+      console.error('[Settings] Error updating profile:', error);
+      
+      // Provide more specific error messages
+      if (error.message?.includes('RLS') || error.message?.includes('policy')) {
+        toast.error('Permission denied. Please run the SQL fix script and try again.');
+      } else if (error.message?.includes('auth_id')) {
+        toast.error('Authentication issue. Please try logging out and back in.');
+      } else if (error.message?.includes('not found') || error.message?.includes('contact administrator')) {
+        toast.error('User profile not found. Please contact administrator.');
+      } else if (error.message?.includes('column') || error.message?.includes('does not exist')) {
+        toast.error('Database schema issue. Please run the SQL fix script.');
+      } else {
+        toast.error(`Failed to update profile: ${error.message || 'Unknown error'}`);
+      }
     } finally {
       setLoading(false);
     }
