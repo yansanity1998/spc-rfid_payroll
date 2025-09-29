@@ -32,6 +32,8 @@ import { NavGuard } from "./components/Guard/NavGuard";
 import GuardDashboard from "./components/Guard/GuardDashboard";
 import GuardReports from "./components/Guard/GuardReports";
 import GuardScanner from "./components/Guard/GuardScanner";
+import { GuardApproval } from "./components/Guard/GuardApproval";
+import { DatabaseTest } from "./components/Debug/DatabaseTest";
 import FacDashboard from "./components/Faculty/FacDashboard";
 import { FacNav } from "./components/Faculty/FacNav";
 import Scanner from "./components/authAdmin/Scanner";
@@ -39,6 +41,7 @@ import FacAttendance from "./components/Faculty/FacAttendance";
 import FacSchedule from "./components/Faculty/FacSchedule";
 import { FacPayroll } from "./components/Faculty/FacPayroll";
 import { FacRequest } from "./components/Faculty/FacRequest";
+import { DeanApproval } from "./components/Faculty/DeanApproval";
 import SADashboard from "./components/SA/SADashboard";
 import SAAttendance from "./components/SA/SAAttendance";
 import SASchedule from "./components/SA/SASchedule";
@@ -116,6 +119,7 @@ function AppContent() {
           <Route path="/Guard/dashboard" element={<GuardDashboard />}/>
           <Route path="/Guard/scanner" element={<GuardScanner />}/>
           <Route path="/Guard/reports" element={<GuardReports />}/>
+          <Route path="/Guard/approvals" element={<GuardApproval />}/>
 
           {/* FACULTY */}
           <Route path="/Faculty/dashboard" element={<FacDashboard />} />
@@ -123,6 +127,7 @@ function AppContent() {
           <Route path="/Faculty/schedule" element={<FacSchedule />} />
           <Route path="/Faculty/payroll" element={<FacPayroll />} />
           <Route path="/Faculty/request" element={<FacRequest />} />
+          <Route path="/Faculty/dean-approval" element={<DeanApproval />} />
 
           {/* STUDENT AFFAIRS */}
           <Route path="/SA/dashboard" element={<SADashboard />} />
@@ -144,6 +149,7 @@ function AppContent() {
           <Route path="/diagnose-sa" element={<DiagnoseSARole />} />
           <Route path="/diagnose-guard" element={<DiagnoseGuardRole />} />
           <Route path="/diagnose-staff" element={<DiagnoseStaffRole />} />
+          <Route path="/database-test" element={<DatabaseTest />} />
   
 
         </Routes>

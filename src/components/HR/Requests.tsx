@@ -1,17 +1,288 @@
 // src/pages/Requests.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import supabase from "../../utils/supabase";
+import { toast } from 'react-hot-toast';
+
+interface HRRequest {
+  id: number;
+  name: string;
+  type: string;
+  leave_type?: string;
+  reason: string;
+  purpose: string;
+  destination: string;
+  time_out: string;
+  time_in: string;
+  start_date?: string;
+  end_date?: string;
+  duration?: string;
+  date_needed?: string;
+  date: string;
+  status: string;
+  requester_position: string;
+  approved_by_name: string;
+  guard_approved_by_name: string;
+  approved_date: string;
+  guard_approved_date: string;
+  profile_picture?: string;
+  // Add fields to track approval states
+  approved_by?: number;
+  guard_approved?: boolean;
+  guard_approved_by?: number;
+}
 
 export const Requests = () => {
-  const [requests] = useState([
-    { id: 1, name: "Jane Smith", type: "Leave", reason: "Sick Leave", date: "2025-08-25", status: "Pending" },
-    { id: 2, name: "Mark Reyes", type: "Loan", reason: "Medical Loan", date: "2025-08-20", status: "Approved" },
-    { id: 3, name: "Ana Cruz", type: "Leave", reason: "Vacation", date: "2025-08-15", status: "Rejected" },
-  ]);
+  const [requests, setRequests] = useState<HRRequest[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const [lastRequestCount, setLastRequestCount] = useState(0);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+
+  useEffect(() => {
+    fetchAllRequests();
+    
+    // Set up automatic refresh every 30 seconds to catch new approvals
+    const intervalId = setInterval(() => {
+      console.log('[HR Requests] Auto-refreshing for new requests...');
+      fetchAllRequests();
+    }, 30000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const fetchAllRequests = async () => {
+    setLoading(true);
+    try {
+      console.log('[HR Requests] Fetching ALL requests from Faculty...');
+      console.log('[HR Requests] Looking for requests with: request_type = "Gate Pass", "Loan", "Leave" from Faculty positions');
+
+      // Fetch ALL requests from Faculty (Program Head, Full Time, Part Time)
+      const { data: allRequests, error: requestError } = await supabase
+        .from('requests')
+        .select('*')
+        .in('request_type', ['Gate Pass', 'Loan', 'Leave'])
+        .order('created_at', { ascending: false });
+
+      console.log('[HR Requests] All requests:', { allRequests, requestError });
+      console.log('[HR Requests] Request types found:', allRequests?.map(r => r.request_type));
+      console.log('[HR Requests] Request statuses found:', allRequests?.map(r => r.status));
+
+      if (requestError) {
+        console.error('[HR Requests] Error fetching requests:', requestError);
+        toast.error('Failed to fetch requests: ' + requestError.message);
+        return;
+      }
+
+      if (!allRequests || allRequests.length === 0) {
+        console.log('[HR Requests] No requests found');
+        setRequests([]);
+        return;
+      }
+
+      // Get user details for each request and filter for Faculty positions
+      const requestsWithDetails = [];
+      for (const request of allRequests) {
+        // Get requester details
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('id, name, email, positions, role, profile_picture')
+          .eq('id', request.user_id)
+          .single();
+
+        // Get dean approver details
+        let deanApproverName = 'Unknown';
+        if (request.approved_by) {
+          const { data: deanData } = await supabase
+            .from('users')
+            .select('name')
+            .eq('id', request.approved_by)
+            .single();
+          
+          if (deanData) {
+            deanApproverName = deanData.name;
+          }
+        }
+
+        // Get second approver details (Guard for Gate Pass, HR for Leave/Loan)
+        let secondApproverName = 'Unknown';
+        if (request.guard_approved_by) {
+          const { data: approverData } = await supabase
+            .from('users')
+            .select('name')
+            .eq('id', request.guard_approved_by)
+            .single();
+          
+          if (approverData) {
+            secondApproverName = approverData.name;
+          }
+        }
+
+        if (!userError && userData) {
+          console.log(`[HR Requests] Processing request ${request.id} from user ${userData.name} (${userData.role}, ${userData.positions}) - Request Type: ${request.request_type}, Status: ${request.status}`);
+          
+          // Only include Faculty members with specific positions
+          if (userData.role === 'Faculty' && 
+              ['Program Head', 'Full Time', 'Part Time'].includes(userData.positions)) {
+            
+            console.log(`[HR Requests] Including Faculty request from ${userData.name} (${userData.positions}) - ${request.request_type}`);
+            
+            requestsWithDetails.push({
+              id: request.id,
+              name: userData.name,
+              type: request.request_type || 'Unknown',
+              leave_type: request.leave_type || '',
+              reason: request.reason || request.purpose || `${request.request_type} Request`,
+              purpose: request.purpose || '',
+              destination: request.destination || '',
+              time_out: request.time_out || '',
+              time_in: request.time_in || '',
+              start_date: request.start_date || '',
+              end_date: request.end_date || '',
+              duration: request.duration || '',
+              date_needed: request.date_needed || '',
+              date: request.created_at,
+              status: request.status,
+              requester_position: userData.positions || '',
+              approved_by_name: deanApproverName,
+              guard_approved_by_name: secondApproverName,
+              approved_date: request.approved_date || '',
+              guard_approved_date: request.guard_approved_date || '',
+              profile_picture: userData.profile_picture,
+              // Add approval state fields
+              approved_by: request.approved_by,
+              guard_approved: request.guard_approved || false,
+              guard_approved_by: request.guard_approved_by
+            });
+          } else {
+            console.log(`[HR Requests] Skipping non-Faculty request from ${userData.name} (${userData.role}, ${userData.positions})`);
+          }
+        } else {
+          console.error(`[HR Requests] Error fetching user for request ${request.id}:`, userError);
+        }
+      }
+
+      console.log('[HR Requests] Final requests with details:', requestsWithDetails);
+      console.log('[HR Requests] Request types in final list:', requestsWithDetails.map(r => r.type));
+      console.log('[HR Requests] Leave requests found:', requestsWithDetails.filter(r => r.type === 'Leave'));
+      
+      // Check for new requests and notify
+      if (requestsWithDetails.length > lastRequestCount && lastRequestCount > 0) {
+        const newRequestsCount = requestsWithDetails.length - lastRequestCount;
+        const guardApprovedCount = requestsWithDetails.filter(r => r.status === 'Guard Approved').length;
+        
+        if (guardApprovedCount > 0) {
+          toast.success(
+            `🚪 ${newRequestsCount} new gate pass request(s) detected!\n` +
+            `${guardApprovedCount} approved by Guard and ready for HR review.`,
+            { duration: 6000 }
+          );
+        } else {
+          toast.success(`${newRequestsCount} new gate pass request(s) detected!`);
+        }
+      }
+      
+      setRequests(requestsWithDetails);
+      setLastRequestCount(requestsWithDetails.length);
+      setLastRefresh(new Date());
+
+    } catch (error) {
+      console.error('[HR Requests] Error fetching guard-approved requests:', error);
+      toast.error('Failed to fetch requests');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDateTime = (dateString: string) => {
+    if (!dateString) return 'Not specified';
+    return new Date(dateString).toLocaleString('en-PH', {
+      timeZone: 'Asia/Manila',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Function to determine the actual status based on approval states and request type
+  const getActualStatus = (request: HRRequest) => {
+    const isGatePass = request.type === 'Gate Pass';
+    const secondApproverLabel = isGatePass ? 'Guard' : 'HR';
+    
+    // Debug logging for rejected requests
+    if (request.status === 'Rejected') {
+      console.log(`[HR Requests] Request ${request.id} is REJECTED - Status: ${request.status}, approved_by: ${request.approved_by}`);
+      return 'Rejected';
+    }
+    
+    // Check if both dean and second approver have approved
+    if (request.approved_by && request.guard_approved && request.guard_approved_by) {
+      return `Dean & ${secondApproverLabel} Approved`;
+    }
+    
+    // Check if only second approver has approved (shouldn't happen in normal flow, but handle it)
+    if (request.guard_approved && request.guard_approved_by && !request.approved_by) {
+      return `${secondApproverLabel} Approved`;
+    }
+    
+    // Check if only dean has approved (and not rejected)
+    if (request.approved_by && (!request.guard_approved || !request.guard_approved_by) && request.status !== 'Rejected') {
+      console.log(`[HR Requests] Request ${request.id} is Dean Approved - Status: ${request.status}, approved_by: ${request.approved_by}`);
+      return 'Dean Approved';
+    }
+    
+    // Check for pending dean approval
+    if (request.status === 'Pending Dean Approval') {
+      return 'Pending Dean Approval';
+    }
+    
+    // Default to pending
+    return 'Pending';
+  };
+
+  // Function to get status color based on actual status
+  const getStatusColor = (actualStatus: string) => {
+    // Fully approved (both dean and second approver) - GREEN
+    if (actualStatus.includes('Dean & Guard Approved') || actualStatus.includes('Dean & HR Approved')) {
+      return 'bg-green-100 text-green-800';
+    }
+    // Dean approved only - BLUE
+    if (actualStatus === 'Dean Approved') {
+      return 'bg-blue-100 text-blue-800';
+    }
+    // Second approver only (Guard/HR) - TEAL
+    if (actualStatus.includes('Guard Approved') || actualStatus.includes('HR Approved')) {
+      return 'bg-teal-100 text-teal-800';
+    }
+    // Pending dean approval - ORANGE
+    if (actualStatus === 'Pending Dean Approval') {
+      return 'bg-orange-100 text-orange-800';
+    }
+    // Rejected - RED
+    if (actualStatus === 'Rejected') {
+      return 'bg-red-100 text-red-800';
+    }
+    // Pending - YELLOW
+    if (actualStatus === 'Pending') {
+      return 'bg-yellow-100 text-yellow-800';
+    }
+    return 'bg-gray-100 text-gray-800';
+  };
 
   const filteredRequests = requests.filter(req => {
-    const matchesFilter = activeFilter === "All" || req.status === activeFilter;
+    const actualStatus = getActualStatus(req);
+    let matchesFilter = false;
+    
+    if (activeFilter === "All") {
+      matchesFilter = true;
+    } else if (activeFilter === "Fully Approved") {
+      matchesFilter = actualStatus.includes("Dean & Guard Approved") || actualStatus.includes("Dean & HR Approved");
+    } else {
+      matchesFilter = actualStatus === activeFilter || req.status === activeFilter;
+    }
+    
     const matchesSearch = req.name.toLowerCase().includes(search.toLowerCase()) || 
                          req.type.toLowerCase().includes(search.toLowerCase()) ||
                          req.reason.toLowerCase().includes(search.toLowerCase());
@@ -30,9 +301,16 @@ export const Requests = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Employee Requests</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Faculty Requests Monitor</h1>
             </div>
-            <p className="text-gray-600">Manage employee leave and loan requests</p>
+            <div className="flex items-center justify-between">
+              <p className="text-gray-600">Monitor gate pass, loan, and leave requests from faculty members</p>
+              {lastRefresh && (
+                <p className="text-sm text-gray-500">
+                  Last updated: {formatDateTime(lastRefresh.toISOString())}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Modern Controls */}
@@ -53,19 +331,23 @@ export const Requests = () => {
               </div>
             </div>
 
-            {/* New Request Button */}
-            <button className="group relative overflow-hidden bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2">
+            {/* Refresh Button */}
+            <button 
+              onClick={fetchAllRequests}
+              disabled={loading}
+              className="group relative overflow-hidden bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2 disabled:opacity-50"
+            >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              New Request
+              {loading ? 'Refreshing...' : 'Refresh'}
               <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </button>
           </div>
         </section>
 
         {/* Modern Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-6">
           {/* Total Requests */}
           <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
             <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
@@ -99,15 +381,22 @@ export const Requests = () => {
                   </div>
                   <h2 className="text-base font-semibold">Pending</h2>
                 </div>
-                <p className="text-2xl font-bold">{requests.filter(r => r.status === "Pending").length}</p>
-                <p className="text-yellow-100 text-xs mt-1">Awaiting review</p>
+                <p className="text-2xl font-bold">
+                  {requests.filter(r => r.status === "Pending" || r.status === "Pending Dean Approval").length}
+                </p>
+                <p className="text-yellow-100 text-xs mt-1">
+                  {requests.filter(r => r.status === "Pending Dean Approval").length > 0 
+                    ? `${requests.filter(r => r.status === "Pending Dean Approval").length} awaiting dean approval`
+                    : 'Awaiting review'
+                  }
+                </p>
               </div>
             </div>
             <div className="absolute -bottom-1 -right-1 w-12 h-12 bg-white/10 rounded-full"></div>
           </div>
 
-          {/* Approved Requests */}
-          <div className="group relative overflow-hidden bg-gradient-to-br from-green-500 to-green-600 p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+          {/* Dean Approved Requests */}
+          <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
             <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
             <div className="relative z-10 flex items-center justify-between">
               <div className="text-white">
@@ -117,10 +406,33 @@ export const Requests = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <h2 className="text-base font-semibold">Approved</h2>
+                  <h2 className="text-base font-semibold">Dean Approved</h2>
                 </div>
-                <p className="text-2xl font-bold">{requests.filter(r => r.status === "Approved").length}</p>
-                <p className="text-green-100 text-xs mt-1">Accepted requests</p>
+                <p className="text-2xl font-bold">{requests.filter(r => getActualStatus(r) === "Dean Approved").length}</p>
+                <p className="text-blue-100 text-xs mt-1">Dean approved only</p>
+              </div>
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-12 h-12 bg-white/10 rounded-full"></div>
+          </div>
+
+          {/* Fully Approved Requests */}
+          <div className="group relative overflow-hidden bg-gradient-to-br from-green-500 to-green-600 p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+            <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+            <div className="relative z-10 flex items-center justify-between">
+              <div className="text-white">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.414-4.414a2 2 0 00-2.828 0L7 14.586l-2.293-2.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l11-11a1 1 0 000-1.414z" />
+                    </svg>
+                  </div>
+                  <h2 className="text-base font-semibold">Fully Approved</h2>
+                </div>
+                <p className="text-2xl font-bold">{requests.filter(r => {
+                  const status = getActualStatus(r);
+                  return status.includes("Dean & Guard Approved") || status.includes("Dean & HR Approved");
+                }).length}</p>
+                <p className="text-green-100 text-xs mt-1">Fully approved</p>
               </div>
             </div>
             <div className="absolute -bottom-1 -right-1 w-12 h-12 bg-white/10 rounded-full"></div>
@@ -149,7 +461,7 @@ export const Requests = () => {
 
         {/* Modern Filter Tabs */}
         <div className="flex flex-wrap gap-2 mt-6 mb-4">
-          {["All", "Pending", "Approved", "Rejected"].map((filter) => (
+          {["All", "Pending", "Pending Dean Approval", "Dean Approved", "Fully Approved", "Rejected"].map((filter) => (
             <button
               key={filter}
               onClick={() => setActiveFilter(filter)}
@@ -159,7 +471,11 @@ export const Requests = () => {
                     ? "bg-gray-800 text-white shadow-lg"
                     : filter === "Pending"
                     ? "bg-yellow-500 text-white shadow-lg"
-                    : filter === "Approved"
+                    : filter === "Pending Dean Approval"
+                    ? "bg-orange-500 text-white shadow-lg"
+                    : filter === "Dean Approved"
+                    ? "bg-blue-500 text-white shadow-lg"
+                    : filter === "Fully Approved"
                     ? "bg-green-500 text-white shadow-lg"
                     : "bg-red-500 text-white shadow-lg"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -187,12 +503,13 @@ export const Requests = () => {
               <thead className="bg-gradient-to-r from-red-600 to-red-700 text-white sticky top-0 z-10">
                 <tr>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">ID</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Employee</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Type</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Reason</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Date</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Faculty</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Position</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Request Type</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Details</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Purpose</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Status</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Actions</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Approved By</th>
                 </tr>
               </thead>
               <tbody>
@@ -204,67 +521,91 @@ export const Requests = () => {
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full flex items-center justify-center">
-                            <span className="text-white text-xs font-semibold">{req.name.charAt(0)}</span>
-                          </div>
+                          {req.profile_picture ? (
+                            <img
+                              src={req.profile_picture}
+                              alt={req.name}
+                              className="w-8 h-8 rounded-full object-cover border-2 border-red-200"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 bg-gradient-to-br from-red-400 to-red-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-semibold">{req.name.charAt(0)}</span>
+                            </div>
+                          )}
                           <span className="font-semibold text-gray-800 text-sm">{req.name}</span>
                         </div>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          {req.requester_position}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                          req.type === "Leave" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"
+                          req.type === 'Gate Pass' ? 'bg-blue-100 text-blue-800' :
+                          req.type === 'Loan' ? 'bg-green-100 text-green-800' :
+                          req.type === 'Leave' ? 'bg-purple-100 text-purple-800' :
+                          'bg-gray-100 text-gray-800'
                         }`}>
                           {req.type}
                         </span>
                       </td>
-                      <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
-                        {req.reason}
-                      </td>
-                      <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
-                        {new Date(req.date).toLocaleDateString()}
-                      </td>
                       <td className="px-3 py-3 border-b border-gray-200">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                          req.status === "Pending"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : req.status === "Approved"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}>
-                          {req.status}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 border-b border-gray-200">
-                        <div className="flex flex-wrap gap-1.5">
-                          {req.status === "Pending" && (
+                        <div className="text-xs text-gray-600 space-y-1">
+                          {req.type === 'Gate Pass' && (
                             <>
-                              <button className="px-2.5 py-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md">
-                                Approve
-                              </button>
-                              <button className="px-2.5 py-1.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-md hover:from-red-600 hover:to-red-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md">
-                                Reject
-                              </button>
+                              <div><strong>Destination:</strong> {req.destination || 'Not specified'}</div>
+                              <div><strong>Time Out:</strong> {formatDateTime(req.time_out)}</div>
                             </>
                           )}
-                          <button className="px-2.5 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-md hover:from-blue-600 hover:to-blue-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md">
-                            View
-                          </button>
+                          {req.type === 'Leave' && (
+                            <>
+                              {req.leave_type && <div><strong>Leave Type:</strong> {req.leave_type}</div>}
+                              {req.start_date && <div><strong>Start:</strong> {formatDateTime(req.start_date)}</div>}
+                              {req.end_date && <div><strong>End:</strong> {formatDateTime(req.end_date)}</div>}
+                              {req.duration && <div><strong>Duration:</strong> {req.duration}</div>}
+                            </>
+                          )}
+                          {req.type === 'Loan' && (
+                            <>
+                              {req.date_needed && <div><strong>Date Needed:</strong> {formatDateTime(req.date_needed)}</div>}
+                            </>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
+                        {req.purpose || req.reason || 'Not specified'}
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200">
+                        {(() => {
+                          const actualStatus = getActualStatus(req);
+                          return (
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(actualStatus)}`}>
+                              {actualStatus}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200">
+                        <div className="text-xs text-gray-600">
+                          <div>Dean: {req.approved_by_name}</div>
+                          <div>{req.type === 'Gate Pass' ? 'Guard' : 'HR'}: {req.guard_approved_by_name}</div>
                         </div>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7} className="text-center py-12">
+                    <td colSpan={8} className="text-center py-12">
                       <div className="flex flex-col items-center gap-4">
                         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
                           <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </div>
                         <div className="text-center">
                           <h3 className="text-lg font-semibold text-gray-800 mb-1">No Requests Found</h3>
-                          <p className="text-gray-500">No requests match your current filter criteria.</p>
+                          <p className="text-gray-500">{loading ? 'Loading requests...' : 'No faculty requests available.'}</p>
                         </div>
                       </div>
                     </td>

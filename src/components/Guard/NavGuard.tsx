@@ -60,6 +60,7 @@ export const NavGuard = () => {
   const menu = [
     { key: "dashboard", label: "Dashboard", link: "Guard/dashboard" },
     { key: "scanner", label: "RFID Scanner", link: "Guard/scanner" },
+    { key: "approvals", label: "Gate Pass Monitor", link: "Guard/approvals" },
     { key: "reports", label: "Reports", link: "Guard/reports" },
   ];
 
@@ -76,6 +77,12 @@ export const NavGuard = () => {
         return (
           <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h4" />
+          </svg>
+        );
+      case "approvals":
+        return (
+          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         );
       case "reports":
