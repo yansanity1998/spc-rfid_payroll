@@ -140,6 +140,7 @@ const Dashboard = () => {
           period,
           gross,
           deductions,
+          loan_deduction,
           net,
           status,
           created_at
@@ -588,6 +589,9 @@ const Dashboard = () => {
                     Deductions
                   </th>
                   <th className="px-3 sm:px-4 py-2 text-left border-b">
+                    Loan Deduction
+                  </th>
+                  <th className="px-3 sm:px-4 py-2 text-left border-b">
                     Net Pay
                   </th>
                   <th className="px-3 sm:px-4 py-2 text-left border-b">
@@ -601,7 +605,7 @@ const Dashboard = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-8">
+                    <td colSpan={9} className="text-center py-8">
                       <div className="flex items-center justify-center gap-3">
                         <div className="w-6 h-6 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
                         <span className="text-gray-600 font-medium">Loading payroll data...</span>
@@ -624,6 +628,9 @@ const Dashboard = () => {
                       </td>
                       <td className="px-3 sm:px-4 py-4 border-b border-gray-200 font-semibold text-red-600">
                         ₱{pr.deductions?.toLocaleString() || '0'}
+                      </td>
+                      <td className="px-3 sm:px-4 py-4 border-b border-gray-200 font-semibold text-orange-600">
+                        ₱{pr.loan_deduction?.toLocaleString() || '0'}
                       </td>
                       <td className="px-3 sm:px-4 py-4 border-b border-gray-200 font-bold text-green-600">
                         ₱{pr.net?.toLocaleString() || '0'}
@@ -648,7 +655,7 @@ const Dashboard = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={8} className="text-center py-12">
+                    <td colSpan={9} className="text-center py-12">
                       <div className="flex flex-col items-center gap-4">
                         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
                           <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -774,7 +781,7 @@ const Dashboard = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-8">
+                    <td colSpan={9} className="text-center py-8">
                       <div className="flex items-center justify-center gap-3">
                         <div className="w-6 h-6 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
                         <span className="text-gray-600 font-medium">Loading attendance data...</span>
@@ -865,7 +872,7 @@ const Dashboard = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={8} className="text-center py-12">
+                    <td colSpan={9} className="text-center py-12">
                       <div className="flex flex-col items-center gap-4">
                         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
                           <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

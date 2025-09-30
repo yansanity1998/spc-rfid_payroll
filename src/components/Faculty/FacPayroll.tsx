@@ -8,6 +8,7 @@ interface PayrollRecord {
   period: string;
   gross: number;
   deductions: number;
+  loan_deduction?: number;
   net: number;
   status: string;
   created_at: string;
@@ -154,11 +155,13 @@ export const FacPayroll = () => {
   // Calculate summary statistics
   const totalGross = payrollRecords.reduce((sum, record) => sum + record.gross, 0);
   const totalDeductions = payrollRecords.reduce((sum, record) => sum + record.deductions, 0);
+  const totalLoanDeductions = payrollRecords.reduce((sum, record) => sum + (record.loan_deduction || 0), 0);
   const totalNet = payrollRecords.reduce((sum, record) => sum + record.net, 0);
   const paidRecords = payrollRecords.filter(record => 
     record.status.toLowerCase() === 'paid' || record.status.toLowerCase() === 'finalized'
   );
   const pendingRecords = payrollRecords.filter(record => record.status.toLowerCase() === 'pending');
+  const recordsWithLoans = payrollRecords.filter(record => record.loan_deduction && record.loan_deduction > 0).length;
 
   return (
     <div className="min-h-screen w-full lg:ml-70 py-5 roboto px-3 sm:px-5 bg-red-200">
@@ -184,7 +187,7 @@ export const FacPayroll = () => {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
@@ -208,6 +211,23 @@ export const FacPayroll = () => {
               <div className="bg-red-100 p-3 rounded-full">
                 <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Total Loans</p>
+                <p className="text-2xl font-bold text-orange-600">{formatCurrency(totalLoanDeductions)}</p>
+                {recordsWithLoans > 0 && (
+                  <p className="text-xs text-gray-500">{recordsWithLoans} period(s) with loans</p>
+                )}
+              </div>
+              <div className="bg-orange-100 p-3 rounded-full">
+                <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
             </div>
@@ -314,6 +334,7 @@ export const FacPayroll = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gross Pay</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deductions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loan</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Pay</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Created</th>
@@ -331,6 +352,14 @@ export const FacPayroll = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-semibold text-red-600">{formatCurrency(record.deductions)}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-semibold text-orange-600">
+                          {record.loan_deduction && record.loan_deduction > 0 
+                            ? formatCurrency(record.loan_deduction) 
+                            : <span className="text-gray-400">--</span>
+                          }
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-bold text-blue-600">{formatCurrency(record.net)}</div>
@@ -467,6 +496,12 @@ export const FacPayroll = () => {
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
+                        <span className="text-gray-700">Loan Deduction:</span>
+                        <span className="font-semibold text-red-600">
+                          {formatCurrency(selectedPayroll.loan_deduction || 0)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
                         <span className="text-gray-700">Other Deductions:</span>
                         <span className="font-semibold text-red-600">
                           {formatCurrency(selectedPayroll.other_deductions || 0)}
@@ -518,6 +553,29 @@ export const FacPayroll = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Loan Breakdown (if any) */}
+                {selectedPayroll.loan_deduction && selectedPayroll.loan_deduction > 0 && (
+                  <div className="mt-6 bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <h3 className="text-lg font-semibold text-blue-800 mb-4 flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      Loan Deduction
+                    </h3>
+                    <div className="bg-white rounded p-3 border border-blue-300">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-700">Loan Payment for this Period:</span>
+                        <span className="font-bold text-blue-600">
+                          {formatCurrency(selectedPayroll.loan_deduction)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        This amount is deducted from your payroll for loan repayment as per your approved loan request.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Penalties Breakdown (if any) */}
                 {calculateActualPenalties(selectedPayroll) > 0 && (

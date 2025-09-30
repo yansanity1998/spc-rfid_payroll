@@ -49,15 +49,6 @@ const Reports = () => {
       textColor: "text-orange-600"
     },
     {
-      id: 5,
-      title: "Government Contributions",
-      description: "SSS, PhilHealth, Pag-IBIG, and Tax withholding reports.",
-      icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4",
-      color: "from-red-500 to-red-600",
-      bgColor: "bg-red-50",
-      textColor: "text-red-600"
-    },
-    {
       id: 6,
       title: "Employee Reports",
       description: "Comprehensive employee information with role-based filtering and export options.",
@@ -286,39 +277,6 @@ const Reports = () => {
     }
   };
 
-  const exportGovernmentContributionsReport = async () => {
-    try {
-      toast.loading("Generating government contributions report...");
-      
-      const { data, error } = await supabase
-        .from("users")
-        .select("id, name, role")
-        .eq("status", "Active");
-
-      if (error) throw error;
-
-      const contributionsData = data.map((user: any) => ({
-        "Employee ID": user.id,
-        "Employee Name": user.name,
-        Role: user.role,
-        "SSS Contribution": (Math.floor(Math.random() * 2000) + 500).toLocaleString(),
-        "PhilHealth Contribution": (Math.floor(Math.random() * 1000) + 200).toLocaleString(),
-        "Pag-IBIG Contribution": (Math.floor(Math.random() * 500) + 100).toLocaleString(),
-        "Tax Withholding": (Math.floor(Math.random() * 3000) + 1000).toLocaleString(),
-        "Total Contributions": (Math.floor(Math.random() * 6000) + 2000).toLocaleString(),
-        Period: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' }),
-        Status: "Processed"
-      }));
-
-      exportToCSV(contributionsData, "government_contributions_report");
-      toast.dismiss();
-      toast.success("Government contributions report exported successfully!");
-    } catch (error) {
-      toast.dismiss();
-      toast.error("Failed to export government contributions report");
-      console.error("Export error:", error);
-    }
-  };
 
   // Generic CSV export function
   const exportToCSV = (data: any[], filename: string) => {
@@ -533,8 +491,6 @@ const Reports = () => {
                         exportLeaveReport();
                       } else if (report.id === 4) {
                         exportLoanReport();
-                      } else if (report.id === 5) {
-                        exportGovernmentContributionsReport();
                       } else if (report.id === 6) {
                         exportEmployeeReport();
                       } else if (report.id === 7) {

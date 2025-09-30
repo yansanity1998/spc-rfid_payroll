@@ -6,10 +6,31 @@ body{
   background-color: rgb(218, 218, 218);
 }
 
+/* Image Cropper Slider Styling */
+input[type="range"].slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+input[type="range"].slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
 .noise-bg {
   background-image: url("https://www.transparenttextures.com/patterns/noise.png");
   background-size: cover;
-  background-blend-mode: overlay;
 }
 
 

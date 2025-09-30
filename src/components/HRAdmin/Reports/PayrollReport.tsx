@@ -10,6 +10,7 @@ interface PayrollRecord {
   period: string;
   gross: number;
   deductions: number;
+  loan_deduction: number;
   net: number;
   status: string;
 }
@@ -51,6 +52,7 @@ export const PayrollReport = ({ onBack }: PayrollReportProps) => {
           period,
           gross,
           deductions,
+          loan_deduction,
           net,
           status
         )
@@ -79,6 +81,7 @@ export const PayrollReport = ({ onBack }: PayrollReportProps) => {
                     period: "--",
                     gross: 0,
                     deductions: 0,
+                    loan_deduction: 0,
                     net: 0,
                     status: "No Record",
                   },
@@ -139,6 +142,7 @@ export const PayrollReport = ({ onBack }: PayrollReportProps) => {
       "Period": record.period || "",
       "Gross Pay": record.gross || 0,
       "Deductions": record.deductions || 0,
+      "Loan Deduction": record.loan_deduction || 0,
       "Net Pay": record.net || 0,
       "Status": record.status || ""
     }));
@@ -196,6 +200,7 @@ export const PayrollReport = ({ onBack }: PayrollReportProps) => {
                 <th>Period</th>
                 <th>Gross Pay</th>
                 <th>Deductions</th>
+                <th>Loan Deduction</th>
                 <th>Net Pay</th>
                 <th>Status</th>
               </tr>
@@ -209,6 +214,7 @@ export const PayrollReport = ({ onBack }: PayrollReportProps) => {
                   <td>${record.period || "N/A"}</td>
                   <td class="currency">₱${record.gross?.toLocaleString() || "0"}</td>
                   <td class="currency">₱${record.deductions?.toLocaleString() || "0"}</td>
+                  <td class="currency">₱${record.loan_deduction?.toLocaleString() || "0"}</td>
                   <td class="currency">₱${record.net?.toLocaleString() || "0"}</td>
                   <td class="status-${record.status?.toLowerCase()}">${record.status || "N/A"}</td>
                 </tr>
@@ -269,7 +275,7 @@ export const PayrollReport = ({ onBack }: PayrollReportProps) => {
         </section>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-xl shadow-lg text-white">
             <div className="flex items-center justify-between">
               <div>
@@ -298,6 +304,20 @@ export const PayrollReport = ({ onBack }: PayrollReportProps) => {
             </div>
           </div>
 
+          <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-4 rounded-xl shadow-lg text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-orange-100 text-sm">Total Loan Deductions</p>
+                <p className="text-2xl font-bold">₱{payrollRecords.reduce((sum, record) => sum + (record.loan_deduction || 0), 0).toLocaleString()}</p>
+              </div>
+              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-4 rounded-xl shadow-lg text-white">
             <div className="flex items-center justify-between">
               <div>
@@ -312,10 +332,10 @@ export const PayrollReport = ({ onBack }: PayrollReportProps) => {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-4 rounded-xl shadow-lg text-white">
+          <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 p-4 rounded-xl shadow-lg text-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-orange-100 text-sm">Pending Records</p>
+                <p className="text-yellow-100 text-sm">Pending Records</p>
                 <p className="text-2xl font-bold">{payrollRecords.filter(record => record.status === "Pending").length}</p>
               </div>
               <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
@@ -431,6 +451,7 @@ export const PayrollReport = ({ onBack }: PayrollReportProps) => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gross Pay</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deductions</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loan Deduction</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Pay</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 </tr>
@@ -438,7 +459,7 @@ export const PayrollReport = ({ onBack }: PayrollReportProps) => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredAndSortedRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                       <div className="flex flex-col items-center">
                         <svg className="w-12 h-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -470,6 +491,9 @@ export const PayrollReport = ({ onBack }: PayrollReportProps) => {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
                         {record.deductions > 0 ? `₱${record.deductions.toLocaleString()}` : "--"}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-orange-600 font-medium">
+                        {record.loan_deduction > 0 ? `₱${record.loan_deduction.toLocaleString()}` : "--"}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-green-600 font-bold">
                         {record.net > 0 ? `₱${record.net.toLocaleString()}` : "--"}

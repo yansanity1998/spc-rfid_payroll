@@ -7,6 +7,8 @@ export const FacRequest = () => {
   const [loading, setLoading] = useState(true);
   const [activeForm, setActiveForm] = useState<'gatepass' | 'loan' | 'leave' | null>(null);
   const [userName, setUserName] = useState('');
+  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   
   // Form states
   const [gatePassForm, setGatePassForm] = useState({
@@ -373,300 +375,342 @@ export const FacRequest = () => {
             </div>
           )}
 
-          {/* Gate Pass Form */}
+          {/* Gate Pass Modal */}
           {activeForm === 'gatepass' && (
-            <div className="bg-white border-2 border-blue-200 rounded-2xl shadow-xl p-8">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Gate Pass Request</h2>
-                <button
-                  onClick={() => setActiveForm(null)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                  <input
-                    type="text"
-                    value={userName}
-                    disabled
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-gray-50 text-gray-600"
-                  />
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                {/* Modal Header */}
+                <div className="sticky top-0 z-10 px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-2xl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      </div>
+                      <h2 className="text-xl font-bold text-white">Gate Pass Request</h2>
+                    </div>
+                    <button
+                      onClick={() => setActiveForm(null)}
+                      className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                    >
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Modal Body */}
+                <div className="p-6 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Time Out</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Name</label>
                     <input
-                      type="datetime-local"
-                      value={gatePassForm.time_out}
-                      onChange={(e) => setGatePassForm({...gatePassForm, time_out: e.target.value})}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      type="text"
+                      value={userName}
+                      disabled
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 text-sm"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Time Out</label>
+                      <input
+                        type="datetime-local"
+                        value={gatePassForm.time_out}
+                        onChange={(e) => setGatePassForm({...gatePassForm, time_out: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Time In</label>
+                      <input
+                        type="datetime-local"
+                        value={gatePassForm.time_in}
+                        onChange={(e) => setGatePassForm({...gatePassForm, time_in: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Destination</label>
+                    <input
+                      type="text"
+                      value={gatePassForm.destination}
+                      onChange={(e) => setGatePassForm({...gatePassForm, destination: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      placeholder="Where are you going?"
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Time In</label>
-                    <input
-                      type="datetime-local"
-                      value={gatePassForm.time_in}
-                      onChange={(e) => setGatePassForm({...gatePassForm, time_in: e.target.value})}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Purpose</label>
+                    <textarea
+                      value={gatePassForm.purpose}
+                      onChange={(e) => setGatePassForm({...gatePassForm, purpose: e.target.value})}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      placeholder="Explain the purpose of your visit"
                     />
                   </div>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Destination</label>
-                  <input
-                    type="text"
-                    value={gatePassForm.destination}
-                    onChange={(e) => setGatePassForm({...gatePassForm, destination: e.target.value})}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Where are you going?"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Purpose</label>
-                  <textarea
-                    value={gatePassForm.purpose}
-                    onChange={(e) => setGatePassForm({...gatePassForm, purpose: e.target.value})}
-                    rows={4}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Explain the purpose of your visit"
-                  />
-                </div>
-                
-                <div className="flex gap-3 pt-4">
+
+                {/* Modal Footer */}
+                <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t border-gray-200 rounded-b-2xl flex gap-3">
                   <button
                     onClick={() => setActiveForm(null)}
-                    className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-100 transition-colors text-sm"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={submitGatePassRequest}
                     disabled={!gatePassForm.purpose || !gatePassForm.destination}
-                    className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                   >
-                    Submit Gate Pass
+                    Submit Request
                   </button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Loan Form */}
+          {/* Loan Modal */}
           {activeForm === 'loan' && (
-            <div className="bg-white border-2 border-green-200 rounded-2xl shadow-xl p-8">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Loan Request</h2>
-                <button
-                  onClick={() => setActiveForm(null)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Loan Amount (₱)</label>
-                  <input
-                    type="number"
-                    value={loanForm.amount}
-                    onChange={(e) => handleLoanFormChange('amount', e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    placeholder="Enter loan amount"
-                  />
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                {/* Modal Header */}
+                <div className="sticky top-0 z-10 px-6 py-4 bg-gradient-to-r from-green-600 to-green-700 rounded-t-2xl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                        </svg>
+                      </div>
+                      <h2 className="text-xl font-bold text-white">Loan Request</h2>
+                    </div>
+                    <button
+                      onClick={() => setActiveForm(null)}
+                      className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                    >
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date Needed</label>
-                  <input
-                    type="date"
-                    value={loanForm.date_needed}
-                    onChange={(e) => setLoanForm({...loanForm, date_needed: e.target.value})}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Reason</label>
-                  <textarea
-                    value={loanForm.reason}
-                    onChange={(e) => setLoanForm({...loanForm, reason: e.target.value})}
-                    rows={4}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    placeholder="Explain why you need this loan"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Modal Body */}
+                <div className="p-6 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Per Period Deduction (₱)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Loan Amount (₱)</label>
                     <input
                       type="number"
-                      value={loanForm.period_deduction}
-                      onChange={(e) => handleLoanFormChange('period_deduction', e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-gray-50"
-                      placeholder="Auto-calculated"
-                      readOnly
+                      value={loanForm.amount}
+                      onChange={(e) => handleLoanFormChange('amount', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                      placeholder="Enter loan amount"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Automatically calculated: Loan Amount ÷ Total Periods</p>
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Total Periods (15 days each)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Date Needed</label>
                     <input
-                      type="number"
-                      value={loanForm.total_periods}
-                      onChange={(e) => handleLoanFormChange('total_periods', e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                      placeholder="Number of 15-day periods"
+                      type="date"
+                      value={loanForm.date_needed}
+                      onChange={(e) => setLoanForm({...loanForm, date_needed: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Reason</label>
+                    <textarea
+                      value={loanForm.reason}
+                      onChange={(e) => setLoanForm({...loanForm, reason: e.target.value})}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                      placeholder="Explain why you need this loan"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Per Period Deduction (₱)</label>
+                      <input
+                        type="number"
+                        value={loanForm.period_deduction}
+                        onChange={(e) => handleLoanFormChange('period_deduction', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-gray-50 text-sm"
+                        placeholder="Auto-calculated"
+                        readOnly
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Auto: Amount ÷ Periods</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Total Periods (15 days each)</label>
+                      <input
+                        type="number"
+                        value={loanForm.total_periods}
+                        onChange={(e) => handleLoanFormChange('total_periods', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                        placeholder="Number of periods"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Repayment Terms</label>
+                    <textarea
+                      value={loanForm.repayment_terms}
+                      onChange={(e) => setLoanForm({...loanForm, repayment_terms: e.target.value})}
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                      placeholder="Additional repayment terms or conditions"
                     />
                   </div>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Repayment Terms</label>
-                  <textarea
-                    value={loanForm.repayment_terms}
-                    onChange={(e) => setLoanForm({...loanForm, repayment_terms: e.target.value})}
-                    rows={3}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    placeholder="Additional repayment terms or conditions"
-                  />
-                </div>
-                
-                <div className="flex gap-3 pt-4">
+
+                {/* Modal Footer */}
+                <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t border-gray-200 rounded-b-2xl flex gap-3">
                   <button
                     onClick={() => setActiveForm(null)}
-                    className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-100 transition-colors text-sm"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={submitLoanRequest}
                     disabled={!loanForm.amount || !loanForm.reason || !loanForm.date_needed}
-                    className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 px-4 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                   >
-                    Submit Loan Request
+                    Submit Request
                   </button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Leave Form */}
+          {/* Leave Modal */}
           {activeForm === 'leave' && (
-            <div className="bg-white border-2 border-purple-200 rounded-2xl shadow-xl p-8">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Leave Request</h2>
-                <button
-                  onClick={() => setActiveForm(null)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Leave Type</label>
-                  <select
-                    value={leaveForm.leave_type}
-                    onChange={(e) => setLeaveForm({...leaveForm, leave_type: e.target.value})}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  >
-                    <option value="">Select leave type</option>
-                    <option value="Sick Leave">Sick Leave</option>
-                    <option value="Vacation Leave">Vacation Leave</option>
-                    <option value="Emergency Leave">Emergency Leave</option>
-                    <option value="Maternity Leave">Maternity Leave</option>
-                    <option value="Paternity Leave">Paternity Leave</option>
-                    <option value="Bereavement Leave">Bereavement Leave</option>
-                  </select>
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                {/* Modal Header */}
+                <div className="sticky top-0 z-10 px-6 py-4 bg-gradient-to-r from-purple-600 to-purple-700 rounded-t-2xl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 0h6m-6 0l-2 2m8-2l2 2m-2-2v12a2 2 0 01-2 2H10a2 2 0 01-2-2V9m8 0V9a2 2 0 00-2-2H10a2 2 0 00-2 2v0" />
+                        </svg>
+                      </div>
+                      <h2 className="text-xl font-bold text-white">Leave Request</h2>
+                    </div>
+                    <button
+                      onClick={() => setActiveForm(null)}
+                      className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                    >
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Modal Body */}
+                <div className="p-6 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
-                    <input
-                      type="date"
-                      value={leaveForm.start_date}
-                      onChange={(e) => setLeaveForm({...leaveForm, start_date: e.target.value})}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Leave Type</label>
+                    <select
+                      value={leaveForm.leave_type}
+                      onChange={(e) => setLeaveForm({...leaveForm, leave_type: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                    >
+                      <option value="">Select leave type</option>
+                      <option value="Sick Leave">Sick Leave</option>
+                      <option value="Vacation Leave">Vacation Leave</option>
+                      <option value="Emergency Leave">Emergency Leave</option>
+                      <option value="Maternity Leave">Maternity Leave</option>
+                      <option value="Paternity Leave">Paternity Leave</option>
+                      <option value="Bereavement Leave">Bereavement Leave</option>
+                    </select>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Start Date</label>
+                      <input
+                        type="date"
+                        value={leaveForm.start_date}
+                        onChange={(e) => setLeaveForm({...leaveForm, start_date: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">End Date</label>
+                      <input
+                        type="date"
+                        value={leaveForm.end_date}
+                        onChange={(e) => setLeaveForm({...leaveForm, end_date: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Reason</label>
+                    <textarea
+                      value={leaveForm.reason}
+                      onChange={(e) => setLeaveForm({...leaveForm, reason: e.target.value})}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                      placeholder="Explain the reason for your leave"
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Substitute Teacher</label>
                     <input
-                      type="date"
-                      value={leaveForm.end_date}
-                      onChange={(e) => setLeaveForm({...leaveForm, end_date: e.target.value})}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                      type="text"
+                      value={leaveForm.substitute_teacher}
+                      onChange={(e) => setLeaveForm({...leaveForm, substitute_teacher: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                      placeholder="Name of substitute teacher"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Contact Number</label>
+                    <input
+                      type="tel"
+                      value={leaveForm.contact_number}
+                      onChange={(e) => setLeaveForm({...leaveForm, contact_number: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                      placeholder="Your contact number during leave"
                     />
                   </div>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Reason</label>
-                  <textarea
-                    value={leaveForm.reason}
-                    onChange={(e) => setLeaveForm({...leaveForm, reason: e.target.value})}
-                    rows={4}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                    placeholder="Explain the reason for your leave"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Substitute Teacher</label>
-                  <input
-                    type="text"
-                    value={leaveForm.substitute_teacher}
-                    onChange={(e) => setLeaveForm({...leaveForm, substitute_teacher: e.target.value})}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                    placeholder="Name of substitute teacher"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Contact Number</label>
-                  <input
-                    type="tel"
-                    value={leaveForm.contact_number}
-                    onChange={(e) => setLeaveForm({...leaveForm, contact_number: e.target.value})}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                    placeholder="Your contact number during leave"
-                  />
-                </div>
-                
-                <div className="flex gap-3 pt-4">
+
+                {/* Modal Footer */}
+                <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t border-gray-200 rounded-b-2xl flex gap-3">
                   <button
                     onClick={() => setActiveForm(null)}
-                    className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-100 transition-colors text-sm"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={submitLeaveRequest}
                     disabled={!leaveForm.leave_type || !leaveForm.start_date || !leaveForm.end_date || !leaveForm.reason}
-                    className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                   >
-                    Submit Leave Request
+                    Submit Request
                   </button>
                 </div>
               </div>
@@ -753,6 +797,7 @@ export const FacRequest = () => {
                       <th className="px-3 sm:px-4 py-3 text-left border-b font-medium">Details</th>
                       <th className="px-3 sm:px-4 py-3 text-left border-b font-medium">Status</th>
                       <th className="px-3 sm:px-4 py-3 text-left border-b font-medium">Submitted</th>
+                      <th className="px-3 sm:px-4 py-3 text-center border-b font-medium">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -790,11 +835,22 @@ export const FacRequest = () => {
                           <td className="px-3 sm:px-4 py-4 border-b border-gray-200 text-gray-600">
                             {new Date(request.created_at).toLocaleDateString()}
                           </td>
+                          <td className="px-3 sm:px-4 py-4 border-b border-gray-200 text-center">
+                            <button
+                              onClick={() => {
+                                setSelectedRequest(request);
+                                setShowDetailsModal(true);
+                              }}
+                              className="px-3 py-1.5 bg-gradient-to-r from-red-600 to-red-700 text-white text-xs font-medium rounded-lg hover:shadow-lg transition-all duration-200 hover:scale-105"
+                            >
+                              View Details
+                            </button>
+                          </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={4} className="text-center py-12">
+                        <td colSpan={5} className="text-center py-12">
                           <div className="flex flex-col items-center gap-4">
                             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
                               <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -815,6 +871,336 @@ export const FacRequest = () => {
             </div>
           )}
         </section>
+
+        {/* Modern Details Modal */}
+        {showDetailsModal && selectedRequest && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className={`sticky top-0 z-10 px-8 py-6 border-b border-gray-200 ${
+                selectedRequest.request_type === 'Gate Pass' ? 'bg-gradient-to-r from-blue-600 to-blue-700' :
+                selectedRequest.request_type === 'Loan' ? 'bg-gradient-to-r from-green-600 to-green-700' :
+                'bg-gradient-to-r from-purple-600 to-purple-700'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
+                      {selectedRequest.request_type === 'Gate Pass' && (
+                        <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      )}
+                      {selectedRequest.request_type === 'Loan' && (
+                        <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                        </svg>
+                      )}
+                      {selectedRequest.request_type === 'Leave' && (
+                        <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 0h6m-6 0l-2 2m8-2l2 2m-2-2v12a2 2 0 01-2 2H10a2 2 0 01-2-2V9m8 0V9a2 2 0 00-2-2H10a2 2 0 00-2 2v0" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="text-white">
+                      <h2 className="text-2xl font-bold">{selectedRequest.request_type} Request</h2>
+                      <p className="text-white/90 text-sm mt-1">Request ID: #{selectedRequest.id}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      setSelectedRequest(null);
+                    }}
+                    className="p-2 hover:bg-white/20 rounded-xl transition-colors"
+                  >
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-8 space-y-6">
+                {/* Status Badge */}
+                <div className="flex items-center justify-between pb-6 border-b border-gray-200">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Current Status</p>
+                    <span className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold ${getStatusColor(selectedRequest.status)}`}>
+                      {selectedRequest.status}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-500 mb-1">Submitted On</p>
+                    <p className="text-lg font-semibold text-gray-800">
+                      {new Date(selectedRequest.created_at).toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {new Date(selectedRequest.created_at).toLocaleTimeString('en-US', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Requester Information */}
+                <div className="bg-gray-50 rounded-2xl p-6">
+                  <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Requester Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Name</p>
+                      <p className="text-base font-semibold text-gray-800">{selectedRequest.name || 'N/A'}</p>
+                    </div>
+                    {selectedRequest.requester_position && (
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Position</p>
+                        <p className="text-base font-semibold text-gray-800">{selectedRequest.requester_position}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Gate Pass Details */}
+                {selectedRequest.request_type === 'Gate Pass' && (
+                  <div className="space-y-6">
+                    <div className="bg-blue-50 rounded-2xl p-6">
+                      <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Gate Pass Details
+                      </h3>
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-sm text-gray-600 mb-1">Destination</p>
+                          <p className="text-base font-semibold text-gray-800">{selectedRequest.destination || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600 mb-1">Purpose</p>
+                          <p className="text-base text-gray-800">{selectedRequest.purpose || 'N/A'}</p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">Time Out</p>
+                            <p className="text-base font-semibold text-gray-800">
+                              {selectedRequest.time_out ? new Date(selectedRequest.time_out).toLocaleString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : 'N/A'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">Time In</p>
+                            <p className="text-base font-semibold text-gray-800">
+                              {selectedRequest.time_in ? new Date(selectedRequest.time_in).toLocaleString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : 'N/A'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Loan Details */}
+                {selectedRequest.request_type === 'Loan' && (
+                  <div className="space-y-6">
+                    <div className="bg-green-50 rounded-2xl p-6">
+                      <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                        </svg>
+                        Loan Details
+                      </h3>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">Loan Amount</p>
+                            <p className="text-2xl font-bold text-green-600">
+                              ₱{selectedRequest.amount ? selectedRequest.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">Date Needed</p>
+                            <p className="text-base font-semibold text-gray-800">
+                              {selectedRequest.date_needed ? new Date(selectedRequest.date_needed).toLocaleDateString('en-US', {
+                                month: 'long',
+                                day: 'numeric',
+                                year: 'numeric'
+                              }) : 'N/A'}
+                            </p>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600 mb-1">Reason</p>
+                          <p className="text-base text-gray-800">{selectedRequest.reason || 'N/A'}</p>
+                        </div>
+                        {(selectedRequest.period_deduction || selectedRequest.total_periods) && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-green-200">
+                            <div className="mt-2">
+                              <p className="text-sm text-gray-600 mb-1">Per Period Deduction</p>
+                              <p className="text-lg font-semibold text-gray-800">
+                                ₱{selectedRequest.period_deduction ? selectedRequest.period_deduction.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                              </p>
+                            </div>
+                            <div className="mt-2">
+                              <p className="text-sm text-gray-600 mb-1">Total Periods</p>
+                              <p className="text-lg font-semibold text-gray-800">
+                                {selectedRequest.total_periods || 'N/A'} periods (15 days each)
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        {selectedRequest.repayment_terms && (
+                          <div className="pt-2">
+                            <p className="text-sm text-gray-600 mb-1">Repayment Terms</p>
+                            <p className="text-base text-gray-800">{selectedRequest.repayment_terms}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Leave Details */}
+                {selectedRequest.request_type === 'Leave' && (
+                  <div className="space-y-6">
+                    <div className="bg-purple-50 rounded-2xl p-6">
+                      <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Leave Details
+                      </h3>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">Leave Type</p>
+                            <p className="text-base font-semibold text-purple-600">{selectedRequest.leave_type || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">Total Days</p>
+                            <p className="text-2xl font-bold text-purple-600">{selectedRequest.total_days || 0} days</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">Start Date</p>
+                            <p className="text-base font-semibold text-gray-800">
+                              {selectedRequest.start_date ? new Date(selectedRequest.start_date).toLocaleDateString('en-US', {
+                                month: 'long',
+                                day: 'numeric',
+                                year: 'numeric'
+                              }) : 'N/A'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">End Date</p>
+                            <p className="text-base font-semibold text-gray-800">
+                              {selectedRequest.end_date ? new Date(selectedRequest.end_date).toLocaleDateString('en-US', {
+                                month: 'long',
+                                day: 'numeric',
+                                year: 'numeric'
+                              }) : 'N/A'}
+                            </p>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600 mb-1">Reason</p>
+                          <p className="text-base text-gray-800">{selectedRequest.reason || 'N/A'}</p>
+                        </div>
+                        {selectedRequest.substitute_teacher && (
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">Substitute Teacher</p>
+                            <p className="text-base font-semibold text-gray-800">{selectedRequest.substitute_teacher}</p>
+                          </div>
+                        )}
+                        {selectedRequest.contact_number && (
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">Contact Number</p>
+                            <p className="text-base font-semibold text-gray-800">{selectedRequest.contact_number}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Approval Information */}
+                {(selectedRequest.approved_by || selectedRequest.dean_approval_required || selectedRequest.dean_approved_by || selectedRequest.rejection_reason) && (
+                  <div className="bg-gray-50 rounded-2xl p-6">
+                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                      <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Approval Information
+                    </h3>
+                    <div className="space-y-4">
+                      {selectedRequest.dean_approval_required && (
+                        <div className="flex items-center gap-2">
+                          <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded-lg">
+                            Dean Approval Required
+                          </span>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {selectedRequest.approved_by && (
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">Approved By</p>
+                            <p className="text-base font-semibold text-gray-800">{selectedRequest.approved_by}</p>
+                          </div>
+                        )}
+                        {selectedRequest.dean_approved_by && (
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">Dean Approved By</p>
+                            <p className="text-base font-semibold text-gray-800">{selectedRequest.dean_approved_by}</p>
+                          </div>
+                        )}
+                      </div>
+                      {selectedRequest.rejection_reason && (
+                        <div>
+                          <p className="text-sm text-gray-600 mb-1">Rejection Reason</p>
+                          <p className="text-base text-red-600 font-medium">{selectedRequest.rejection_reason}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="sticky bottom-0 bg-gray-50 px-8 py-6 border-t border-gray-200 rounded-b-3xl">
+                <button
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    setSelectedRequest(null);
+                  }}
+                  className="w-full px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

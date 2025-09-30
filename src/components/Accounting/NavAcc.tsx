@@ -12,6 +12,7 @@ export const NavAccounting = () => {
   const [userProfilePicture, setUserProfilePicture] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
     const getUser = async () => {
@@ -85,19 +86,6 @@ export const NavAccounting = () => {
     navigate("/");
   };
 
-  const handleProfileClick = () => {
-    setSettingsOpen(true);
-  };
-
-  const handleSettingsClose = () => {
-    setSettingsOpen(false);
-  };
-
-  const handleProfileUpdate = (updatedData: { name: string; profile_picture: string }) => {
-    setUserName(updatedData.name);
-    setUserProfilePicture(updatedData.profile_picture);
-  };
-
   return (
     <>
       {/* Hamburger button (mobile only) */}
@@ -124,40 +112,26 @@ export const NavAccounting = () => {
       {/* Sidebar (desktop) */}
       <div className="hidden lg:flex w-70 min-h-screen fixed left-0 top-0 pr-2 py-6 flex-col justify-between bg-red-900 shadow-2xl z-30">
         <div>
-          {/* Modern Profile Section */}
-          <div className="flex flex-col items-center justify-center px-4 py-6 mb-6">
-            <div className="relative mb-4">
-              <button
-                onClick={handleProfileClick}
-                className="relative group focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 focus:ring-offset-red-900 rounded-full"
-              >
+          {/* Modern Profile Section - Picture and Role Only */}
+          <div className="flex flex-col items-center justify-center px-4 py-4 mb-4">
+            <div className="relative">
+              <div className="relative">
                 {userProfilePicture ? (
-                  <div className="w-20 h-20 rounded-full overflow-hidden ring-4 ring-white/30 shadow-xl group-hover:ring-green-400/50 transition-all duration-300">
-                    <img 
-                      src={userProfilePicture} 
-                      alt="Profile Picture" 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
+                  <img 
+                    src={userProfilePicture} 
+                    alt="Profile" 
+                    className="h-20 w-20 rounded-full object-cover ring-4 ring-white/30 shadow-xl" 
+                  />
                 ) : (
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center ring-4 ring-white/30 shadow-xl group-hover:ring-green-400/50 group-hover:scale-105 transition-all duration-300">
-                    <span className="text-white text-2xl font-bold">
-                      {userName ? userName.charAt(0).toUpperCase() : userEmail.charAt(0).toUpperCase()}
-                    </span>
+                  <div className="h-20 w-20 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-xl ring-4 ring-white/30 shadow-xl">
+                    {userName ? userName.charAt(0).toUpperCase() : userEmail.charAt(0).toUpperCase()}
                   </div>
                 )}
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white shadow-lg"></div>
-                <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                </div>
-              </button>
+              </div>
             </div>
-            <h2 className="text-white font-bold text-xl tracking-wide whitespace-nowrap mb-1">Accounting</h2>
-            <p className="text-white/90 text-sm font-medium mb-1">{userName || 'User'}</p>
-            {userEmail && <p className="text-white/70 text-xs font-medium">{userEmail}</p>}
+            <div className="text-center mt-3">
+              <p className="text-white text-lg font-bold">Accounting</p>
+            </div>
           </div>
           
           {/* Modern Navigation */}
@@ -182,20 +156,57 @@ export const NavAccounting = () => {
           </nav>
         </div>
         
-        {/* Modern Logout Section */}
+        {/* User Info Section at Bottom with Dropdown */}
         <div className="p-4">
-          <button
-            onClick={handleLogout}
-            className="group relative overflow-hidden w-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-red-700 shadow-xl cursor-pointer px-4 py-3 rounded-xl transition-all duration-300 hover:scale-[1.02] font-semibold"
-          >
-            <span className="relative z-10 flex items-center justify-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              Logout
-            </span>
-            <div className="absolute inset-0 bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-          </button>
+          <div className="relative">
+            <div className="flex items-center justify-between bg-white/10 backdrop-blur-md border border-white/20 px-4 py-3 rounded-xl">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-white font-bold text-sm tracking-wide truncate">
+                  {userName || "Accounting"}
+                </h2>
+                {userEmail && <p className="text-white/70 text-xs font-medium truncate">{userEmail}</p>}
+              </div>
+              <button
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="ml-2 text-white hover:text-white/80 transition-colors duration-200"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+            
+            {/* Dropdown Menu */}
+            {dropdownOpen && (
+              <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
+                <button
+                  onClick={() => {
+                    setSettingsOpen(true);
+                    setDropdownOpen(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="font-medium">Settings</span>
+                </button>
+                <button
+                  onClick={() => {
+                    handleLogout();
+                    setDropdownOpen(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 transition-colors duration-200 border-t border-gray-200"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  <span className="font-medium">Logout</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -204,40 +215,26 @@ export const NavAccounting = () => {
         <div className="fixed inset-0 backdrop-blur-sm bg-black/50 z-40 lg:hidden">
           <div className="fixed top-0 left-0 w-72 h-full bg-red-900 shadow-2xl flex flex-col justify-between">
             <div>
-              {/* Mobile Profile Section */}
-              <div className="flex flex-col items-center justify-center px-4 py-6 mb-4">
-                <div className="relative mb-3">
-                  <button
-                    onClick={handleProfileClick}
-                    className="relative group focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 focus:ring-offset-red-900 rounded-full"
-                  >
+              {/* Mobile Profile Section - Picture and Role Only */}
+              <div className="flex flex-col items-center justify-center px-4 py-3 mb-3">
+                <div className="relative">
+                  <div className="relative">
                     {userProfilePicture ? (
-                      <div className="w-16 h-16 rounded-full overflow-hidden ring-3 ring-white/30 shadow-xl group-hover:ring-green-400/50 transition-all duration-300">
-                        <img 
-                          src={userProfilePicture} 
-                          alt="Profile Picture" 
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      </div>
+                      <img 
+                        src={userProfilePicture} 
+                        alt="Profile" 
+                        className="h-16 w-16 rounded-full object-cover ring-4 ring-white/30 shadow-xl" 
+                      />
                     ) : (
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center ring-3 ring-white/30 shadow-xl group-hover:ring-green-400/50 group-hover:scale-105 transition-all duration-300">
-                        <span className="text-white text-xl font-bold">
-                          {userName ? userName.charAt(0).toUpperCase() : userEmail.charAt(0).toUpperCase()}
-                        </span>
+                      <div className="h-16 w-16 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-lg ring-4 ring-white/30 shadow-xl">
+                        {userName ? userName.charAt(0).toUpperCase() : userEmail.charAt(0).toUpperCase()}
                       </div>
                     )}
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white shadow-lg"></div>
-                    <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    </div>
-                  </button>
+                  </div>
                 </div>
-                <h2 className="text-white font-bold text-lg tracking-wide whitespace-nowrap mb-1">Accounting</h2>
-                <p className="text-white/90 text-sm font-medium mb-1">{userName || 'User'}</p>
-                {userEmail && <p className="text-white/70 text-xs font-medium">{userEmail}</p>}
+                <div className="text-center mt-2">
+                  <p className="text-white text-sm font-bold">Accounting</p>
+                </div>
               </div>
               
               {/* Mobile Navigation */}
@@ -263,20 +260,59 @@ export const NavAccounting = () => {
               </nav>
             </div>
             
-            {/* Mobile Logout Section */}
+            {/* Mobile User Info Section at Bottom with Dropdown */}
             <div className="p-4">
-              <button
-                onClick={handleLogout}
-                className="group relative overflow-hidden w-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-red-700 shadow-xl cursor-pointer px-4 py-3 rounded-xl transition-all duration-300 hover:scale-[1.02] font-semibold"
-              >
-                <span className="relative z-10 flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                  Logout
-                </span>
-                <div className="absolute inset-0 bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              </button>
+              <div className="relative">
+                <div className="flex items-center justify-between bg-white/10 backdrop-blur-md border border-white/20 px-4 py-3 rounded-xl">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-white font-bold text-sm tracking-wide truncate">
+                      {userName || "Accounting"}
+                    </h2>
+                    {userEmail && <p className="text-white/70 text-xs font-medium truncate">{userEmail}</p>}
+                  </div>
+                  <button
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    className="ml-2 text-white hover:text-white/80 transition-colors duration-200"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
+                
+                {/* Dropdown Menu */}
+                {dropdownOpen && (
+                  <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
+                    <button
+                      onClick={() => {
+                        setSettingsOpen(true);
+                        setDropdownOpen(false);
+                        setMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <span className="font-medium">Settings</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setDropdownOpen(false);
+                        setMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 transition-colors duration-200 border-t border-gray-200"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      <span className="font-medium">Logout</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -285,8 +321,11 @@ export const NavAccounting = () => {
       {/* Settings Modal */}
       <Settings
         isOpen={settingsOpen}
-        onClose={handleSettingsClose}
-        onUpdate={handleProfileUpdate}
+        onClose={() => setSettingsOpen(false)}
+        onUpdate={(updatedData: { name: string; profile_picture: string }) => {
+          setUserName(updatedData.name);
+          setUserProfilePicture(updatedData.profile_picture);
+        }}
       />
     </>
   );

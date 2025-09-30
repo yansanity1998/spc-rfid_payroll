@@ -1,7 +1,11 @@
 // src/components/Settings/Settings.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import supabase from '../../utils/supabase';
 import toast from 'react-hot-toast';
+import Cropper from 'react-easy-crop';
+
+type Point = { x: number; y: number };
+type Area = { width: number; height: number; x: number; y: number };
 
 interface SettingsProps {
   isOpen: boolean;
@@ -33,6 +37,11 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onUpdate })
   });
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [showCropper, setShowCropper] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -77,7 +86,52 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onUpdate })
     }));
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onCropComplete = useCallback((_croppedArea: Area, croppedAreaPixels: Area) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const createImage = (url: string): Promise<HTMLImageElement> =>
+    new Promise((resolve, reject) => {
+      const image = new Image();
+      image.addEventListener('load', () => resolve(image));
+      image.addEventListener('error', (error) => reject(error));
+      image.src = url;
+    });
+
+  const getCroppedImg = async (imageSrc: string, pixelCrop: Area): Promise<Blob> => {
+    const image = await createImage(imageSrc);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      throw new Error('No 2d context');
+    }
+
+    canvas.width = pixelCrop.width;
+    canvas.height = pixelCrop.height;
+
+    ctx.drawImage(
+      image,
+      pixelCrop.x,
+      pixelCrop.y,
+      pixelCrop.width,
+      pixelCrop.height,
+      0,
+      0,
+      pixelCrop.width,
+      pixelCrop.height
+    );
+
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+        }
+      }, 'image/jpeg', 0.95);
+    });
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -93,15 +147,31 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onUpdate })
       return;
     }
 
+    // Read the file and show cropper
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      setImageSrc(reader.result as string);
+      setShowCropper(true);
+    });
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropSave = async () => {
+    if (!imageSrc || !croppedAreaPixels) return;
+
     setUploading(true);
+    setShowCropper(false);
+
     try {
+      // Get cropped image blob
+      const croppedImageBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
       console.log('[Settings] Starting file upload:', {
-        fileName: file.name,
-        fileSize: file.size,
-        fileType: file.type,
+        fileSize: croppedImageBlob.size,
+        fileType: croppedImageBlob.type,
         userId: user.id
       });
 
@@ -120,8 +190,7 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onUpdate })
         throw new Error('Profile pictures storage not configured');
       }
 
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const fileName = `${user.id}-${Date.now()}.jpg`;
       const filePath = `${fileName}`; // Simplified path without subfolder
 
       console.log('[Settings] Uploading to path:', filePath);
@@ -129,9 +198,10 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onUpdate })
       // Try uploading with upsert to overwrite existing files
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('profile-pictures')
-        .upload(filePath, file, {
+        .upload(filePath, croppedImageBlob, {
           cacheControl: '3600',
-          upsert: true
+          upsert: true,
+          contentType: 'image/jpeg'
         });
 
       console.log('[Settings] Upload result:', { uploadData, uploadError });
@@ -143,7 +213,10 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onUpdate })
         
         const { data: retryData, error: retryError } = await supabase.storage
           .from('profile-pictures')
-          .upload(filePath, file, { upsert: true });
+          .upload(filePath, croppedImageBlob, { 
+            upsert: true,
+            contentType: 'image/jpeg'
+          });
           
         if (retryError) {
           throw retryError;
@@ -163,8 +236,11 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onUpdate })
       }));
 
       toast.success('Profile picture uploaded successfully! Click "Update Profile" to save changes.');
+      setImageSrc(null);
     } catch (error: any) {
       console.error('[Settings] Error uploading file:', error);
+      setShowCropper(false);
+      setImageSrc(null);
       
       // Provide more specific error messages
       if (error.message?.includes('storage') || error.message?.includes('bucket')) {
@@ -387,7 +463,7 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onUpdate })
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={handleFileUpload}
+                  onChange={handleFileSelect}
                   disabled={uploading}
                   className="block w-full text-sm text-red-700 file:mr-4 file:py-3 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-600 file:text-white hover:file:bg-red-700 file:shadow-lg file:transition-all file:duration-300 disabled:opacity-50 cursor-pointer"
                 />
@@ -548,6 +624,67 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onUpdate })
           </div>
         </form>
       </div>
+
+      {/* Image Cropper Modal */}
+      {showCropper && imageSrc && (
+        <div className="fixed inset-0 bg-black/90 z-[60] flex flex-col">
+          <div className="flex-1 relative">
+            <Cropper
+              image={imageSrc}
+              crop={crop}
+              zoom={zoom}
+              aspect={1}
+              cropShape="round"
+              showGrid={false}
+              onCropChange={setCrop}
+              onCropComplete={onCropComplete}
+              onZoomChange={setZoom}
+            />
+          </div>
+          
+          {/* Cropper Controls */}
+          <div className="bg-gradient-to-r from-red-900 via-red-800 to-red-900 p-6 space-y-4">
+            <div className="max-w-md mx-auto">
+              <label className="block text-white text-sm font-semibold mb-2">Zoom</label>
+              <input
+                type="range"
+                value={zoom}
+                min={1}
+                max={3}
+                step={0.1}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
+              />
+            </div>
+            
+            <div className="flex justify-center items-center space-x-4">
+              <button
+                onClick={() => {
+                  setShowCropper(false);
+                  setImageSrc(null);
+                }}
+                className="px-8 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all duration-300 font-semibold border border-white/30"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCropSave}
+                disabled={uploading}
+                className="px-8 py-3 bg-white text-red-900 rounded-xl hover:bg-red-50 transition-all duration-300 font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {uploading ? (
+                  <span className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-900"></div>
+                    Uploading...
+                  </span>
+                ) : (
+                  'Save & Upload'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
