@@ -515,3 +515,5 @@ export const PayrollReport = ({ onBack }: PayrollReportProps) => {
     </div>
   );
 };
+
+export default PayrollReport;

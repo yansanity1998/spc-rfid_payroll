@@ -1,0 +1,82 @@
+HR Payroll.tsx Table Header Fix:
+
+REPLACE the table header section (around lines 694-698) with:
+
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Gross Pay</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Deductions</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Loan Deduction</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Net Pay</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Status</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Action</th>
+
+ADD this loan deduction table cell (around line 769, AFTER the deductions cell and BEFORE the net pay cell):
+
+                      <td className="px-3 py-3 border-b border-gray-200">
+                        <span className="font-semibold text-blue-600 text-sm">
+                          {pr.loan_deduction ? `₱${pr.loan_deduction.toLocaleString()}` : "--"}
+                        </span>
+                      </td>
+
+UPDATE the net pay calculation (around line 772-779) to include loan deductions:
+
+                      <td className="px-3 py-3 border-b border-gray-200">
+                        <span className="font-bold text-green-600 text-sm">
+                          {editing === pr.id
+                            ? `₱${(
+                                (editData.gross || pr.gross) -
+                                (editData.deductions || pr.deductions) -
+                                (editData.loan_deduction || pr.loan_deduction || 0)
+                              ).toLocaleString()}`
+                            : pr.status !== "No Record" && pr.gross > 0 && (pr.deductions !== undefined || pr.loan_deduction > 0)
+                            ? `₱${(pr.gross - (pr.deductions || 0) - (pr.loan_deduction || 0)).toLocaleString()}`
+                            : pr.status !== "No Record" && pr.gross > 0
+                            ? `₱${pr.gross.toLocaleString()}`
+                            : "--"}
+                        </span>
+                      </td>
+
+UPDATE colSpan values:
+- Change colSpan={9} to colSpan={10} (around line 704)
+- Change colSpan={9} to colSpan={10} (around line 864)
+
+UPDATE the editData initialization (around line 805-808) to include loan_deduction:
+
+                                setEditData({
+                                  gross: pr.gross,
+                                  deductions: pr.deductions,
+                                  loan_deduction: pr.loan_deduction || 0
+                                });
+
+UPDATE the savePayroll function (around line 369-397) to include loan_deduction:
+
+  const savePayroll = async (id: number) => {
+    // Find the current payroll record to get existing values
+    const currentPayroll = payrolls.find(pr => pr.id === id);
+    if (!currentPayroll) {
+      alert("Payroll record not found");
+      return;
+    }
+
+    // Use existing values if editData doesn't have them (for partial updates)
+    const grossValue = editData.gross !== undefined ? editData.gross : currentPayroll.gross;
+    const deductionsValue = editData.deductions !== undefined ? editData.deductions : currentPayroll.deductions;
+    const loanDeductionValue = editData.loan_deduction !== undefined ? editData.loan_deduction : (currentPayroll.loan_deduction || 0);
+    const netValue = grossValue - deductionsValue - loanDeductionValue;
+
+    const { error } = await supabase
+      .from("payrolls")
+      .update({
+        gross: grossValue,
+        deductions: deductionsValue,
+        loan_deduction: loanDeductionValue,
+        net: netValue,
+      })
+      .eq("id", id);
+
+    if (error) alert(error.message);
+    else {
+      setEditing(null);
+      setEditData({});
+      fetchPayrolls();
+    }
+  };

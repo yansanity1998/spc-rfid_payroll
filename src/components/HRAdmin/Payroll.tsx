@@ -10,9 +10,11 @@ export const Payroll = () => {
   const [search, setSearch] = useState(""); // 🔍 search state
   const [sortByEmployeeType, setSortByEmployeeType] = useState("");
   const [sortByPeriod, setSortByPeriod] = useState("");
-  const [showPenaltyModal, setShowPenaltyModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [penaltyData, setPenaltyData] = useState<any>({});
+  const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
+  const [loans, setLoans] = useState<{[key: number]: any}>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
 
@@ -49,6 +51,7 @@ export const Payroll = () => {
         period,
         gross,
         deductions,
+        loan_deduction,
         net,
         status,
         created_at
@@ -63,14 +66,176 @@ export const Payroll = () => {
     setLoading(false);
   };
 
-  // Function to calculate penalties based on class schedule attendance (ALIGNED with PayrollAcc.tsx)
+  // Fetch approved loans for a user with period tracking
+  const fetchUserLoans = async (userId: number): Promise<{
+    totalLoanDeduction: number;
+    activeLoans: any[];
+  }> => {
+    try {
+      console.log('💰 [HRPayroll] Fetching approved loans for user:', userId);
+      
+      // Fetch approved loan requests for the user
+      const { data: loanRequests, error: loanError } = await supabase
+        .from('requests')
+        .select(`
+          id,
+          user_id,
+          amount,
+          period_deduction,
+          total_periods,
+          repayment_terms,
+          status,
+          approved_date,
+          created_at,
+          reason
+        `)
+        .eq('request_type', 'Loan')
+        .eq('user_id', userId)
+        .eq('status', 'Approved')
+        .order('created_at', { ascending: false });
+
+      if (loanError) {
+        console.error('❌ [HRPayroll] Error fetching loans:', loanError);
+        return { totalLoanDeduction: 0, activeLoans: [] };
+      }
+
+      if (!loanRequests || loanRequests.length === 0) {
+        console.log('💰 [HRPayroll] No approved loans found for user:', userId);
+        return { totalLoanDeduction: 0, activeLoans: [] };
+      }
+
+      // Fetch all payroll records for this user to count periods paid
+      const { data: payrollRecords, error: payrollError } = await supabase
+        .from('payrolls')
+        .select('id, period, loan_deduction, created_at')
+        .eq('user_id', userId)
+        .gt('loan_deduction', 0)
+        .order('created_at', { ascending: true });
+
+      if (payrollError) {
+        console.error('❌ [HRPayroll] Error fetching payroll records:', payrollError);
+      }
+
+      console.log('💰 [HRPayroll] Found', payrollRecords?.length || 0, 'payroll records with loan deductions');
+
+      // Calculate total per-period deduction from all active loans
+      let totalLoanDeduction = 0;
+      const activeLoans = [];
+
+      for (const loan of loanRequests) {
+        const periodPayment = loan.period_deduction || 0;
+        const totalPeriods = loan.total_periods || 0;
+        
+        if (periodPayment <= 0 || totalPeriods <= 0) {
+          console.log(`⚠️ [HRPayroll] Skipping loan ${loan.id}: Invalid period payment or total periods`);
+          continue;
+        }
+
+        // Count how many periods have been paid for this loan
+        const loanApprovedDate = new Date(loan.approved_date || loan.created_at);
+        const periodsPaid = payrollRecords?.filter(pr => {
+          const payrollDate = new Date(pr.created_at);
+          return payrollDate >= loanApprovedDate && pr.loan_deduction > 0;
+        }).length || 0;
+
+        console.log(`💰 [HRPayroll] Loan ${loan.id}: ${periodsPaid}/${totalPeriods} periods paid`);
+
+        // Only include loan if not fully paid
+        if (periodsPaid < totalPeriods) {
+          totalLoanDeduction += periodPayment;
+          activeLoans.push({
+            ...loan,
+            period_payment: periodPayment,
+            periods_paid: periodsPaid,
+            periods_remaining: totalPeriods - periodsPaid
+          });
+          console.log(`✅ [HRPayroll] Active loan: ₱${loan.amount} (₱${periodPayment}/period, ${totalPeriods - periodsPaid} periods remaining)`);
+        } else {
+          console.log(`✅ [HRPayroll] Loan ${loan.id} fully paid (${periodsPaid}/${totalPeriods} periods completed)`);
+        }
+      }
+
+      console.log('💰 [HRPayroll] Total loan deduction:', totalLoanDeduction);
+      console.log('💰 [HRPayroll] Active loans count:', activeLoans.length);
+      return { totalLoanDeduction, activeLoans };
+    } catch (error) {
+      console.error('❌ [HRPayroll] Error fetching loans:', error);
+      return { totalLoanDeduction: 0, activeLoans: [] };
+    }
+  };
+
+  // Function to calculate penalties - EXACT COPY from PayrollAcc.tsx (both regular and class schedule attendance)
   const calculatePenalties = async (userId: number, period: string) => {
     try {
-      console.log('🔍 [HRAdmin] Calculating penalties for user:', userId, 'period:', period);
-      console.log('📅 [HRAdmin] Using EXACT same logic as Dashboard.tsx and PayrollAcc.tsx');
+      console.log('🔍 [HRPayroll] Calculating penalties for user:', userId, 'period:', period);
+      console.log('📅 [HRPayroll] Using BOTH regular attendance (dual session) AND class schedule attendance - aligned with PayrollAcc.tsx');
 
-      // Fetch attendance records (same as Dashboard.tsx and PayrollAcc.tsx)
-      const { data: attendanceData, error: attendanceError } = await supabase
+      // Calculate date range for penalty calculation
+      let startDate: string;
+      let endDate: string;
+      
+      if (period && period !== '--') {
+        // If period is specified, use it to calculate date range
+        const periodDate = new Date(period);
+        startDate = new Date(periodDate.getFullYear(), periodDate.getMonth(), 1).toISOString().split('T')[0];
+        endDate = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).toISOString().split('T')[0];
+      } else {
+        // Default to last 15 days
+        endDate = new Date().toISOString().split('T')[0];
+        const start = new Date();
+        start.setDate(start.getDate() - 15);
+        startDate = start.toISOString().split('T')[0];
+      }
+
+      console.log('📅 [HRPayroll] Date range:', startDate, 'to', endDate);
+
+      // 🔥 PART 1: Fetch regular attendance records (dual session) with penalty data
+      const { data: regularAttendanceData, error: regularAttendanceError } = await supabase
+        .from("attendance")
+        .select(`
+          id,
+          user_id,
+          att_date,
+          time_in,
+          time_out,
+          late_minutes,
+          overtime_minutes,
+          penalty_amount,
+          notes,
+          created_at
+        `)
+        .eq('user_id', userId)
+        .gte('att_date', startDate)
+        .lte('att_date', endDate)
+        .order("att_date", { ascending: false });
+
+      if (regularAttendanceError) {
+        console.error('❌ [HRPayroll] Error fetching regular attendance:', regularAttendanceError);
+      }
+
+      // 🔥 PART 2: Fetch class schedule attendance data
+      const { data: schedulesData, error: schedulesError } = await supabase
+        .from("schedules")
+        .select(`
+          id,
+          user_id,
+          day_of_week,
+          start_time,
+          end_time,
+          subject,
+          room,
+          notes,
+          created_at
+        `)
+        .eq('user_id', userId)
+        .order("created_at", { ascending: false });
+
+      if (schedulesError) {
+        console.error('❌ [HRPayroll] Error fetching schedules:', schedulesError);
+      }
+
+      // Fetch class attendance records
+      const { data: classAttendanceData, error: classAttendanceError } = await supabase
         .from("class_attendance")
         .select(`
           id,
@@ -84,39 +249,65 @@ export const Payroll = () => {
           created_at
         `)
         .eq('user_id', userId)
+        .gte('att_date', startDate)
+        .lte('att_date', endDate)
         .order("created_at", { ascending: false });
 
-      if (attendanceError) {
-        console.error('❌ [HRAdmin] Error fetching class attendance:', attendanceError);
-        return { lateCount: 0, absentCount: 0, totalPenalty: 0, error: attendanceError.message };
+      if (classAttendanceError) {
+        console.error('❌ [HRPayroll] Error fetching class attendance:', classAttendanceError);
       }
 
-      // Fetch user's schedules (same as Dashboard.tsx and PayrollAcc.tsx)
-      const { data: schedulesData, error: schedulesError } = await supabase
-        .from("schedules")
-        .select(`
-          id,
-          user_id,
-          day_of_week,
-          start_time,
-          end_time,
-          subject,
-          room
-        `)
-        .eq('user_id', userId);
+      console.log('📊 [HRPayroll] Fetched regular attendance records:', regularAttendanceData?.length || 0);
+      console.log('📊 [HRPayroll] Fetched schedules:', schedulesData?.length || 0);
+      console.log('📊 [HRPayroll] Fetched class attendance records:', classAttendanceData?.length || 0);
 
-      if (schedulesError) {
-        console.error('❌ [HRAdmin] Error fetching schedules:', schedulesError);
-        return { lateCount: 0, absentCount: 0, totalPenalty: 0, error: schedulesError.message };
+      // 🔥 PART 3: Process regular attendance penalties (dual session)
+      let totalPenalty = 0;
+      let totalLateMinutes = 0;
+      let totalLatePenalty = 0;
+      let totalAbsentPenalty = 0;
+      let absentCount = 0;
+      
+      const lateRecords: any[] = [];
+      const absentRecords: any[] = [];
+
+      // Process regular attendance records
+      for (const record of regularAttendanceData || []) {
+        // Add penalty amount from database (dual session penalties)
+        const recordPenalty = record.penalty_amount || 0;
+        totalPenalty += recordPenalty;
+        
+        // Track late records (records with late_minutes > 0)
+        if (record.late_minutes && record.late_minutes > 0) {
+          totalLateMinutes += record.late_minutes;
+          totalLatePenalty += record.late_minutes; // ₱1 per minute late
+          lateRecords.push({
+            ...record,
+            status: 'Late',
+            minutes_late: record.late_minutes,
+            source: 'regular_attendance',
+            session: record.notes?.includes('Morning') ? 'Morning' : record.notes?.includes('Afternoon') ? 'Afternoon' : 'Unknown'
+          });
+          console.log(`⏰ [HRPayroll] Regular attendance late on ${record.att_date}: ${record.late_minutes} minutes = ₱${record.late_minutes}`);
+        }
+        
+        // Track absent records (no time_in and time_out)
+        if (!record.time_in && !record.time_out) {
+          absentCount++;
+          totalAbsentPenalty += 240; // ₱240 per absent day
+          absentRecords.push({
+            ...record,
+            status: 'Absent',
+            source: 'regular_attendance'
+          });
+          console.log(`❌ [HRPayroll] Regular attendance absent on ${record.att_date}: ₱240 penalty`);
+        }
       }
 
-      console.log('📊 [HRAdmin] Fetched attendance records:', attendanceData?.length || 0);
-      console.log('📊 [HRAdmin] Fetched user schedules:', schedulesData?.length || 0);
-
-      // Combine schedules with their most recent attendance records (EXACT same logic as Dashboard.tsx)
+      // 🔥 PART 4: Process class schedule attendance
       const combinedScheduleData = (schedulesData || []).map(schedule => {
         // Find the most recent attendance record for this schedule
-        const attendanceRecords = (attendanceData || []).filter(att => 
+        const attendanceRecords = (classAttendanceData || []).filter(att => 
           att.schedule_id === schedule.id
         );
         
@@ -125,7 +316,7 @@ export const Payroll = () => {
           new Date(b.att_date).getTime() - new Date(a.att_date).getTime()
         )[0];
 
-        // If no attendance record exists, mark as absent (same as Dashboard.tsx)
+        // If no attendance record exists, mark as absent
         let attendanceStatus = 'Absent';
         if (!mostRecentRecord) {
           attendanceStatus = 'Absent';
@@ -142,25 +333,20 @@ export const Payroll = () => {
         };
       });
 
-      console.log('📊 [HRAdmin] Combined schedule data:', combinedScheduleData?.length || 0);
+      // Filter class schedule records within date range
+      const filteredClassScheduleData = combinedScheduleData.filter(record => {
+        const recordDate = record.att_date;
+        return recordDate >= startDate && recordDate <= endDate;
+      });
 
-      // Separate late and absent records from combined data (same as PayrollAcc.tsx)
-      const lateRecords = combinedScheduleData?.filter(record => record.attendance === 'Late') || [];
-      const absentRecords = combinedScheduleData?.filter(record => record.attendance === 'Absent') || [];
-      
-      const lateCount = lateRecords.length;
-      const absentCount = absentRecords.length;
+      // Separate late and absent class schedule records
+      const classLateRecords = filteredClassScheduleData.filter(record => record.attendance === 'Late') || [];
+      const classAbsentRecords = filteredClassScheduleData.filter(record => record.attendance === 'Absent') || [];
 
-      console.log('📈 [HRAdmin] Dashboard-aligned penalty counts - Late:', lateCount, 'Absent:', absentCount);
-      console.log('🔍 [HRAdmin] Late schedules:', lateRecords);
-      console.log('🔍 [HRAdmin] Absent schedules:', absentRecords);
+      console.log('📊 [HRPayroll] Class schedule - Late:', classLateRecords.length, 'Absent:', classAbsentRecords.length);
 
-      // Calculate late penalties: ₱1 per minute late
-      let totalLatePenalty = 0;
-      let totalLateMinutes = 0;
-      
-      for (const record of lateRecords) {
-        // Schedule data is directly in the record now (not nested)
+      // Calculate class schedule late penalties: ₱1 per minute late
+      for (const record of classLateRecords) {
         if (record.time_in && record.start_time) {
           // Parse time_in (timestamp) and start_time (HH:MM:SS format)
           const timeIn = new Date(record.time_in);
@@ -175,72 +361,72 @@ export const Payroll = () => {
           
           if (minutesLate > 0) {
             totalLateMinutes += minutesLate;
-            totalLatePenalty += minutesLate; // ₱1 per minute
-            console.log(`⏰ [HRAdmin] ${record.subject} on ${record.att_date}: ${minutesLate} minutes late = ₱${minutesLate}`);
+            totalLatePenalty += minutesLate; // ₱1 per minute late
+            totalPenalty += minutesLate;
+            lateRecords.push({
+              ...record,
+              status: 'Late',
+              minutes_late: minutesLate,
+              source: 'class_schedule'
+            });
+            console.log(`⏰ [HRPayroll] Class schedule late - ${record.subject} on ${record.att_date}: ${minutesLate} minutes = ₱${minutesLate}`);
           }
         }
       }
 
-      // Calculate absent penalties: ₱240 per absent
-      const absentPenalty = 240; // ₱240 per absent
-      const totalAbsentPenalty = absentCount * absentPenalty;
-      
-      const totalPenalty = totalLatePenalty + totalAbsentPenalty;
+      // Calculate class schedule absent penalties: ₱240 per absent class
+      const classAbsentPenalty = classAbsentRecords.length * 240;
+      totalAbsentPenalty += classAbsentPenalty;
+      totalPenalty += classAbsentPenalty;
+      absentCount += classAbsentRecords.length;
 
-      console.log('💰 [HRAdmin] Calculated penalties - Late: ₱' + totalLatePenalty + ', Absent: ₱' + totalAbsentPenalty + ', Total: ₱' + totalPenalty);
+      // Add class absent records to tracking
+      for (const record of classAbsentRecords) {
+        absentRecords.push({
+          ...record,
+          status: 'Absent',
+          source: 'class_schedule'
+        });
+        console.log(`❌ [HRPayroll] Class schedule absent - ${record.subject} on ${record.att_date}: ₱240 penalty`);
+      }
+
+      console.log('💰 [HRPayroll] TOTAL PENALTIES (Regular + Class Schedule):');
+      console.log('💰 [HRPayroll] - Total late minutes:', totalLateMinutes, '= ₱' + totalLatePenalty);
+      console.log('💰 [HRPayroll] - Total absent count:', absentCount, '= ₱' + totalAbsentPenalty);
+      console.log('💰 [HRPayroll] - GRAND TOTAL: ₱' + totalPenalty);
+
+      // Fetch loan deductions for complete penalty calculation
+      const loanResult = await fetchUserLoans(userId);
+      const totalPenaltyWithLoans = totalPenalty + loanResult.totalLoanDeduction;
+
+      console.log('💰 [HRPayroll] Including loans in penalty calculation:');
+      console.log('💰 [HRPayroll] - Attendance penalties: ₱' + totalPenalty);
+      console.log('💰 [HRPayroll] - Loan deductions: ₱' + loanResult.totalLoanDeduction);
+      console.log('💰 [HRPayroll] - Total with loans: ₱' + totalPenaltyWithLoans);
 
       return {
-        lateCount,
-        absentCount,
+        lateCount: lateRecords.length,
+        absentCount: absentCount,
         totalLatePenalty,
         totalAbsentPenalty,
-        totalPenalty,
+        totalPenalty: totalPenaltyWithLoans, // Include loans in total
+        attendancePenalty: totalPenalty, // Separate attendance penalty
+        loanDeduction: loanResult.totalLoanDeduction,
+        activeLoans: loanResult.activeLoans,
         totalLateMinutes,
-        attendanceRecords: combinedScheduleData || [],
+        attendanceRecords: filteredClassScheduleData || [],
         lateRecords,
-        absentRecords
+        absentRecords,
+        dateRange: { startDate, endDate }
       };
     } catch (error) {
-      console.error('❌ Error calculating penalties:', error);
-      return { lateCount: 0, absentCount: 0, totalPenalty: 0, error: 'Calculation failed' };
+      console.error('❌ [HRPayroll] Error calculating penalties:', error);
+      return { lateCount: 0, absentCount: 0, totalPenalty: 0, totalLatePenalty: 0, totalAbsentPenalty: 0, attendancePenalty: 0, loanDeduction: 0, activeLoans: [], totalLateMinutes: 0, attendanceRecords: [], lateRecords: [], absentRecords: [], error: 'Calculation failed' };
     }
   };
 
-  // Function to open penalty calculation modal (VIEW-ONLY)
-  const openPenaltyModal = async (payroll: any) => {
-    setSelectedUser(payroll);
-    const penalties = await calculatePenalties(payroll.userId, payroll.period);
-    setPenaltyData(penalties);
-    setShowPenaltyModal(true);
-    
-    // NO automatic application - modal is view-only now
-  };
 
 
-  // Function to apply penalties to payroll
-  const applyPenalties = async () => {
-    if (!selectedUser || !penaltyData) return;
-
-    const currentDeductions = selectedUser.deductions || 0;
-    const newDeductions = currentDeductions + penaltyData.totalPenalty;
-    const newNet = selectedUser.gross - newDeductions;
-
-    const { error } = await supabase
-      .from('payrolls')
-      .update({
-        deductions: newDeductions,
-        net: newNet
-      })
-      .eq('id', selectedUser.id);
-
-    if (error) {
-      console.error('Error applying penalties:', error);
-    } else {
-      console.log(`✅ Penalties applied successfully! ₱${penaltyData.totalPenalty} added to deductions.`);
-      fetchPayrolls();
-      // Modal stays open - user can manually close it
-    }
-  };
 
   useEffect(() => {
     fetchPayrolls();
@@ -277,13 +463,15 @@ export const Payroll = () => {
     // Use existing values if editData doesn't have them (for partial updates)
     const grossValue = editData.gross !== undefined ? editData.gross : currentPayroll.gross;
     const deductionsValue = editData.deductions !== undefined ? editData.deductions : currentPayroll.deductions;
-    const netValue = grossValue - deductionsValue;
+    const loanDeductionValue = currentPayroll.loan_deduction || 0;
+    const netValue = grossValue - deductionsValue - loanDeductionValue;
 
     const { error } = await supabase
       .from("payrolls")
       .update({
         gross: grossValue,
         deductions: deductionsValue,
+        loan_deduction: loanDeductionValue,
         net: netValue,
       })
       .eq("id", id);
@@ -315,6 +503,7 @@ export const Payroll = () => {
               period: "--",
               gross: 0,
               deductions: 0,
+              loan_deduction: 0,
               net: 0,
               status: "No Record",
               created_at: null,
@@ -355,13 +544,14 @@ export const Payroll = () => {
       }
       
       // Primary sort: Recent payroll additions from accounting (created_at desc)
+      // Prioritize records with actual payroll data (created_at exists)
       if (a.created_at && b.created_at) {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
-      if (a.created_at && !b.created_at) return -1;
-      if (!a.created_at && b.created_at) return 1;
+      if (a.created_at && !b.created_at) return -1; // Records with payroll first
+      if (!a.created_at && b.created_at) return 1;  // Records without payroll last
       
-      // Fallback sort by name
+      // Fallback sort by name for records without payroll
       return a.name.localeCompare(b.name);
     });
 
@@ -584,12 +774,12 @@ export const Payroll = () => {
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">ID</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Employee</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Employee Type</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Period</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Gross Pay</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Deductions</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Loan Deduction</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Net Pay</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Status</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Action</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -617,9 +807,6 @@ export const Payroll = () => {
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium shadow-sm ${getEmployeeTypeColor(pr.role).split(' ').slice(2).join(' ')}`}>
                           {pr.role || 'No Role Assigned'}
                         </span>
-                      </td>
-                      <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
-                        {pr.period}
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
                         {editing === pr.id ? (
@@ -662,11 +849,17 @@ export const Payroll = () => {
                         )}
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
+                        <span className="font-semibold text-blue-600 text-sm">
+                          {pr.loan_deduction ? `₱${pr.loan_deduction.toLocaleString()}` : "--"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200">
                         <span className="font-bold text-green-600 text-sm">
                           {editing === pr.id
                             ? `₱${(
                                 (editData.gross || pr.gross) -
-                                (editData.deductions || pr.deductions)
+                                (editData.deductions || pr.deductions) -
+                                (pr.loan_deduction || 0)
                               ).toLocaleString()}`
                             : pr.net > 0
                             ? `₱${pr.net.toLocaleString()}`
@@ -687,7 +880,7 @@ export const Payroll = () => {
                         </span>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-nowrap gap-1">
                           {pr.status === "Pending" && editing !== pr.id && (
                             <>
                               <button
@@ -699,7 +892,7 @@ export const Payroll = () => {
                                     deductions: pr.deductions
                                   });
                                 }}
-                                className="px-2.5 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-1"
+                                className="px-2 py-1 bg-blue-600 text-white rounded text-xs font-medium transition-all duration-200 hover:bg-blue-700 flex items-center gap-1"
                               >
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -707,20 +900,64 @@ export const Payroll = () => {
                                 Edit
                               </button>
                               <button
-                                onClick={() => openPenaltyModal(pr)}
-                                className="px-2.5 py-1.5 bg-orange-600 text-white rounded-md hover:bg-orange-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-1"
+                                onClick={async () => {
+                                  console.log('📋 [HRPayroll] Opening history modal for user:', pr.userId, pr.name);
+                                  setSelectedUser(pr);
+                                  
+                                  // Calculate date range (last 15 days)
+                                  const endDate = new Date().toISOString().split('T')[0];
+                                  const startDate = new Date();
+                                  startDate.setDate(startDate.getDate() - 15);
+                                  const startDateStr = startDate.toISOString().split('T')[0];
+                                  
+                                  // Fetch all data in parallel
+                                  const [penaltyResult, loanResult, attendanceData] = await Promise.all([
+                                    calculatePenalties(pr.userId, pr.period),
+                                    fetchUserLoans(pr.userId),
+                                    supabase
+                                      .from("attendance")
+                                      .select(`
+                                        id,
+                                        att_date,
+                                        time_in,
+                                        time_out,
+                                        late_minutes,
+                                        overtime_minutes,
+                                        penalty_amount,
+                                        notes
+                                      `)
+                                      .eq('user_id', pr.userId)
+                                      .gte('att_date', startDateStr)
+                                      .lte('att_date', endDate)
+                                      .order("att_date", { ascending: false })
+                                  ]);
+                                  
+                                  console.log('📋 [HRPayroll] Penalty data received:', penaltyResult);
+                                  console.log('📋 [HRPayroll] Loan data received:', loanResult);
+                                  console.log('📋 [HRPayroll] Attendance data received:', attendanceData.data?.length || 0, 'records');
+                                  
+                                  // Update state
+                                  const newLoans = { ...loans };
+                                  newLoans[pr.userId] = loanResult;
+                                  setLoans(newLoans);
+                                  
+                                  setPenaltyData(penaltyResult);
+                                  setAttendanceHistory(attendanceData.data || []);
+                                  setShowHistoryModal(true);
+                                }}
+                                className="px-2 py-1 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded text-xs font-medium transition-all duration-200 hover:from-purple-700 hover:to-purple-800 flex items-center gap-1"
                               >
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
-                                Penalties
+                                History
                               </button>
                             </>
                           )}
                           {editing === pr.id && (
                             <button
                               onClick={() => savePayroll(pr.id)}
-                              className="px-2.5 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-1"
+                              className="px-2 py-1 bg-green-600 text-white rounded text-xs font-medium transition-all duration-200 hover:bg-green-700 flex items-center gap-1"
                             >
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -731,7 +968,7 @@ export const Payroll = () => {
                           {pr.status === "Pending" ? (
                             <button
                               onClick={() => finalizePayroll(pr.id)}
-                              className="px-2.5 py-1.5 bg-green-700 text-white rounded-md hover:bg-green-800 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-1"
+                              className="px-2 py-1 bg-green-700 text-white rounded text-xs font-medium transition-all duration-200 hover:bg-green-800 flex items-center gap-1"
                             >
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -741,7 +978,7 @@ export const Payroll = () => {
                           ) : pr.status === "Finalized" ? (
                             <button
                               onClick={() => unfinalizePayroll(pr.id)}
-                              className="px-2.5 py-1.5 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-1"
+                              className="px-2 py-1 bg-yellow-600 text-white rounded text-xs font-medium transition-all duration-200 hover:bg-yellow-700 flex items-center gap-1"
                             >
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -859,27 +1096,27 @@ export const Payroll = () => {
           </div>
         )}
 
-        {/* Penalty Calculation Modal */}
-        {showPenaltyModal && (
-          <div className="fixed inset-0 bg-white/20 backdrop-blur-md flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Payroll History Modal */}
+        {showHistoryModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 {/* Modal Header */}
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-orange-600 to-orange-700 rounded-xl flex items-center justify-center">
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold text-gray-800">Penalty Calculator</h2>
-                      <p className="text-gray-600 text-sm">{selectedUser?.name} - {selectedUser?.period}</p>
+                      <h2 className="text-2xl font-bold text-gray-800">Payroll History</h2>
+                      <p className="text-gray-600 text-sm">Complete payroll breakdown and attendance records</p>
                     </div>
                   </div>
                   <button
-                    onClick={() => setShowPenaltyModal(false)}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                    onClick={() => setShowHistoryModal(false)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -887,166 +1124,292 @@ export const Payroll = () => {
                   </button>
                 </div>
 
-                {/* Penalty Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  {/* Late Penalties */}
-                  <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 p-4 rounded-xl text-white">
-                    <div className="flex items-center gap-2 mb-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                {/* User Information Section */}
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-5 rounded-xl mb-6 border border-gray-200">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 bg-gradient-to-br from-gray-600 to-gray-700 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
-                      <h3 className="font-semibold">Late</h3>
                     </div>
-                    <p className="text-2xl font-bold">{penaltyData.lateCount || 0}</p>
-                    <p className="text-yellow-100 text-sm">₱{penaltyData.totalLatePenalty || 0} penalty</p>
+                    <h3 className="text-lg font-bold text-gray-800">Employee Information</h3>
                   </div>
-
-                  {/* Absent Penalties */}
-                  <div className="bg-gradient-to-br from-red-500 to-red-600 p-4 rounded-xl text-white">
-                    <div className="flex items-center gap-2 mb-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <h3 className="font-semibold">Absent</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white p-3 rounded-lg shadow-sm">
+                      <p className="text-xs text-gray-500 mb-1">Employee Name</p>
+                      <p className="font-semibold text-gray-800">{selectedUser?.name}</p>
                     </div>
-                    <p className="text-2xl font-bold">{penaltyData.absentCount || 0}</p>
-                    <p className="text-red-100 text-sm">₱{penaltyData.totalAbsentPenalty || 0} penalty</p>
-                  </div>
-
-                  {/* Total Penalties */}
-                  <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-4 rounded-xl text-white">
-                    <div className="flex items-center gap-2 mb-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      </svg>
-                      <h3 className="font-semibold">Total</h3>
+                    <div className="bg-white p-3 rounded-lg shadow-sm">
+                      <p className="text-xs text-gray-500 mb-1">Employee ID</p>
+                      <p className="font-semibold text-gray-800">#{selectedUser?.userId}</p>
                     </div>
-                    <p className="text-2xl font-bold">₱{penaltyData.totalPenalty || 0}</p>
-                    <p className="text-purple-100 text-sm">Total deduction</p>
-                  </div>
-                </div>
-
-                {/* Current Payroll Info */}
-                <div className="bg-gray-50 p-4 rounded-xl mb-6">
-                  <h3 className="font-semibold text-gray-800 mb-3">Current Payroll Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-600">Gross Pay:</span>
-                      <p className="font-semibold text-green-600">₱{selectedUser?.gross?.toLocaleString() || 0}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Current Deductions:</span>
-                      <p className="font-semibold text-red-600">₱{selectedUser?.deductions?.toLocaleString() || 0}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Current Net:</span>
-                      <p className="font-semibold text-blue-600">₱{selectedUser?.net?.toLocaleString() || 0}</p>
+                    <div className="bg-white p-3 rounded-lg shadow-sm">
+                      <p className="text-xs text-gray-500 mb-1">Role</p>
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getEmployeeTypeColor(selectedUser?.role).split(' ').slice(2).join(' ')}`}>
+                        {selectedUser?.role}
+                      </span>
                     </div>
                   </div>
                 </div>
 
-
-                {/* Penalty Breakdown */}
-                <div className="mb-6">
-                  <h3 className="font-semibold text-gray-800 mb-3">Penalty Breakdown</h3>
-                  {penaltyData.error ? (
-                    <div className="bg-red-50 border border-red-200 p-4 rounded-xl text-red-800">
-                      <p className="font-semibold">Error calculating penalties:</p>
-                      <p className="text-sm">{penaltyData.error}</p>
+                {/* Payroll Summary Section */}
+                <div className="bg-gradient-to-br from-green-50 to-emerald-100 p-5 rounded-xl mb-6 border border-green-200">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-green-700 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
                     </div>
-                  ) : (
-                    <>
-                      <div className="space-y-2 text-sm mb-4">
-                        <div className="flex justify-between items-center p-2 bg-yellow-50 rounded">
-                          <span>Late Attendance ({penaltyData.totalLateMinutes || 0} minutes × ₱1)</span>
-                          <span className="font-semibold">₱{penaltyData.totalLatePenalty || 0}</span>
-                        </div>
-                        <div className="flex justify-between items-center p-2 bg-red-50 rounded">
-                          <span>Absent ({penaltyData.absentCount || 0} classes × ₱240)</span>
-                          <span className="font-semibold">₱{penaltyData.totalAbsentPenalty || 0}</span>
-                        </div>
-                        <div className="flex justify-between items-center p-2 bg-purple-50 rounded font-semibold">
-                          <span>Total Penalty</span>
-                          <span>₱{penaltyData.totalPenalty || 0}</span>
-                        </div>
+                    <h3 className="text-lg font-bold text-gray-800">Payroll Summary</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                      <p className="text-xs text-gray-500 mb-1">Period</p>
+                      <p className="font-bold text-gray-800">{selectedUser?.period}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                      <p className="text-xs text-gray-500 mb-1">Gross Pay</p>
+                      <p className="font-bold text-green-600 text-lg">₱{selectedUser?.gross?.toLocaleString() || 0}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                      <p className="text-xs text-gray-500 mb-1">Deductions (Penalties)</p>
+                      <p className="font-bold text-red-600 text-lg">₱{selectedUser?.deductions?.toLocaleString() || 0}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                      <p className="text-xs text-gray-500 mb-1">Loan Deduction</p>
+                      <p className="font-bold text-blue-600 text-lg">₱{selectedUser?.loan_deduction?.toLocaleString() || 0}</p>
+                    </div>
+                    <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 rounded-lg shadow-md">
+                      <p className="text-xs text-emerald-100 mb-1">Net Pay</p>
+                      <p className="font-bold text-white text-lg">₱{selectedUser?.net?.toLocaleString() || 0}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 bg-white p-3 rounded-lg shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Status:</span>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                        selectedUser?.status === "Pending"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : selectedUser?.status === "Finalized"
+                          ? "bg-green-100 text-green-800"
+                          : selectedUser?.status === "Paid"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}>
+                        {selectedUser?.status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Attendance Schedule Section (Past 15 Days) */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-5 rounded-xl mb-6 border border-blue-200">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-800">Attendance Schedule (Past 15 Days)</h3>
+                  </div>
+                  <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                    {attendanceHistory.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gradient-to-r from-blue-600 to-blue-700">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Time In</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Time Out</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Late (min)</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Overtime (min)</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Penalty</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Notes</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {attendanceHistory.map((record, index) => {
+                              const formatTime = (timestamp: string | null) => {
+                                if (!timestamp) return '--';
+                                return new Date(timestamp).toLocaleTimeString('en-PH', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: true,
+                                  timeZone: 'Asia/Manila'
+                                });
+                              };
+                              
+                              const formatDate = (date: string) => {
+                                return new Date(date).toLocaleDateString('en-PH', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                  timeZone: 'Asia/Manila'
+                                });
+                              };
+                              
+                              return (
+                                <tr key={index} className="hover:bg-gray-50 transition-colors">
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-800">
+                                    {formatDate(record.att_date)}
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                    {formatTime(record.time_in)}
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                    {formatTime(record.time_out)}
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                    {record.late_minutes > 0 ? (
+                                      <span className="text-yellow-600 font-semibold">{record.late_minutes}</span>
+                                    ) : (
+                                      <span className="text-gray-400">--</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                    {record.overtime_minutes > 0 ? (
+                                      <span className="text-purple-600 font-semibold">{record.overtime_minutes}</span>
+                                    ) : (
+                                      <span className="text-gray-400">--</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                    {record.penalty_amount > 0 ? (
+                                      <span className="text-red-600 font-bold">₱{record.penalty_amount}</span>
+                                    ) : (
+                                      <span className="text-green-600 font-semibold">₱0</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
+                                    {record.notes || '--'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
-                      
-                      {/* Detailed Attendance Records */}
-                      {(penaltyData.lateRecords?.length > 0 || penaltyData.absentRecords?.length > 0) && (
-                        <div className="bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm mb-4">
-                          <p className="text-gray-800 font-medium mb-2">Attendance Details:</p>
-                          
-                          {penaltyData.lateRecords?.length > 0 && (
-                            <div className="mb-2">
-                              <p className="text-yellow-700 font-medium text-xs mb-1">Late Classes:</p>
-                              {penaltyData.lateRecords.map((record: any, index: number) => {
-                                const schedule = record.schedules?.[0];
-                                const timeIn = new Date(record.time_in);
-                                const [startHour, startMinute] = schedule?.start_time?.split(':').map(Number) || [0, 0];
-                                const expectedStart = new Date(record.att_date);
-                                expectedStart.setHours(startHour, startMinute, 0, 0);
-                                const minutesLate = Math.max(0, Math.floor((timeIn.getTime() - expectedStart.getTime()) / (1000 * 60)));
-                                
-                                return (
-                                  <div key={index} className="text-xs text-yellow-600 ml-2">
-                                    • {record.att_date} - {schedule?.subject || 'Unknown Subject'} ({schedule?.day_of_week}) - {minutesLate} min late
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                          
-                          {penaltyData.absentRecords?.length > 0 && (
-                            <div>
-                              <p className="text-red-700 font-medium text-xs mb-1">Absent Classes:</p>
-                              {penaltyData.absentRecords.map((record: any, index: number) => {
-                                const schedule = record.schedules?.[0];
-                                return (
-                                  <div key={index} className="text-xs text-red-600 ml-2">
-                                    • {record.att_date} - {schedule?.subject || 'Unknown Subject'} ({schedule?.day_of_week}) - ₱240 penalty
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
+                    ) : (
+                      <div className="p-8 text-center">
+                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
                         </div>
-                      )}
+                        <p className="text-gray-600 font-medium">No attendance records found</p>
+                        <p className="text-gray-500 text-sm">No attendance data available for the past 15 days</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-                      {/* Date Range Info */}
-                      {penaltyData.dateRange && (
-                        <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg text-sm">
-                          <p className="text-blue-800 font-medium">Search Period:</p>
-                          <p className="text-blue-700">{penaltyData.dateRange.startDate} to {penaltyData.dateRange.endDate}</p>
-                          <p className="text-blue-600 text-xs mt-1">
-                            Found {penaltyData.attendanceRecords?.length || 0} class attendance records
-                          </p>
-                        </div>
-                      )}
-                    </>
+                {/* Deductions Breakdown Section */}
+                <div className="bg-gradient-to-br from-red-50 to-orange-100 p-5 rounded-xl mb-6 border border-red-200">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 bg-gradient-to-br from-red-600 to-red-700 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-800">Deductions Breakdown</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                    {/* Late Penalties Card */}
+                    <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 p-4 rounded-xl text-white shadow-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <h4 className="font-semibold text-sm">Late Penalties</h4>
+                      </div>
+                      <p className="text-2xl font-bold mb-1">{penaltyData.totalLateMinutes || 0} min</p>
+                      <p className="text-yellow-100 text-sm">₱{penaltyData.totalLatePenalty || 0}</p>
+                    </div>
+
+                    {/* Absent Penalties Card */}
+                    <div className="bg-gradient-to-br from-red-500 to-red-600 p-4 rounded-xl text-white shadow-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <h4 className="font-semibold text-sm">Absent Penalties</h4>
+                      </div>
+                      <p className="text-2xl font-bold mb-1">{penaltyData.absentCount || 0} days</p>
+                      <p className="text-red-100 text-sm">₱{penaltyData.totalAbsentPenalty || 0}</p>
+                    </div>
+
+                    {/* Loan Deductions Card */}
+                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-xl text-white shadow-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <h4 className="font-semibold text-sm">Loan Deductions</h4>
+                      </div>
+                      <p className="text-2xl font-bold mb-1">{loans[selectedUser?.userId]?.activeLoans?.length || 0} loans</p>
+                      <p className="text-blue-100 text-sm">₱{loans[selectedUser?.userId]?.totalLoanDeduction || 0}</p>
+                    </div>
+
+                    {/* Total Deductions Card */}
+                    <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-4 rounded-xl text-white shadow-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        <h4 className="font-semibold text-sm">Total Deductions</h4>
+                      </div>
+                      <p className="text-2xl font-bold mb-1">₱{(penaltyData.attendancePenalty || 0) + (loans[selectedUser?.userId]?.totalLoanDeduction || 0)}</p>
+                      <p className="text-purple-100 text-sm">Penalties + Loans</p>
+                    </div>
+                  </div>
+
+                  {/* Active Loans Details */}
+                  {loans[selectedUser?.userId]?.activeLoans?.length > 0 && (
+                    <div className="bg-white border border-blue-200 p-4 rounded-lg shadow-sm">
+                      <p className="text-blue-800 font-semibold mb-3 flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        Active Loan Details:
+                      </p>
+                      <div className="space-y-2">
+                        {loans[selectedUser?.userId].activeLoans.map((loan: any, index: number) => (
+                          <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-semibold text-blue-800">
+                                Loan #{index + 1}: ₱{loan.amount?.toLocaleString()}
+                              </span>
+                              <span className="text-sm font-bold text-blue-900">
+                                ₱{(loan.period_payment || loan.period_deduction)?.toLocaleString()}/period
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-blue-600">
+                                Progress: {loan.periods_paid || 0}/{loan.total_periods || 0} periods paid
+                              </span>
+                              <span className="text-blue-700 font-medium">
+                                {loan.periods_remaining || 0} periods remaining
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-3 justify-end">
+                <div className="flex gap-3 justify-end pt-4 border-t border-gray-200">
                   <button
-                    onClick={() => setShowPenaltyModal(false)}
-                    className="px-6 py-2.5 bg-gray-500 text-white rounded-xl hover:bg-gray-600 transition-colors font-medium"
+                    onClick={() => setShowHistoryModal(false)}
+                    className="px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-xl hover:from-gray-700 hover:to-gray-800 transition-all duration-200 font-medium shadow-lg hover:shadow-xl flex items-center gap-2"
                   >
-                    Cancel
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Close
                   </button>
-                  {penaltyData.totalPenalty > 0 && (
-                    <button
-                      onClick={applyPenalties}
-                      className="px-6 py-2.5 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-xl hover:from-orange-700 hover:to-orange-800 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
-                    >
-                      Manually Apply Penalties (₱{penaltyData.totalPenalty})
-                    </button>
-                  )}
-                  {penaltyData.totalPenalty === 0 && (
-                    <div className="px-6 py-2.5 bg-green-100 text-green-800 rounded-xl font-medium">
-                      No penalties to apply
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

@@ -17,7 +17,7 @@ export const Attendance = () => {
   const regularAttendanceRow = 5;
   const attendanceRow = 5;
 
-  // 🔍 Filter regular attendance logs (maintain most recent tap sorting)
+  // 🔍 Filter regular attendance logs (sort by current date and time)
   const filtered = records
     .filter(
       (log) =>
@@ -29,7 +29,20 @@ export const Attendance = () => {
     )
     .filter((log) => regularSortBy === "all" || log.role === regularSortBy)
     .sort((a, b) => {
-      // Sort by most recent activity (who tapped last) - same logic as in fetchAttendance
+      // Get current date in Philippine timezone
+      const currentDate = new Date().toLocaleDateString('en-CA', {
+        timeZone: 'Asia/Manila'
+      }); // Returns YYYY-MM-DD format
+      
+      // Check if records are from today
+      const aIsToday = a.att_date === currentDate;
+      const bIsToday = b.att_date === currentDate;
+      
+      // Prioritize today's records first
+      if (aIsToday && !bIsToday) return -1;
+      if (!aIsToday && bIsToday) return 1;
+      
+      // For records from the same day (or both not today), sort by most recent activity
       const getLatestActivity = (record: any) => {
         const timeIn = record.time_in ? new Date(record.time_in).getTime() : 0;
         const timeOut = record.time_out ? new Date(record.time_out).getTime() : 0;
@@ -61,7 +74,20 @@ export const Attendance = () => {
     )
     .filter((record) => scheduleSortBy === "all" || record.users?.role === scheduleSortBy)
     .sort((a, b) => {
-      // Sort by most recent activity (who tapped last) - same logic as regular attendance
+      // Get current date in Philippine timezone
+      const currentDate = new Date().toLocaleDateString('en-CA', {
+        timeZone: 'Asia/Manila'
+      }); // Returns YYYY-MM-DD format
+      
+      // Check if records are from today
+      const aIsToday = a.att_date === currentDate;
+      const bIsToday = b.att_date === currentDate;
+      
+      // Prioritize today's records first
+      if (aIsToday && !bIsToday) return -1;
+      if (!aIsToday && bIsToday) return 1;
+      
+      // For records from the same day (or both not today), sort by most recent activity
       const getLatestActivity = (record: any) => {
         const timeIn = record.time_in ? new Date(record.time_in).getTime() : 0;
         const timeOut = record.time_out ? new Date(record.time_out).getTime() : 0;

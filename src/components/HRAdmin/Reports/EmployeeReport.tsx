@@ -530,3 +530,5 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
     </div>
   );
 };
+
+export default EmployeeReport;

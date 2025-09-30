@@ -3,6 +3,9 @@ import { useState } from "react";
 import { AttendanceReport } from "./Reports/AttendanceReport";
 import { EmployeeReport } from "./Reports/EmployeeReport";
 import { PayrollReport } from "./Reports/PayrollReport";
+import { LeaveReport } from "./Reports/LeaveReport";
+import { LoanReport } from "./Reports/LoanReport";
+import { GatePassReport } from "./Reports/GatePassReport";
 import supabase from "../../utils/supabase";
 import toast from "react-hot-toast";
 
@@ -62,6 +65,15 @@ const Reports = () => {
       color: "from-indigo-500 to-indigo-600",
       bgColor: "bg-indigo-50",
       textColor: "text-indigo-600"
+    },
+    {
+      id: 7,
+      title: "Gate Pass Reports",
+      description: "Track and analyze gate pass requests with detailed approval workflows.",
+      icon: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z",
+      color: "from-cyan-500 to-cyan-600",
+      bgColor: "bg-cyan-50",
+      textColor: "text-cyan-600"
     },
   ];
 
@@ -355,6 +367,18 @@ const Reports = () => {
     return <PayrollReport onBack={() => setActiveReport(null)} />;
   }
 
+  if (activeReport === 'leave') {
+    return <LeaveReport onBack={() => setActiveReport(null)} />;
+  }
+
+  if (activeReport === 'loan') {
+    return <LoanReport onBack={() => setActiveReport(null)} />;
+  }
+
+  if (activeReport === 'gatepass') {
+    return <GatePassReport onBack={() => setActiveReport(null)} />;
+  }
+
   return (
     <div className="min-h-screen w-full lg:ml-70 py-5 roboto px-3 sm:px-5 bg-red-200">
       <main className="flex flex-col w-full max-w-7xl mx-auto p-4 sm:p-6 bg-white border border-gray-200 shadow-2xl rounded-2xl">
@@ -478,8 +502,14 @@ const Reports = () => {
                         setActiveReport('attendance');
                       } else if (report.id === 2) {
                         setActiveReport('payroll');
+                      } else if (report.id === 3) {
+                        setActiveReport('leave');
+                      } else if (report.id === 4) {
+                        setActiveReport('loan');
                       } else if (report.id === 6) {
                         setActiveReport('employee');
+                      } else if (report.id === 7) {
+                        setActiveReport('gatepass');
                       } else {
                         // Handle other report types in the future
                         alert(`${report.title} functionality coming soon!`);
@@ -507,6 +537,9 @@ const Reports = () => {
                         exportGovernmentContributionsReport();
                       } else if (report.id === 6) {
                         exportEmployeeReport();
+                      } else if (report.id === 7) {
+                        // Gate pass export will be handled by the component itself
+                        toast.success('Use the Gate Pass report view to export data');
                       }
                     }}
                     className="px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 flex items-center justify-center gap-2"

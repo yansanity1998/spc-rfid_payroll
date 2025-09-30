@@ -28,6 +28,7 @@ import HRSchedule from "./components/HR/Schedule";
 import AccDashboard from "./components/Accounting/Dashboard";
 import { NavAccounting } from "./components/Accounting/NavAcc";
 import { PayrollAcc } from "./components/Accounting/PayrollAcc";
+import { Reports as AccReports } from "./components/Accounting/Reports";
 import { NavGuard } from "./components/Guard/NavGuard";
 import GuardDashboard from "./components/Guard/GuardDashboard";
 import GuardReports from "./components/Guard/GuardReports";
@@ -114,6 +115,7 @@ function AppContent() {
           {/* ACCOUNTING */}
           <Route path="/accounting/dashboard" element={<AccDashboard />}/>
           <Route path="/accounting/payroll" element={<PayrollAcc />}/>
+          <Route path="/accounting/reports" element={<AccReports />}/>
 
           {/* GUARD */}
           <Route path="/Guard/dashboard" element={<GuardDashboard />}/>

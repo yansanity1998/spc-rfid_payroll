@@ -55,7 +55,6 @@ if (typeof document !== 'undefined') {
 }
 
 export const UserManagement = () => {
-  const [create, showCreate] = useState(false);
   const [edit, showEdit] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
@@ -100,40 +99,14 @@ export const UserManagement = () => {
     }
   };
 
-  const [scanningRfid, setScanningRfid] = useState(false);
-  const [scannedCard, setScannedCard] = useState("");
 
   const rows = 10;
 
-  const [newUser, setNewUser] = useState({
-    name: "",
-    email: "",
-    role: "Faculty",
-    semester: "",
-    schoolYear: "",
-    hiredDate: "",
-    department: "",
-  });
 
   const [editUser, setEditUser] = useState<any | null>(null);
 
 
 
-  const handleToggleStatus = async (id: string, currentStatus: string) => {
-    const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
-
-    const { error } = await supabase
-      .from("users")
-      .update({ status: newStatus })
-      .eq("id", id);
-
-    if (error) {
-      console.error(error.message);
-      toast.error("Failed to update user status");
-    } else {
-      fetchUsers();
-    }
-  };
 
   const fetchUsers = async () => {
     const { data, error } = await supabase
@@ -156,19 +129,6 @@ export const UserManagement = () => {
     setCurrentPage(1);
   }, [search]);
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Debug: Check form state before showing RFID scanner
-    console.log('=== FORM SUBMISSION DEBUG ===');
-    console.log('Current newUser state at form submission:', newUser);
-    console.log('Form validation:');
-    console.log('- Name filled:', !!newUser.name, '"' + newUser.name + '"');
-    console.log('- Email filled:', !!newUser.email, '"' + newUser.email + '"');
-    
-    // Show RFID scanner modal
-    setScanningRfid(true);
-  };
 
   const handleUpdateRfid = async () => {
     if (!editUser || !newRfid) return;
@@ -190,197 +150,6 @@ export const UserManagement = () => {
   };
 
 
-  const handleConfirmCreate = async () => {
-    if (!scannedCard) {
-      toast.error("No RFID card scanned!");
-      setScanningRfid(false);
-      setScannedCard("");
-      return;
-    }
-
-    console.log("=== FORM STATE DEBUG ===");
-    console.log("Full newUser state:", newUser);
-    console.log("Scanned card:", scannedCard);
-
-    // Check if required fields are filled
-    if (!newUser.name || !newUser.email) {
-      toast.error("Please fill in all required fields (Name and Email) before scanning RFID!");
-      setScanningRfid(false);
-      setScannedCard("");
-      return;
-    }
-
-    // Show loading state
-    toast.loading('Creating user...', { duration: 10000 });
-
-    try {
-      // Prepare payload with essential fields only
-      const payload = {
-        rfid_id: Number(scannedCard),
-        name: newUser.name,
-        email: newUser.email,
-        role: newUser.role,
-        semester: newUser.semester || null,
-        schoolYear: newUser.schoolYear || null,
-        hiredDate: newUser.hiredDate || null,
-        department:
-          newUser.role === "Faculty" || newUser.role === "SA"
-            ? newUser.department
-            : null,
-        status: "Active",
-        password: "ChangePassword",
-      };
-
-      console.log("=== PAYLOAD DEBUG ===");
-      console.log("Final payload:", payload);
-
-      // get the current session (logged-in admin)
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        toast.dismiss();
-        toast.error("You must be logged in as an admin to create users.");
-        setScanningRfid(false);
-        setScannedCard("");
-        return;
-      }
-
-      console.log('Making request to Edge Function...');
-      
-      let userCreated = false;
-      let createMethod = 'Edge Function';
-      
-      try {
-        const response = await fetch(
-          "https://squtybkgujjgrxeqmrfs.supabase.co/functions/v1/create-user",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify(payload),
-          }
-        );
-
-        console.log('Response status:', response.status);
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Edge Function Response:', data);
-          userCreated = true;
-          createMethod = 'Edge Function';
-        } else {
-          const errorData = await response.json();
-          console.error('Edge Function failed:', errorData);
-          throw new Error(`Edge Function failed: ${errorData.error || 'Unknown error'}`);
-        }
-      } catch (edgeFunctionError: any) {
-        console.warn('Edge Function failed, trying direct database insert:', edgeFunctionError.message);
-        
-        // Fallback: Direct database insert
-        try {
-          console.log('Attempting direct database insert...');
-          
-          // Check if RFID already exists
-          const { data: existingUser, error: checkError } = await supabase
-            .from('users')
-            .select('id')
-            .eq('rfid_id', Number(scannedCard))
-            .single();
-            
-          if (existingUser) {
-            throw new Error('RFID card is already in use');
-          }
-          
-          if (checkError && checkError.code !== 'PGRST116') {
-            // PGRST116 is "not found" which is expected for new RFID cards
-            console.error('Error checking RFID:', checkError);
-            throw new Error(`Error checking RFID: ${checkError.message}`);
-          }
-          
-          // Insert user directly into database
-          const { data: insertData, error: insertError } = await supabase
-            .from('users')
-            .insert({
-              rfid_id: Number(scannedCard),
-              name: newUser.name,
-              email: newUser.email,
-              role: newUser.role,
-              semester: newUser.semester || null,
-              schoolYear: newUser.schoolYear || null,
-              hiredDate: newUser.hiredDate || null,
-              department: newUser.role === "Faculty" || newUser.role === "SA" ? newUser.department : null,
-              status: "Active",
-              password: "ChangePassword",
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            })
-            .select();
-            
-          if (insertError) {
-            console.error('Direct insert error:', insertError);
-            throw new Error(`Database insert failed: ${insertError.message}`);
-          }
-          
-          console.log('Direct database insert successful:', insertData);
-          userCreated = true;
-          createMethod = 'Direct Database Insert';
-          
-        } catch (directInsertError: any) {
-          console.error('Direct database insert also failed:', directInsertError.message);
-          throw directInsertError;
-        }
-      }
-      
-      toast.dismiss(); // Dismiss loading toast
-      
-      if (userCreated) {
-        console.log(`User created successfully via ${createMethod}!`);
-        toast.success(`User created successfully via ${createMethod}!`);
-      } else {
-        throw new Error('Failed to create user via any method');
-      }
-      
-      // Reset form and close modal
-      setScanningRfid(false);
-      setScannedCard("");
-      setNewUser({
-        name: "",
-        email: "",
-        role: "Faculty",
-        semester: "",
-        schoolYear: "",
-        hiredDate: "",
-        department: "",
-      });
-      
-      // Refresh user list
-      fetchUsers();
-      
-    } catch (err: any) {
-      console.error('User Creation Error:', err);
-      toast.dismiss(); // Dismiss loading toast
-      
-      // Show specific error message
-      if (err.message.includes('RFID card is already in use')) {
-        toast.error("RFID card is already in use. Please use a different card.");
-      } else if (err.message.includes('Edge Function failed')) {
-        toast.error("Server error: " + err.message);
-      } else if (err.message.includes('Database insert failed')) {
-        toast.error("Database error: " + err.message);
-      } else {
-        toast.error("Failed to create user: " + err.message);
-      }
-      
-      // Reset scanning state on error
-      setScanningRfid(false);
-      setScannedCard("");
-    }
-  };
 
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -542,17 +311,6 @@ export const UserManagement = () => {
               </div>
             </div>
 
-            {/* Create Button */}
-            <button
-              onClick={() => showCreate(true)}
-              className="group relative overflow-hidden bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Create New User
-              <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            </button>
           </div>
         </section>
 
@@ -658,21 +416,6 @@ export const UserManagement = () => {
                           >
                             Edit
                           </button>
-                          {user.status === "Active" ? (
-                            <button
-                              onClick={() => handleToggleStatus(user.id, user.status)}
-                              className="px-2.5 py-1.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-md hover:from-red-600 hover:to-red-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md"
-                            >
-                              Deactivate
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleToggleStatus(user.id, user.status)}
-                              className="px-2.5 py-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md"
-                            >
-                              Activate
-                            </button>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -767,217 +510,6 @@ export const UserManagement = () => {
         </div>
       </main>
 
-      {/* Modern Create Modal */}
-      {create && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/50 z-50 flex items-center justify-center p-4">
-          <form
-            onSubmit={handleCreate}
-            className="w-full max-w-md bg-white/90 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl overflow-hidden max-h-[90vh]"
-          >
-            <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4">
-              <h2 className="text-xl font-bold text-white flex items-center gap-3">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                </svg>
-                Create New Employee
-              </h2>
-            </div>
-            <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
-              
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Employee Type</label>
-                <select
-                  value={newUser.role}
-                  onChange={(e) =>
-                    setNewUser({ ...newUser, role: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                >
-                  <option>Administrator</option>
-                  <option>HR Personnel</option>
-                  <option>Accounting</option>
-                  <option>Faculty</option>
-                  <option>Staff</option>
-                  <option>SA</option>
-                  <option>Guard</option>
-                </select>
-              </div>
-              
-              
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
-                <input
-                  type="text"
-                  value={newUser.name}
-                  onChange={(e) =>
-                    setNewUser({ ...newUser, name: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                  placeholder="Enter full name"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
-                <input
-                  type="email"
-                  value={newUser.email}
-                  onChange={(e) =>
-                    setNewUser({ ...newUser, email: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                  placeholder="Enter email address"
-                  required
-                />
-              </div>
-              {(newUser.role === "Faculty" || newUser.role === "SA") && (
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Academic Year</label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <select
-                      value={newUser.semester}
-                      onChange={(e) =>
-                        setNewUser({ ...newUser, semester: e.target.value })
-                      }
-                      className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                      required
-                    >
-                      <option value="">-- Select Semester --</option>
-                      <option value="1">1</option>
-                      <option value="2">2</option>
-                    </select>
-                    <input
-                      type="number"
-                      placeholder="School Year"
-                      value={newUser.schoolYear}
-                      onChange={(e) =>
-                        setNewUser({ ...newUser, schoolYear: e.target.value })
-                      }
-                      className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                      required
-                    />
-                  </div>
-                </div>
-              )}
-              
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Hired Date</label>
-                <input
-                  type="date"
-                  value={newUser.hiredDate}
-                  onChange={(e) =>
-                    setNewUser({ ...newUser, hiredDate: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                  required
-                />
-              </div>
-              
-              {(newUser.role === "Faculty" || newUser.role === "SA") && (
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Department</label>
-                  <select
-                    value={newUser.department}
-                    onChange={(e) =>
-                      setNewUser({ ...newUser, department: e.target.value })
-                    }
-                    className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                    required
-                  >
-                    <option value="">-- Select Department --</option>
-                    <option value="CCS">CCS</option>
-                  </select>
-                </div>
-              )}
-              
-              
-              
-              
-            </div>
-
-            {/* Modern Modal Buttons */}
-            <div className="bg-gray-50/50 backdrop-blur-md px-6 py-4 flex justify-center gap-4">
-              <button
-                type="submit"
-                className="group relative overflow-hidden bg-gradient-to-r from-red-600 to-red-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Create Employee
-                <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              </button>
-              <button
-                type="button"
-                onClick={() => showCreate(false)}
-                className="px-8 py-3 bg-white/70 backdrop-blur-md border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-white/90 transition-all duration-200 flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Modern RFID Scan Modal */}
-      {scanningRfid && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white/90 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl p-8 max-w-md w-full text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-red-600 to-red-700 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-bold text-gray-800 mb-2">Scan RFID Card</h2>
-            <input
-              autoFocus
-              type="text"
-              value={scannedCard}
-              onChange={(e) => setScannedCard(e.target.value)}
-              onKeyDown={async (e) => {
-                if (e.key === "Enter" && e.currentTarget.value.trim() !== "") {
-                  const cardValue = e.currentTarget.value.trim();
-                  setScannedCard(cardValue);
-                  
-                  // Show processing state immediately
-                  toast.loading('Processing RFID card...', { duration: 3000 });
-                  
-                  // Add a longer delay to ensure all form state is captured
-                  setTimeout(() => {
-                    handleConfirmCreate();
-                  }, 1500);
-                }
-              }}
-              className="opacity-0 absolute -left-96"
-            />
-            <p className="text-gray-600 mb-4">
-              Waiting for RFID scan... Please tap the card and wait for processing.
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-              <p className="text-blue-800 text-sm font-medium">⚠️ Important:</p>
-              <p className="text-blue-700 text-sm">After scanning, please wait a moment for all information to be saved properly.</p>
-            </div>
-            {scannedCard && (
-              <div className="bg-green-100 border border-green-300 rounded-xl p-3 mb-4">
-                <p className="text-green-800 font-semibold">
-                  Card Scanned: {scannedCard}
-                </p>
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => setScanningRfid(false)}
-              className="px-6 py-3 bg-white/70 backdrop-blur-md border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-white/90 transition-all duration-200"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Modern Edit Modal */}
       {edit && editUser && (

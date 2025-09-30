@@ -21,9 +21,27 @@ export const FacRequest = () => {
     reason: "",
     date_needed: "",
     repayment_terms: "",
-    monthly_deduction: "",
-    total_months: ""
+    period_deduction: "",
+    total_periods: ""
   });
+
+  // Auto-calculate period deduction when amount or total periods change
+  const handleLoanFormChange = (field: string, value: string) => {
+    const updatedForm = { ...loanForm, [field]: value };
+    
+    // Auto-calculate period_deduction if both amount and total_periods are provided
+    if (field === 'amount' || field === 'total_periods') {
+      const amount = parseFloat(field === 'amount' ? value : loanForm.amount);
+      const periods = parseInt(field === 'total_periods' ? value : loanForm.total_periods);
+      
+      if (!isNaN(amount) && !isNaN(periods) && amount > 0 && periods > 0) {
+        const periodDeduction = (amount / periods).toFixed(2);
+        updatedForm.period_deduction = periodDeduction;
+      }
+    }
+    
+    setLoanForm(updatedForm);
+  };
   
   const [leaveForm, setLeaveForm] = useState({
     leave_type: "",
@@ -144,32 +162,49 @@ export const FacRequest = () => {
 
       const { data: userData } = await supabase
         .from("users")
-        .select("id")
+        .select("id, positions, role")
         .eq("auth_id", user.id)
         .single();
 
       if (userData) {
+        // Check if user needs dean approval
+        const needsDeanApproval = userData.role === 'Faculty' && 
+          ['Program Head', 'Full Time', 'Part Time'].includes(userData.positions);
+
+        const requestData = {
+          user_id: userData.id,
+          request_type: "Loan",
+          name: userName,
+          amount: parseFloat(loanForm.amount),
+          reason: loanForm.reason,
+          date_needed: loanForm.date_needed,
+          repayment_terms: loanForm.repayment_terms,
+          period_deduction: loanForm.period_deduction ? parseFloat(loanForm.period_deduction) : null,
+          total_periods: loanForm.total_periods ? parseInt(loanForm.total_periods) : null,
+          status: needsDeanApproval ? "Pending Dean Approval" : "Pending",
+          dean_approval_required: needsDeanApproval,
+          requester_position: userData.positions,
+          approved_by: needsDeanApproval ? null : "ROY AURELIO BACOMO"
+        };
+
+        console.log('[FacRequest] Submitting Loan request:', requestData);
+
         const { error } = await supabase
           .from("requests")
-          .insert([{
-            user_id: userData.id,
-            request_type: "Loan",
-            amount: parseFloat(loanForm.amount),
-            reason: loanForm.reason,
-            date_needed: loanForm.date_needed,
-            repayment_terms: loanForm.repayment_terms,
-            monthly_deduction: loanForm.monthly_deduction ? parseFloat(loanForm.monthly_deduction) : null,
-            total_months: loanForm.total_months ? parseInt(loanForm.total_months) : null,
-            status: "Pending"
-          }]);
+          .insert([requestData]);
 
         if (!error) {
-          toast.success("Loan request submitted successfully!");
+          if (needsDeanApproval) {
+            toast.success("Loan request submitted for Dean approval!");
+          } else {
+            toast.success("Loan request submitted successfully!");
+          }
           setActiveForm(null);
-          setLoanForm({ amount: "", reason: "", date_needed: "", repayment_terms: "", monthly_deduction: "", total_months: "" });
+          setLoanForm({ amount: "", reason: "", date_needed: "", repayment_terms: "", period_deduction: "", total_periods: "" });
           fetchRequests();
         } else {
-          toast.error("Error submitting request");
+          console.error('[FacRequest] Error submitting loan request:', error);
+          toast.error("Error submitting request: " + error.message);
         }
       }
     } catch (error) {
@@ -185,37 +220,54 @@ export const FacRequest = () => {
 
       const { data: userData } = await supabase
         .from("users")
-        .select("id")
+        .select("id, positions, role")
         .eq("auth_id", user.id)
         .single();
 
       if (userData) {
+        // Check if user needs dean approval
+        const needsDeanApproval = userData.role === 'Faculty' && 
+          ['Program Head', 'Full Time', 'Part Time'].includes(userData.positions);
+
         const startDate = new Date(leaveForm.start_date);
         const endDate = new Date(leaveForm.end_date);
         const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
+        const requestData = {
+          user_id: userData.id,
+          request_type: "Leave",
+          name: userName,
+          leave_type: leaveForm.leave_type,
+          start_date: leaveForm.start_date,
+          end_date: leaveForm.end_date,
+          total_days: totalDays,
+          reason: leaveForm.reason,
+          substitute_teacher: leaveForm.substitute_teacher,
+          contact_number: leaveForm.contact_number,
+          status: needsDeanApproval ? "Pending Dean Approval" : "Pending",
+          dean_approval_required: needsDeanApproval,
+          requester_position: userData.positions,
+          approved_by: needsDeanApproval ? null : "ROY AURELIO BACOMO"
+        };
+
+        console.log('[FacRequest] Submitting Leave request:', requestData);
+
         const { error } = await supabase
           .from("requests")
-          .insert([{
-            user_id: userData.id,
-            request_type: "Leave",
-            leave_type: leaveForm.leave_type,
-            start_date: leaveForm.start_date,
-            end_date: leaveForm.end_date,
-            total_days: totalDays,
-            reason: leaveForm.reason,
-            substitute_teacher: leaveForm.substitute_teacher,
-            contact_number: leaveForm.contact_number,
-            status: "Pending"
-          }]);
+          .insert([requestData]);
 
         if (!error) {
-          toast.success("Leave request submitted successfully!");
+          if (needsDeanApproval) {
+            toast.success("Leave request submitted for Dean approval!");
+          } else {
+            toast.success("Leave request submitted successfully!");
+          }
           setActiveForm(null);
           setLeaveForm({ leave_type: "", start_date: "", end_date: "", reason: "", substitute_teacher: "", contact_number: "" });
           fetchRequests();
         } else {
-          toast.error("Error submitting request");
+          console.error('[FacRequest] Error submitting leave request:', error);
+          toast.error("Error submitting request: " + error.message);
         }
       }
     } catch (error) {
@@ -431,7 +483,7 @@ export const FacRequest = () => {
                   <input
                     type="number"
                     value={loanForm.amount}
-                    onChange={(e) => setLoanForm({...loanForm, amount: e.target.value})}
+                    onChange={(e) => handleLoanFormChange('amount', e.target.value)}
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     placeholder="Enter loan amount"
                   />
@@ -460,24 +512,26 @@ export const FacRequest = () => {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Monthly Deduction (₱)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Per Period Deduction (₱)</label>
                     <input
                       type="number"
-                      value={loanForm.monthly_deduction}
-                      onChange={(e) => setLoanForm({...loanForm, monthly_deduction: e.target.value})}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                      placeholder="Monthly payment amount"
+                      value={loanForm.period_deduction}
+                      onChange={(e) => handleLoanFormChange('period_deduction', e.target.value)}
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-gray-50"
+                      placeholder="Auto-calculated"
+                      readOnly
                     />
+                    <p className="text-xs text-gray-500 mt-1">Automatically calculated: Loan Amount ÷ Total Periods</p>
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Total Months</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Total Periods (15 days each)</label>
                     <input
                       type="number"
-                      value={loanForm.total_months}
-                      onChange={(e) => setLoanForm({...loanForm, total_months: e.target.value})}
+                      value={loanForm.total_periods}
+                      onChange={(e) => handleLoanFormChange('total_periods', e.target.value)}
                       className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                      placeholder="Number of months"
+                      placeholder="Number of 15-day periods"
                     />
                   </div>
                 </div>

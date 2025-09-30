@@ -29,6 +29,11 @@ interface HRRequest {
   approved_by?: number;
   guard_approved?: boolean;
   guard_approved_by?: number;
+  // Add loan-specific fields
+  amount?: number;
+  repayment_terms?: string;
+  monthly_deduction?: number;
+  total_months?: number;
 }
 
 export const Requests = () => {
@@ -37,7 +42,8 @@ export const Requests = () => {
   const [activeFilter, setActiveFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [lastRequestCount, setLastRequestCount] = useState(0);
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [selectedRequestDetails, setSelectedRequestDetails] = useState<HRRequest | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   useEffect(() => {
     fetchAllRequests();
@@ -152,7 +158,12 @@ export const Requests = () => {
               // Add approval state fields
               approved_by: request.approved_by,
               guard_approved: request.guard_approved || false,
-              guard_approved_by: request.guard_approved_by
+              guard_approved_by: request.guard_approved_by,
+              // Add loan-specific fields
+              amount: request.amount || 0,
+              repayment_terms: request.repayment_terms || '',
+              monthly_deduction: request.monthly_deduction || 0,
+              total_months: request.total_months || 0
             });
           } else {
             console.log(`[HR Requests] Skipping non-Faculty request from ${userData.name} (${userData.role}, ${userData.positions})`);
@@ -184,7 +195,6 @@ export const Requests = () => {
       
       setRequests(requestsWithDetails);
       setLastRequestCount(requestsWithDetails.length);
-      setLastRefresh(new Date());
 
     } catch (error) {
       console.error('[HR Requests] Error fetching guard-approved requests:', error);
@@ -204,6 +214,11 @@ export const Requests = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const handleViewDetails = (request: HRRequest) => {
+    setSelectedRequestDetails(request);
+    setShowDetailsModal(true);
   };
 
   // Function to determine the actual status based on approval states and request type
@@ -238,8 +253,8 @@ export const Requests = () => {
       return 'Pending Dean Approval';
     }
     
-    // Default to pending
-    return 'Pending';
+    // Default to pending dean approval
+    return 'Pending Dean Approval';
   };
 
   // Function to get status color based on actual status
@@ -264,7 +279,7 @@ export const Requests = () => {
     if (actualStatus === 'Rejected') {
       return 'bg-red-100 text-red-800';
     }
-    // Pending - YELLOW
+    // Pending - YELLOW (removed since we now use Pending Dean Approval)
     if (actualStatus === 'Pending') {
       return 'bg-yellow-100 text-yellow-800';
     }
@@ -305,11 +320,6 @@ export const Requests = () => {
             </div>
             <div className="flex items-center justify-between">
               <p className="text-gray-600">Monitor gate pass, loan, and leave requests from faculty members</p>
-              {lastRefresh && (
-                <p className="text-sm text-gray-500">
-                  Last updated: {formatDateTime(lastRefresh.toISOString())}
-                </p>
-              )}
             </div>
           </div>
 
@@ -331,18 +341,6 @@ export const Requests = () => {
               </div>
             </div>
 
-            {/* Refresh Button */}
-            <button 
-              onClick={fetchAllRequests}
-              disabled={loading}
-              className="group relative overflow-hidden bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2 disabled:opacity-50"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              {loading ? 'Refreshing...' : 'Refresh'}
-              <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            </button>
           </div>
         </section>
 
@@ -362,7 +360,9 @@ export const Requests = () => {
                   <h2 className="text-base font-semibold">Total</h2>
                 </div>
                 <p className="text-2xl font-bold">{filteredRequests.length}</p>
-                <p className="text-blue-100 text-xs mt-1">All requests</p>
+                <p className="text-blue-100 text-xs mt-1">
+                  {activeFilter === "All" ? "All requests" : `Filtered results`}
+                </p>
               </div>
             </div>
             <div className="absolute -bottom-1 -right-1 w-12 h-12 bg-white/10 rounded-full"></div>
@@ -382,13 +382,13 @@ export const Requests = () => {
                   <h2 className="text-base font-semibold">Pending</h2>
                 </div>
                 <p className="text-2xl font-bold">
-                  {requests.filter(r => r.status === "Pending" || r.status === "Pending Dean Approval").length}
+                  {activeFilter === "All" 
+                    ? requests.filter(r => getActualStatus(r) === "Pending Dean Approval").length
+                    : filteredRequests.filter(r => getActualStatus(r) === "Pending Dean Approval").length
+                  }
                 </p>
                 <p className="text-yellow-100 text-xs mt-1">
-                  {requests.filter(r => r.status === "Pending Dean Approval").length > 0 
-                    ? `${requests.filter(r => r.status === "Pending Dean Approval").length} awaiting dean approval`
-                    : 'Awaiting review'
-                  }
+                  Awaiting dean approval
                 </p>
               </div>
             </div>
@@ -408,7 +408,12 @@ export const Requests = () => {
                   </div>
                   <h2 className="text-base font-semibold">Dean Approved</h2>
                 </div>
-                <p className="text-2xl font-bold">{requests.filter(r => getActualStatus(r) === "Dean Approved").length}</p>
+                <p className="text-2xl font-bold">
+                  {activeFilter === "All" 
+                    ? requests.filter(r => getActualStatus(r) === "Dean Approved").length
+                    : filteredRequests.filter(r => getActualStatus(r) === "Dean Approved").length
+                  }
+                </p>
                 <p className="text-blue-100 text-xs mt-1">Dean approved only</p>
               </div>
             </div>
@@ -428,10 +433,18 @@ export const Requests = () => {
                   </div>
                   <h2 className="text-base font-semibold">Fully Approved</h2>
                 </div>
-                <p className="text-2xl font-bold">{requests.filter(r => {
-                  const status = getActualStatus(r);
-                  return status.includes("Dean & Guard Approved") || status.includes("Dean & HR Approved");
-                }).length}</p>
+                <p className="text-2xl font-bold">
+                  {activeFilter === "All" 
+                    ? requests.filter(r => {
+                        const status = getActualStatus(r);
+                        return status.includes("Dean & Guard Approved") || status.includes("Dean & HR Approved");
+                      }).length
+                    : filteredRequests.filter(r => {
+                        const status = getActualStatus(r);
+                        return status.includes("Dean & Guard Approved") || status.includes("Dean & HR Approved");
+                      }).length
+                  }
+                </p>
                 <p className="text-green-100 text-xs mt-1">Fully approved</p>
               </div>
             </div>
@@ -451,7 +464,12 @@ export const Requests = () => {
                   </div>
                   <h2 className="text-base font-semibold">Rejected</h2>
                 </div>
-                <p className="text-2xl font-bold">{requests.filter(r => r.status === "Rejected").length}</p>
+                <p className="text-2xl font-bold">
+                  {activeFilter === "All" 
+                    ? requests.filter(r => getActualStatus(r) === "Rejected").length
+                    : filteredRequests.filter(r => getActualStatus(r) === "Rejected").length
+                  }
+                </p>
                 <p className="text-red-100 text-xs mt-1">Declined requests</p>
               </div>
             </div>
@@ -461,7 +479,7 @@ export const Requests = () => {
 
         {/* Modern Filter Tabs */}
         <div className="flex flex-wrap gap-2 mt-6 mb-4">
-          {["All", "Pending", "Pending Dean Approval", "Dean Approved", "Fully Approved", "Rejected"].map((filter) => (
+          {["All", "Pending Dean Approval", "Dean Approved", "Fully Approved", "Rejected"].map((filter) => (
             <button
               key={filter}
               onClick={() => setActiveFilter(filter)}
@@ -469,8 +487,6 @@ export const Requests = () => {
                 activeFilter === filter
                   ? filter === "All"
                     ? "bg-gray-800 text-white shadow-lg"
-                    : filter === "Pending"
-                    ? "bg-yellow-500 text-white shadow-lg"
                     : filter === "Pending Dean Approval"
                     ? "bg-orange-500 text-white shadow-lg"
                     : filter === "Dean Approved"
@@ -506,10 +522,9 @@ export const Requests = () => {
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Faculty</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Position</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Request Type</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Details</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Purpose</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Status</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Approved By</th>
+                  <th className="px-3 py-2.5 text-center border-b text-sm font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -551,32 +566,6 @@ export const Requests = () => {
                         </span>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
-                        <div className="text-xs text-gray-600 space-y-1">
-                          {req.type === 'Gate Pass' && (
-                            <>
-                              <div><strong>Destination:</strong> {req.destination || 'Not specified'}</div>
-                              <div><strong>Time Out:</strong> {formatDateTime(req.time_out)}</div>
-                            </>
-                          )}
-                          {req.type === 'Leave' && (
-                            <>
-                              {req.leave_type && <div><strong>Leave Type:</strong> {req.leave_type}</div>}
-                              {req.start_date && <div><strong>Start:</strong> {formatDateTime(req.start_date)}</div>}
-                              {req.end_date && <div><strong>End:</strong> {formatDateTime(req.end_date)}</div>}
-                              {req.duration && <div><strong>Duration:</strong> {req.duration}</div>}
-                            </>
-                          )}
-                          {req.type === 'Loan' && (
-                            <>
-                              {req.date_needed && <div><strong>Date Needed:</strong> {formatDateTime(req.date_needed)}</div>}
-                            </>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
-                        {req.purpose || req.reason || 'Not specified'}
-                      </td>
-                      <td className="px-3 py-3 border-b border-gray-200">
                         {(() => {
                           const actualStatus = getActualStatus(req);
                           return (
@@ -592,11 +581,24 @@ export const Requests = () => {
                           <div>{req.type === 'Gate Pass' ? 'Guard' : 'HR'}: {req.guard_approved_by_name}</div>
                         </div>
                       </td>
+                      <td className="px-3 py-3 border-b border-gray-200 text-center">
+                        <button
+                          onClick={() => handleViewDetails(req)}
+                          className="group relative overflow-hidden bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center gap-1.5 mx-auto"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          View Details
+                          <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        </button>
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={8} className="text-center py-12">
+                    <td colSpan={7} className="text-center py-12">
                       <div className="flex flex-col items-center gap-4">
                         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
                           <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -615,6 +617,280 @@ export const Requests = () => {
             </table>
           </div>
         </div>
+
+        {/* Details Modal */}
+        {showDetailsModal && selectedRequestDetails && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100">
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-2xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    {selectedRequestDetails.profile_picture ? (
+                      <img
+                        src={selectedRequestDetails.profile_picture}
+                        alt={selectedRequestDetails.name}
+                        className="w-12 h-12 rounded-full object-cover border-2 border-red-200 shadow-md"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center border-2 border-red-200 shadow-md">
+                        <span className="text-white font-bold text-lg">
+                          {selectedRequestDetails.name?.charAt(0)?.toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">{selectedRequestDetails.name}</h2>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="px-2.5 py-1 bg-gradient-to-r from-red-100 to-red-200 text-red-800 rounded-full text-sm font-medium">
+                          {selectedRequestDetails.requester_position}
+                        </span>
+                        <span className={`px-2.5 py-1 rounded-full text-sm font-medium ${
+                          selectedRequestDetails.type === 'Gate Pass' ? 'bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800' :
+                          selectedRequestDetails.type === 'Loan' ? 'bg-gradient-to-r from-green-100 to-green-200 text-green-800' :
+                          selectedRequestDetails.type === 'Leave' ? 'bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800' :
+                          'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800'
+                        }`}>
+                          {selectedRequestDetails.type}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowDetailsModal(false)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                  >
+                    <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6">
+                <div className="grid gap-6">
+                  {/* Request Status */}
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                      <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Request Status
+                    </h3>
+                    <div className="flex items-center justify-between">
+                      <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${getStatusColor(getActualStatus(selectedRequestDetails))}`}>
+                        {getActualStatus(selectedRequestDetails)}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        Submitted: {formatDateTime(selectedRequestDetails.date)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Purpose/Reason */}
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                      <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Purpose/Reason
+                    </h3>
+                    <p className="text-gray-700 leading-relaxed">
+                      {selectedRequestDetails.purpose || selectedRequestDetails.reason || 'Not specified'}
+                    </p>
+                  </div>
+
+                  {/* Request-Specific Details */}
+                  {selectedRequestDetails.type === 'Gate Pass' && (
+                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                      <h3 className="text-lg font-semibold text-blue-800 mb-4 flex items-center gap-2">
+                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Gate Pass Details
+                      </h3>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-blue-700 mb-1">Destination</label>
+                          <p className="text-blue-900 bg-white p-3 rounded-lg border border-blue-200">
+                            {selectedRequestDetails.destination || 'Not specified'}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-blue-700 mb-1">Time Out</label>
+                          <p className="text-blue-900 bg-white p-3 rounded-lg border border-blue-200">
+                            {formatDateTime(selectedRequestDetails.time_out)}
+                          </p>
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-semibold text-blue-700 mb-1">Expected Time In</label>
+                          <p className="text-blue-900 bg-white p-3 rounded-lg border border-blue-200">
+                            {formatDateTime(selectedRequestDetails.time_in)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedRequestDetails.type === 'Leave' && (
+                    <div className="bg-purple-50 p-4 rounded-xl border border-purple-200">
+                      <h3 className="text-lg font-semibold text-purple-800 mb-4 flex items-center gap-2">
+                        <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 0h6m-6 0l-1 12a2 2 0 002 2h6a2 2 0 002-2L16 7" />
+                        </svg>
+                        Leave Details
+                      </h3>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        {selectedRequestDetails.leave_type && (
+                          <div>
+                            <label className="block text-sm font-semibold text-purple-700 mb-1">Leave Type</label>
+                            <p className="text-purple-900 bg-white p-3 rounded-lg border border-purple-200">
+                              {selectedRequestDetails.leave_type}
+                            </p>
+                          </div>
+                        )}
+                        {selectedRequestDetails.start_date && (
+                          <div>
+                            <label className="block text-sm font-semibold text-purple-700 mb-1">Start Date</label>
+                            <p className="text-purple-900 bg-white p-3 rounded-lg border border-purple-200">
+                              {formatDateTime(selectedRequestDetails.start_date)}
+                            </p>
+                          </div>
+                        )}
+                        {selectedRequestDetails.end_date && (
+                          <div>
+                            <label className="block text-sm font-semibold text-purple-700 mb-1">End Date</label>
+                            <p className="text-purple-900 bg-white p-3 rounded-lg border border-purple-200">
+                              {formatDateTime(selectedRequestDetails.end_date)}
+                            </p>
+                          </div>
+                        )}
+                        {selectedRequestDetails.duration && (
+                          <div>
+                            <label className="block text-sm font-semibold text-purple-700 mb-1">Duration</label>
+                            <p className="text-purple-900 bg-white p-3 rounded-lg border border-purple-200">
+                              {selectedRequestDetails.duration}
+                            </p>
+                          </div>
+                        )}
+                        {selectedRequestDetails.date_needed && (
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-semibold text-purple-700 mb-1">Date Needed</label>
+                            <p className="text-purple-900 bg-white p-3 rounded-lg border border-purple-200">
+                              {formatDateTime(selectedRequestDetails.date_needed)}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedRequestDetails.type === 'Loan' && (
+                    <div className="bg-green-50 p-4 rounded-xl border border-green-200">
+                      <h3 className="text-lg font-semibold text-green-800 mb-4 flex items-center gap-2">
+                        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                        </svg>
+                        Loan Details
+                      </h3>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-green-700 mb-1">Loan Amount</label>
+                          <p className="text-green-900 bg-white p-3 rounded-lg border border-green-200 text-lg font-bold">
+                            ₱{selectedRequestDetails.amount?.toLocaleString() || 'Not specified'}
+                          </p>
+                        </div>
+                        {selectedRequestDetails.date_needed && (
+                          <div>
+                            <label className="block text-sm font-semibold text-green-700 mb-1">Date Needed</label>
+                            <p className="text-green-900 bg-white p-3 rounded-lg border border-green-200">
+                              {formatDateTime(selectedRequestDetails.date_needed)}
+                            </p>
+                          </div>
+                        )}
+                        {selectedRequestDetails.monthly_deduction && (
+                          <div>
+                            <label className="block text-sm font-semibold text-green-700 mb-1">Monthly Deduction</label>
+                            <p className="text-green-900 bg-white p-3 rounded-lg border border-green-200">
+                              ₱{selectedRequestDetails.monthly_deduction.toLocaleString()}
+                            </p>
+                          </div>
+                        )}
+                        {selectedRequestDetails.total_months && (
+                          <div>
+                            <label className="block text-sm font-semibold text-green-700 mb-1">Total Months</label>
+                            <p className="text-green-900 bg-white p-3 rounded-lg border border-green-200">
+                              {selectedRequestDetails.total_months} months
+                            </p>
+                          </div>
+                        )}
+                        {selectedRequestDetails.repayment_terms && (
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-semibold text-green-700 mb-1">Repayment Terms</label>
+                            <p className="text-green-900 bg-white p-3 rounded-lg border border-green-200">
+                              {selectedRequestDetails.repayment_terms}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Approval Information */}
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                      <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Approval Information
+                    </h3>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Dean Approval</label>
+                        <p className="text-gray-900 bg-white p-3 rounded-lg border border-gray-200">
+                          {selectedRequestDetails.approved_by_name || 'Pending'}
+                        </p>
+                        {selectedRequestDetails.approved_date && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Approved: {formatDateTime(selectedRequestDetails.approved_date)}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                          {selectedRequestDetails.type === 'Gate Pass' ? 'Guard Approval' : 'HR Approval'}
+                        </label>
+                        <p className="text-gray-900 bg-white p-3 rounded-lg border border-gray-200">
+                          {selectedRequestDetails.guard_approved_by_name || 'Pending'}
+                        </p>
+                        {selectedRequestDetails.guard_approved_date && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Approved: {formatDateTime(selectedRequestDetails.guard_approved_date)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="flex justify-end pt-6 border-t border-gray-200 mt-6">
+                  <button
+                    onClick={() => setShowDetailsModal(false)}
+                    className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

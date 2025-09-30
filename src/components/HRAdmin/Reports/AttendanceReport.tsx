@@ -663,3 +663,5 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
     </div>
   );
 };
+
+export default AttendanceReport;
