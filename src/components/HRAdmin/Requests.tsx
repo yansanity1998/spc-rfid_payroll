@@ -34,6 +34,8 @@ interface HRRequest {
   repayment_terms?: string;
   monthly_deduction?: number;
   total_months?: number;
+  period_deduction?: number;
+  total_periods?: number;
 }
 
 export const Requests = () => {
@@ -44,6 +46,8 @@ export const Requests = () => {
   const [lastRequestCount, setLastRequestCount] = useState(0);
   const [selectedRequestDetails, setSelectedRequestDetails] = useState<HRRequest | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     fetchAllRequests();
@@ -61,7 +65,6 @@ export const Requests = () => {
     setLoading(true);
     try {
       console.log('[HR Requests] Fetching ALL requests from Faculty...');
-      console.log('[HR Requests] Looking for requests with: request_type = "Gate Pass", "Loan", "Leave" from Faculty positions');
 
       // Fetch ALL requests from Faculty (Program Head, Full Time, Part Time)
       const { data: allRequests, error: requestError } = await supabase
@@ -69,10 +72,6 @@ export const Requests = () => {
         .select('*')
         .in('request_type', ['Gate Pass', 'Loan', 'Leave'])
         .order('created_at', { ascending: false });
-
-      console.log('[HR Requests] All requests:', { allRequests, requestError });
-      console.log('[HR Requests] Request types found:', allRequests?.map(r => r.request_type));
-      console.log('[HR Requests] Request statuses found:', allRequests?.map(r => r.status));
 
       if (requestError) {
         console.error('[HR Requests] Error fetching requests:', requestError);
@@ -86,90 +85,67 @@ export const Requests = () => {
         return;
       }
 
-      // Get user details for each request and filter for Faculty positions
+      // Get all unique user IDs (requesters and approvers) for batch fetching
+      const userIds = new Set<number>();
+      allRequests.forEach(req => {
+        userIds.add(req.user_id);
+        if (req.approved_by) userIds.add(req.approved_by);
+        if (req.guard_approved_by) userIds.add(req.guard_approved_by);
+      });
+
+      // Batch fetch all users at once
+      const { data: usersData } = await supabase
+        .from('users')
+        .select('id, name, email, positions, role, profile_picture')
+        .in('id', Array.from(userIds));
+
+      // Create a map for quick user lookup
+      const usersMap = new Map();
+      usersData?.forEach(user => usersMap.set(user.id, user));
+
+      // Process requests with details
       const requestsWithDetails = [];
       for (const request of allRequests) {
-        // Get requester details
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('id, name, email, positions, role, profile_picture')
-          .eq('id', request.user_id)
-          .single();
-
-        // Get dean approver details
-        let deanApproverName = 'Unknown';
-        if (request.approved_by) {
-          const { data: deanData } = await supabase
-            .from('users')
-            .select('name')
-            .eq('id', request.approved_by)
-            .single();
+        const userData = usersMap.get(request.user_id);
+        
+        if (userData && userData.role === 'Faculty' && 
+            ['Program Head', 'Full Time', 'Part Time'].includes(userData.positions)) {
           
-          if (deanData) {
-            deanApproverName = deanData.name;
-          }
-        }
-
-        // Get second approver details (Guard for Gate Pass, HR for Leave/Loan)
-        let secondApproverName = 'Unknown';
-        if (request.guard_approved_by) {
-          const { data: approverData } = await supabase
-            .from('users')
-            .select('name')
-            .eq('id', request.guard_approved_by)
-            .single();
+          const deanApprover = request.approved_by ? usersMap.get(request.approved_by) : null;
+          const secondApprover = request.guard_approved_by ? usersMap.get(request.guard_approved_by) : null;
           
-          if (approverData) {
-            secondApproverName = approverData.name;
-          }
-        }
-
-        if (!userError && userData) {
-          console.log(`[HR Requests] Processing request ${request.id} from user ${userData.name} (${userData.role}, ${userData.positions}) - Request Type: ${request.request_type}, Status: ${request.status}`);
-          
-          // Only include Faculty members with specific positions
-          if (userData.role === 'Faculty' && 
-              ['Program Head', 'Full Time', 'Part Time'].includes(userData.positions)) {
-            
-            console.log(`[HR Requests] Including Faculty request from ${userData.name} (${userData.positions}) - ${request.request_type}`);
-            
-            requestsWithDetails.push({
-              id: request.id,
-              name: userData.name,
-              type: request.request_type || 'Unknown',
-              leave_type: request.leave_type || '',
-              reason: request.reason || request.purpose || `${request.request_type} Request`,
-              purpose: request.purpose || '',
-              destination: request.destination || '',
-              time_out: request.time_out || '',
-              time_in: request.time_in || '',
-              start_date: request.start_date || '',
-              end_date: request.end_date || '',
-              duration: request.duration || '',
-              date_needed: request.date_needed || '',
-              date: request.created_at,
-              status: request.status,
-              requester_position: userData.positions || '',
-              approved_by_name: deanApproverName,
-              guard_approved_by_name: secondApproverName,
-              approved_date: request.approved_date || '',
-              guard_approved_date: request.guard_approved_date || '',
-              profile_picture: userData.profile_picture,
-              // Add approval state fields
-              approved_by: request.approved_by,
-              guard_approved: request.guard_approved || false,
-              guard_approved_by: request.guard_approved_by,
-              // Add loan-specific fields
-              amount: request.amount || 0,
-              repayment_terms: request.repayment_terms || '',
-              monthly_deduction: request.monthly_deduction || 0,
-              total_months: request.total_months || 0
-            });
-          } else {
-            console.log(`[HR Requests] Skipping non-Faculty request from ${userData.name} (${userData.role}, ${userData.positions})`);
-          }
-        } else {
-          console.error(`[HR Requests] Error fetching user for request ${request.id}:`, userError);
+          requestsWithDetails.push({
+            id: request.id,
+            name: userData.name,
+            type: request.request_type || 'Unknown',
+            leave_type: request.leave_type || '',
+            reason: request.reason || request.purpose || `${request.request_type} Request`,
+            purpose: request.purpose || '',
+            destination: request.destination || '',
+            time_out: request.time_out || '',
+            time_in: request.time_in || '',
+            start_date: request.start_date || '',
+            end_date: request.end_date || '',
+            duration: request.duration || '',
+            date_needed: request.date_needed || '',
+            date: request.created_at,
+            status: request.status,
+            requester_position: userData.positions || '',
+            approved_by_name: deanApprover?.name || 'Unknown',
+            guard_approved_by_name: secondApprover?.name || 'Unknown',
+            approved_date: request.approved_date || '',
+            guard_approved_date: request.guard_approved_date || '',
+            profile_picture: userData.profile_picture,
+            // Add approval state fields
+            approved_by: request.approved_by,
+            guard_approved: request.guard_approved || false,
+            guard_approved_by: request.guard_approved_by,
+            // Add loan-specific fields
+            amount: request.amount || 0,
+            repayment_terms: request.repayment_terms || '',
+            monthly_deduction: request.monthly_deduction || 0,
+            total_months: request.total_months || 0
+          });
         }
       }
 
@@ -303,6 +279,17 @@ export const Requests = () => {
                          req.reason.toLowerCase().includes(search.toLowerCase());
     return matchesFilter && matchesSearch;
   });
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedRequests = filteredRequests.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeFilter, search]);
 
   return (
     <div className="min-h-screen w-full lg:ml-70 py-5 roboto px-3 sm:px-5 bg-red-200">
@@ -528,8 +515,8 @@ export const Requests = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredRequests.length > 0 ? (
-                  filteredRequests.map((req) => (
+                {paginatedRequests.length > 0 ? (
+                  paginatedRequests.map((req) => (
                     <tr key={req.id} className="hover:bg-white/80 transition-all duration-200 group">
                       <td className="px-3 py-3 border-b border-gray-200">
                         <span className="font-medium text-gray-700 text-sm">{req.id}</span>
@@ -578,7 +565,7 @@ export const Requests = () => {
                       <td className="px-3 py-3 border-b border-gray-200">
                         <div className="text-xs text-gray-600">
                           <div>Dean: {req.approved_by_name}</div>
-                          <div>{req.type === 'Gate Pass' ? 'Guard' : 'HR'}: {req.guard_approved_by_name}</div>
+                          {req.type === 'Gate Pass' && <div>Guard: {req.guard_approved_by_name}</div>}
                         </div>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200 text-center">
@@ -616,6 +603,69 @@ export const Requests = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {filteredRequests.length > 0 && (
+            <div className="flex items-center justify-between px-4 py-4 border-t border-gray-200">
+              <div className="text-sm text-gray-600 flex-shrink-0">
+                Showing <span className="font-semibold">{startIndex + 1}</span> to{" "}
+                <span className="font-semibold">{Math.min(endIndex, filteredRequests.length)}</span> of{" "}
+                <span className="font-semibold">{filteredRequests.length}</span> requests
+              </div>
+              <div className="flex items-center justify-center gap-2 flex-1">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
+                    // Show first page, last page, current page, and pages around current
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                            currentPage === page
+                              ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-md'
+                              : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    } else if (
+                      page === currentPage - 2 ||
+                      page === currentPage + 2
+                    ) {
+                      return <span key={page} className="px-2 text-gray-400">...</span>;
+                    }
+                    return null;
+                  })}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Details Modal */}
@@ -802,6 +852,15 @@ export const Requests = () => {
                             ₱{selectedRequestDetails.amount?.toLocaleString() || 'Not specified'}
                           </p>
                         </div>
+                        {(selectedRequestDetails.total_periods || selectedRequestDetails.total_months) && (
+                          <div>
+                            <label className="block text-sm font-semibold text-green-700 mb-1">Number of Sessions</label>
+                            <p className="text-green-900 bg-white p-3 rounded-lg border border-green-200 text-lg font-bold">
+                              {selectedRequestDetails.total_periods || selectedRequestDetails.total_months} sessions
+                            </p>
+                            <p className="text-xs text-green-600 mt-1">15-day payment cycles</p>
+                          </div>
+                        )}
                         {selectedRequestDetails.date_needed && (
                           <div>
                             <label className="block text-sm font-semibold text-green-700 mb-1">Date Needed</label>
@@ -810,20 +869,13 @@ export const Requests = () => {
                             </p>
                           </div>
                         )}
-                        {selectedRequestDetails.monthly_deduction && (
+                        {(selectedRequestDetails.period_deduction || selectedRequestDetails.monthly_deduction) && (
                           <div>
-                            <label className="block text-sm font-semibold text-green-700 mb-1">Monthly Deduction</label>
-                            <p className="text-green-900 bg-white p-3 rounded-lg border border-green-200">
-                              ₱{selectedRequestDetails.monthly_deduction.toLocaleString()}
+                            <label className="block text-sm font-semibold text-green-700 mb-1">Per Period Deduction</label>
+                            <p className="text-green-900 bg-white p-3 rounded-lg border border-green-200 font-semibold">
+                              ₱{(selectedRequestDetails.period_deduction || selectedRequestDetails.monthly_deduction)?.toLocaleString()}
                             </p>
-                          </div>
-                        )}
-                        {selectedRequestDetails.total_months && (
-                          <div>
-                            <label className="block text-sm font-semibold text-green-700 mb-1">Total Months</label>
-                            <p className="text-green-900 bg-white p-3 rounded-lg border border-green-200">
-                              {selectedRequestDetails.total_months} months
-                            </p>
+                            <p className="text-xs text-green-600 mt-1">Deducted every 15 days</p>
                           </div>
                         )}
                         {selectedRequestDetails.repayment_terms && (

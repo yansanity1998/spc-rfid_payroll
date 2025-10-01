@@ -720,60 +720,63 @@ export const FacRequest = () => {
           {/* Statistics Cards */}
           {!activeForm && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              {/* Pending Card */}
               <div className="group relative overflow-hidden bg-gradient-to-br from-yellow-500 to-yellow-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
                 <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
-                <div className="relative z-10 flex items-center justify-between">
-                  <div className="text-white">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
-                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="relative z-10">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
-                    <h2 className="text-lg font-semibold">Pending</h2>
+                    <div className="text-white">
+                      <h2 className="text-lg font-semibold">Pending</h2>
+                      <p className="text-yellow-100 text-sm">Awaiting approval</p>
+                    </div>
                   </div>
-                  <p className="text-3xl font-bold">{pendingRequests}</p>
-                  <p className="text-yellow-100 text-sm mt-1">Awaiting approval</p>
+                  <p className="text-3xl font-bold text-white">{pendingRequests}</p>
                 </div>
               </div>
-            </div>
 
-            <div className="group relative overflow-hidden bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-              <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
-              <div className="relative z-10 flex items-center justify-between">
-                <div className="text-white">
+              {/* Approved Card */}
+              <div className="group relative overflow-hidden bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+                <div className="relative z-10">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
                       <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                    <h2 className="text-lg font-semibold">Approved</h2>
+                    <div className="text-white">
+                      <h2 className="text-lg font-semibold">Approved</h2>
+                      <p className="text-green-100 text-sm">Successfully approved</p>
+                    </div>
                   </div>
-                  <p className="text-3xl font-bold">{approvedRequests}</p>
-                  <p className="text-green-100 text-sm mt-1">Successfully approved</p>
+                  <p className="text-3xl font-bold text-white">{approvedRequests}</p>
                 </div>
               </div>
-            </div>
 
-            <div className="group relative overflow-hidden bg-gradient-to-br from-red-500 to-red-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-              <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
-              <div className="relative z-10 flex items-center justify-between">
-                <div className="text-white">
+              {/* Rejected Card */}
+              <div className="group relative overflow-hidden bg-gradient-to-br from-red-500 to-red-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+                <div className="relative z-10">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
                       <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </div>
-                    <h2 className="text-lg font-semibold">Rejected</h2>
+                    <div className="text-white">
+                      <h2 className="text-lg font-semibold">Rejected</h2>
+                      <p className="text-red-100 text-sm">Not approved</p>
+                    </div>
                   </div>
-                  <p className="text-3xl font-bold">{rejectedRequests}</p>
-                  <p className="text-red-100 text-sm mt-1">Not approved</p>
+                  <p className="text-3xl font-bold text-white">{rejectedRequests}</p>
                 </div>
               </div>
             </div>
-          </div>
           )}
 
           {/* Requests Table */}

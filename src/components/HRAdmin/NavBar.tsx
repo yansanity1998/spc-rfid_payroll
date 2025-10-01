@@ -9,7 +9,6 @@ export const NavBar = () => {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string>("");
-  const [userProfilePicture, setUserProfilePicture] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -23,13 +22,12 @@ export const NavBar = () => {
         // Fetch user profile data from users table in background
         supabase
           .from('users')
-          .select('name, profile_picture')
+          .select('name')
           .eq('auth_id', user.id)
           .single()
           .then(({ data }) => {
             if (data) {
               setUserName(data.name || '');
-              setUserProfilePicture(data.profile_picture || '');
             }
           });
       }
@@ -136,18 +134,12 @@ export const NavBar = () => {
           {/* Modern Profile Section - Picture and Role Only */}
           <div className="flex flex-col items-center justify-center px-4 py-4 mb-4">
             <div className="relative">
-              <div className="relative">
-                {userProfilePicture ? (
-                  <img 
-                    src={userProfilePicture} 
-                    alt="Profile" 
-                    className="h-20 w-20 rounded-full object-cover ring-4 ring-white/30 shadow-xl" 
-                  />
-                ) : (
-                  <div className="h-20 w-20 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-xl ring-4 ring-white/30 shadow-xl">
-                    {userName ? userName.charAt(0).toUpperCase() : userEmail.charAt(0).toUpperCase()}
-                  </div>
-                )}
+              <div className="relative bg-white rounded-xl p-4 shadow-xl">
+                <img 
+                  src="/assets/images/spclogo.png" 
+                  alt="SPC Logo" 
+                  className="h-12 w-32 object-contain" 
+                />
               </div>
             </div>
             <div className="text-center mt-3">
@@ -238,19 +230,13 @@ export const NavBar = () => {
             <div>
               {/* Mobile Profile Section - Picture and Role Only */}
               <div className="flex flex-col items-center justify-center px-4 py-3 mb-3">
-                <div className="relative">
-                  <div className="relative">
-                    {userProfilePicture ? (
-                      <img 
-                        src={userProfilePicture} 
-                        alt="Profile" 
-                        className="h-16 w-16 rounded-full object-cover ring-4 ring-white/30 shadow-xl" 
-                      />
-                    ) : (
-                      <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-lg ring-4 ring-white/30 shadow-xl">
-                        {userName ? userName.charAt(0).toUpperCase() : userEmail.charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                <div className="relative w-full max-w-[200px]">
+                  <div className="relative bg-white rounded-xl p-3 shadow-xl">
+                    <img 
+                      src="/assets/images/spclogo.png" 
+                      alt="SPC Logo" 
+                      className="h-12 w-full object-contain" 
+                    />
                   </div>
                 </div>
                 <div className="text-center mt-2">
@@ -345,7 +331,6 @@ export const NavBar = () => {
         onClose={() => setSettingsOpen(false)}
         onUpdate={(updatedData: { name: string; profile_picture: string }) => {
           setUserName(updatedData.name);
-          setUserProfilePicture(updatedData.profile_picture);
         }}
       />
     </>
