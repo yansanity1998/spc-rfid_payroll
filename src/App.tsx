@@ -38,6 +38,7 @@ import { DatabaseTest } from "./components/Debug/DatabaseTest";
 import FacDashboard from "./components/Faculty/FacDashboard";
 import { FacNav } from "./components/Faculty/FacNav";
 import Scanner from "./components/authAdmin/Scanner";
+import ScheduleScanner from "./components/ScheduleScanner/ScheduleScanner";
 import FacAttendance from "./components/Faculty/FacAttendance";
 import FacSchedule from "./components/Faculty/FacSchedule";
 import { FacPayroll } from "./components/Faculty/FacPayroll";
@@ -75,7 +76,7 @@ function AppContent() {
 
   
   // Check if current route should show full-screen layout (no navigation bars)
-  const isFullScreenRoute = location.pathname === "/" || location.pathname === "/login" || location.pathname === "/scanner" || location.pathname === "/diagnose-sa" || location.pathname === "/diagnose-guard" || location.pathname === "/diagnose-staff";
+  const isFullScreenRoute = location.pathname === "/" || location.pathname === "/login" || location.pathname === "/scanner" || location.pathname === "/schedule-scanner" || location.pathname === "/diagnose-sa" || location.pathname === "/diagnose-guard" || location.pathname === "/diagnose-staff";
 
   return (
     <>
@@ -93,6 +94,7 @@ function AppContent() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LogIn />} />
           <Route path="/scanner" element={<Scanner />}/>
+          <Route path="/schedule-scanner" element={<ScheduleScanner />}/>
 
           {/* HR ADMIN */}
           <Route path="/hrAdmin/dashboard" element={<Dashboard />} />

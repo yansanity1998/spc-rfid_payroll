@@ -9,6 +9,7 @@ export const FacRequest = () => {
   const [userName, setUserName] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [exemptedSchedules, setExemptedSchedules] = useState<any[]>([]);
   
   // Form states
   const [gatePassForm, setGatePassForm] = useState({
@@ -68,6 +69,24 @@ export const FacRequest = () => {
     }
   };
 
+  const fetchExemptedSchedules = async (userId: number) => {
+    try {
+      const { data, error } = await supabase
+        .from("exempted_schedules_view")
+        .select("*")
+        .eq("user_id", userId)
+        .gte("exemption_date", new Date().toISOString().split('T')[0]) // Only future/current exemptions
+        .order("exemption_date", { ascending: true });
+
+      if (!error) {
+        setExemptedSchedules(data || []);
+        console.log('[FacRequest] Exempted schedules:', data);
+      }
+    } catch (error) {
+      console.error("Error fetching exempted schedules:", error);
+    }
+  };
+
   const fetchRequests = async () => {
     setLoading(true);
     try {
@@ -93,6 +112,9 @@ export const FacRequest = () => {
         if (!error) {
           setAllRequests(data || []);
         }
+
+        // Fetch exempted schedules
+        await fetchExemptedSchedules(userData.id);
       }
     } catch (error) {
       console.error("Error fetching requests:", error);
@@ -774,6 +796,79 @@ export const FacRequest = () => {
                     </div>
                   </div>
                   <p className="text-3xl font-bold text-white">{rejectedRequests}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Exempted Schedules Section */}
+          {!activeForm && exemptedSchedules.length > 0 && (
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 shadow-xl rounded-2xl overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-800">Schedule Exemptions</h2>
+                    <p className="text-gray-600 text-sm">Your approved requests have exempted these schedules</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {exemptedSchedules.map((exemption: any) => (
+                    <div key={exemption.id} className="bg-white rounded-xl p-4 shadow-md border border-blue-100">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                          exemption.request_type === 'Gate Pass' 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-purple-100 text-purple-800'
+                        }`}>
+                          {exemption.request_type}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          {new Date(exemption.exemption_date).toLocaleDateString()}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {exemption.subject && (
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Subject:</span>
+                            <span className="text-sm text-gray-600 ml-2">{exemption.subject}</span>
+                          </div>
+                        )}
+                        
+                        {exemption.room && (
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Room:</span>
+                            <span className="text-sm text-gray-600 ml-2">{exemption.room}</span>
+                          </div>
+                        )}
+                        
+                        {exemption.start_time && exemption.end_time ? (
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Time:</span>
+                            <span className="text-sm text-gray-600 ml-2">
+                              {exemption.start_time} - {exemption.end_time}
+                            </span>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Duration:</span>
+                            <span className="text-sm text-gray-600 ml-2">Full Day</span>
+                          </div>
+                        )}
+                        
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">Reason:</span>
+                          <span className="text-sm text-gray-600 ml-2">{exemption.reason}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

@@ -118,6 +118,7 @@ const ModernLoginForm = ({ onClose }: { onClose: () => void }) => {
               onChange={(e) => setEmail(e.target.value)}
               className="w-full h-12 px-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
               placeholder="Enter your email"
+              autoComplete="off"
               required
             />
           </div>
@@ -131,6 +132,7 @@ const ModernLoginForm = ({ onClose }: { onClose: () => void }) => {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full h-12 px-4 pr-12 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
                 placeholder="Enter your password"
+                autoComplete="new-password"
                 required
               />
               <button
@@ -200,140 +202,304 @@ export const LandingPage = () => {
     return () => clearInterval(timer);
   }, [carouselImages.length]);
 
-  const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % carouselImages.length);
-  };
-
-  const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + carouselImages.length) % carouselImages.length);
-  };
-
-  const goToSlide = (index: number) => {
-    setCurrentSlide(index);
-  };
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Header - Absolute positioned over carousel */}
-      <header className="absolute top-0 left-0 right-0 z-30 flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 sm:p-4 lg:p-8 gap-3 sm:gap-0">
-        {/* Logo and System Text - Upper Left */}
-        <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
-          <img 
-            src={titlelogo} 
-            alt="SPC Logo" 
-            className="h-8 sm:h-10 md:h-12 lg:h-16 w-auto drop-shadow-2xl flex-shrink-0"
-          />
-          <div className="text-left min-w-0 flex-1">
-            <h1 className="text-sm sm:text-lg md:text-2xl lg:text-3xl font-bold text-white drop-shadow-lg leading-tight">
-              SPC RFID & PAYROLL
-            </h1>
-            <p className="text-xs sm:text-sm lg:text-base text-white/90 font-medium drop-shadow-md leading-tight">
-              Management System
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-red-900 to-slate-900">
+      {/* Navigation Header */}
+      <header className="relative z-50 bg-white/10 backdrop-blur-md border-b border-white/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            {/* Logo and System Text */}
+            <div className="flex items-center gap-4">
+              <img 
+                src={titlelogo} 
+                alt="SPC Logo" 
+                className="h-12 w-auto drop-shadow-lg"
+              />
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-white">
+                  SPC RFID & PAYROLL
+                </h1>
+                <p className="text-sm text-white/80 font-medium">
+                  Management System
+                </p>
+              </div>
+            </div>
+
+            {/* Login Button */}
+            <button
+              onClick={() => setShowLoginModal(true)}
+              className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-semibold transition-all duration-300 hover:scale-105 shadow-lg flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              Login
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <main className="relative">
+        {/* Background Carousel */}
+        <div className="absolute inset-0 overflow-hidden">
+          {carouselImages.map((image, index) => (
+            <div
+              key={index}
+              className={`absolute inset-0 transition-all duration-1000 ease-in-out ${
+                index === currentSlide ? 'opacity-30' : 'opacity-0'
+              }`}
+            >
+              <img
+                src={image.src}
+                alt={image.alt}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ))}
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 via-red-900/60 to-slate-900/80"></div>
+        </div>
+
+        {/* Hero Content */}
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+          <div className="text-center">
+            <div className="inline-block mb-4">
+              <span className="bg-red-600/20 text-red-400 px-4 py-2 rounded-full text-sm font-semibold border border-red-500/30">
+                St. Peter's College Official System
+              </span>
+            </div>
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6">
+              Integrated RFID Attendance
+              <span className="block text-red-400">& Payroll Management</span>
+            </h2>
+            <p className="text-xl text-white/90 mb-8 max-w-3xl mx-auto">
+              St. Peter's College's comprehensive workforce management solution featuring contactless RFID attendance, automated payroll processing with penalty calculations, and real-time schedule monitoring for Faculty, Staff, and Student Assistants.
             </p>
+            
+            {/* Stats Bar */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto mb-12">
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4">
+                <div className="text-3xl font-bold text-red-400 mb-1">Dual Session</div>
+                <div className="text-white/80 text-sm">Morning & Afternoon Tracking</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4">
+                <div className="text-3xl font-bold text-red-400 mb-1">15-Min Grace</div>
+                <div className="text-white/80 text-sm">Penalty-Free Buffer Period</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4">
+                <div className="text-3xl font-bold text-red-400 mb-1">Auto Penalty</div>
+                <div className="text-white/80 text-sm">₱1/min Late, ₱240 Absent</div>
+              </div>
+            </div>
+
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
+              <Link
+                to="/scanner"
+                className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 hover:scale-105 shadow-xl flex items-center gap-3"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                </svg>
+                Tap Your RFID Card
+              </Link>
+              <button
+                onClick={() => setShowLoginModal(true)}
+                className="bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/30 text-white px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 hover:scale-105 shadow-xl"
+              >
+                User Login Portal
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Login Button - Upper Right */}
-        <button
-          onClick={() => setShowLoginModal(true)}
-          className="group relative overflow-hidden bg-white/10 backdrop-blur-md border border-white/20 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full font-semibold transition-all duration-300 hover:bg-white/20 hover:scale-105 shadow-lg text-sm sm:text-base w-full sm:w-auto"
-        >
-          <span className="relative z-10 flex items-center justify-center gap-2">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-            Login
-          </span>
-          <div className="absolute inset-0 bg-red-900 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-        </button>
-      </header>
-
-      {/* Main Content - Full Screen Carousel */}
-      <main className="relative z-10 flex flex-col h-screen pt-20 sm:pt-0">
-        {/* Carousel - Full Screen */}
-        <div className="relative w-full h-full">
-          <div className="relative w-full h-full overflow-hidden">
-            {/* Carousel Images */}
-            <div className="relative w-full h-full">
-              {carouselImages.map((image, index) => (
-                <div
-                  key={index}
-                  className={`absolute inset-0 transition-all duration-700 ease-in-out ${
-                    index === currentSlide 
-                      ? 'opacity-100 scale-100' 
-                      : 'opacity-0 scale-105'
-                  }`}
-                >
-                  <img
-                    src={image.src}
-                    alt={image.alt}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
-                </div>
-              ))}
+        {/* Features Section */}
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+          <div className="text-center mb-12">
+            <h3 className="text-3xl font-bold text-white mb-3">System Capabilities</h3>
+            <p className="text-white/70">Comprehensive workforce management for St. Peter's College</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Dual Session Tracking */}
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 hover:bg-white/15 transition-all duration-300 hover:scale-105">
+              <div className="bg-red-600 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Dual Session Tracking</h3>
+              <p className="text-white/80">Separate morning (7AM-12PM) and afternoon (1PM-7PM) attendance records with 15-minute grace period.</p>
             </div>
 
-            {/* Carousel Controls */}
-            <button
-              onClick={prevSlide}
-              className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-md border border-white/30 text-white p-2 sm:p-3 rounded-full hover:bg-white/30 transition-all duration-300 shadow-lg"
-            >
-              <svg className="w-4 h-4 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <button
-              onClick={nextSlide}
-              className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-md border border-white/30 text-white p-2 sm:p-3 rounded-full hover:bg-white/30 transition-all duration-300 shadow-lg"
-            >
-              <svg className="w-4 h-4 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+            {/* Smart Penalty System */}
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 hover:bg-white/15 transition-all duration-300 hover:scale-105">
+              <div className="bg-orange-600 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Smart Penalty System</h3>
+              <p className="text-white/80">Automated deductions: ₱1/minute for tardiness, ₱240 for absences.</p>
+            </div>
 
-            {/* Carousel Indicators */}
-            <div className="absolute bottom-2 sm:bottom-4 left-1/2 -translate-x-1/2 flex gap-1 sm:gap-2">
-              {carouselImages.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => goToSlide(index)}
-                  className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all duration-300 ${
-                    index === currentSlide 
-                      ? 'bg-white scale-125' 
-                      : 'bg-white/50 hover:bg-white/70'
-                  }`}
-                />
-              ))}
+            {/* Class Schedule Integration */}
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 hover:bg-white/15 transition-all duration-300 hover:scale-105">
+              <div className="bg-blue-600 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Class Schedule Integration</h3>
+              <p className="text-white/80">Faculty class schedules with subject-specific attendance tracking and missing class detection.</p>
+            </div>
+
+            {/* Payroll Automation */}
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 hover:bg-white/15 transition-all duration-300 hover:scale-105">
+              <div className="bg-green-600 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Payroll Automation</h3>
+              <p className="text-white/80">Integrated payroll with automatic penalty calculations from both regular and class attendance.</p>
+            </div>
+
+            {/* Loan Management */}
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 hover:bg-white/15 transition-all duration-300 hover:scale-105">
+              <div className="bg-purple-600 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Loan Management</h3>
+              <p className="text-white/80">Flexible loan system with customizable periods and automatic payroll deductions.</p>
+            </div>
+
+            {/* Request System */}
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 hover:bg-white/15 transition-all duration-300 hover:scale-105">
+              <div className="bg-indigo-600 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Request System</h3>
+              <p className="text-white/80">Submit and track leave requests, schedule changes, and other administrative requests with approval workflow.</p>
             </div>
           </div>
         </div>
       </main>
 
 
-      {/* Footer with Scanner */}
-      <footer className="absolute bottom-3 sm:bottom-6 right-3 sm:right-6 left-3 sm:left-auto z-30">
-        <div className="flex flex-col sm:flex-row items-center sm:items-end gap-2 sm:gap-4">
-          <div className="text-center sm:text-right order-2 sm:order-1">
-            <p className="text-white/80 font-medium text-sm sm:text-lg mb-1 animate-pulse">
-              Ready to Scan?
-            </p>
-            <p className="text-white/60 text-xs sm:text-sm">
-              Quick access RFID
+      {/* Role-Based Access Section */}
+      <section className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="text-center mb-12">
+          <h3 className="text-3xl font-bold text-white mb-4">Dedicated Portals for Every Role</h3>
+          <p className="text-white/80 text-lg">Customized dashboards with role-specific features and permissions</p>
+        </div>
+        
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {/* Administrator */}
+          <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl p-4 text-center hover:scale-105 transition-all duration-300 shadow-lg">
+            <div className="bg-white/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </div>
+            <h4 className="text-white font-bold text-sm">Administrator</h4>
+          </div>
+
+          {/* HR Personnel */}
+          <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-4 text-center hover:scale-105 transition-all duration-300 shadow-lg">
+            <div className="bg-white/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <h4 className="text-white font-bold text-sm">HR Personnel</h4>
+          </div>
+
+          {/* Accounting */}
+          <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-4 text-center hover:scale-105 transition-all duration-300 shadow-lg">
+            <div className="bg-white/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h4 className="text-white font-bold text-sm">Accounting</h4>
+          </div>
+
+          {/* Faculty */}
+          <div className="bg-gradient-to-br from-red-600 to-red-700 rounded-xl p-4 text-center hover:scale-105 transition-all duration-300 shadow-lg">
+            <div className="bg-white/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+            </div>
+            <h4 className="text-white font-bold text-sm">Faculty</h4>
+          </div>
+
+          {/* Staff */}
+          <div className="bg-gradient-to-br from-red-800 to-red-900 rounded-xl p-4 text-center hover:scale-105 transition-all duration-300 shadow-lg">
+            <div className="bg-white/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0H8m8 0v2a2 2 0 01-2 2H10a2 2 0 01-2-2V6m8 0H8" />
+              </svg>
+            </div>
+            <h4 className="text-white font-bold text-sm">Staff</h4>
+          </div>
+
+          {/* SA & Guard */}
+          <div className="bg-gradient-to-br from-yellow-600 to-teal-600 rounded-xl p-4 text-center hover:scale-105 transition-all duration-300 shadow-lg">
+            <div className="bg-white/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </div>
+            <h4 className="text-white font-bold text-sm">SA & Guard</h4>
+          </div>
+        </div>
+      </section>
+
+      {/* Quick Access Footer */}
+      <footer className="relative z-10 bg-white/5 backdrop-blur-md border-t border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="text-center md:text-left">
+              <h4 className="text-white font-bold text-lg mb-2">🔖 RFID Attendance Stations</h4>
+              <p className="text-white/70">Morning: 7:00-7:15 AM (Grace) | Afternoon: 1:00-1:15 PM (Grace)</p>
+              <p className="text-white/60 text-sm mt-1">Tap your card at entrance/exit points</p>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Link
+                to="/scanner"
+                className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:scale-105 shadow-lg flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                </svg>
+                Daily Attendance
+              </Link>
+              
+              <Link
+                to="/schedule-scanner"
+                className="bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/30 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:scale-105 shadow-lg flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Class Attendance
+              </Link>
+            </div>
+          </div>
+          
+          <div className="mt-6 pt-6 border-t border-white/10 text-center">
+            <p className="text-white/60 text-sm">
+              © 2025 St. Peter's College - RFID & Payroll Management System | For assistance, contact HR or IT Department
             </p>
           </div>
-          <Link
-            to="/scanner"
-            className="group relative overflow-hidden bg-gradient-to-r from-red-600 to-red-700 text-white px-4 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold text-sm sm:text-lg transition-all duration-300 hover:scale-105 shadow-2xl w-full sm:w-auto order-1 sm:order-2"
-          >
-            <span className="relative z-10 flex items-center justify-center gap-2 sm:gap-3">
-              <svg className="w-4 h-4 sm:w-6 sm:h-6 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-              </svg>
-              Scanner
-            </span>
-            <div className="absolute inset-0 bg-gradient-to-r from-red-700 to-red-800 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-          </Link>
         </div>
       </footer>
 

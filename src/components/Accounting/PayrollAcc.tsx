@@ -151,6 +151,63 @@ export const PayrollAcc = () => {
     }
   };
 
+  // Function to check if user has schedule exemption for a specific date
+  const checkUserExemption = async (userId: number, date: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("schedule_exemptions")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("exemption_date", date);
+
+      if (error) {
+        console.error('[PayrollAcc] Error checking exemptions:', error);
+        return { isExempted: false, reason: null, type: null };
+      }
+
+      if (!data || data.length === 0) {
+        return { isExempted: false, reason: null, type: null };
+      }
+
+      // Check for full day exemptions (leave requests)
+      const fullDayExemption = data.find(exemption => 
+        exemption.request_type === 'Leave' || 
+        (!exemption.start_time && !exemption.end_time)
+      );
+
+      if (fullDayExemption) {
+        return { 
+          isExempted: true, 
+          reason: fullDayExemption.reason,
+          type: 'full_day',
+          requestType: fullDayExemption.request_type
+        };
+      }
+
+      // Check for time-specific exemptions (gate pass requests)
+      const timeExemption = data.find(exemption => {
+        if (!exemption.start_time || !exemption.end_time) return false;
+        return true; // Has time-specific exemption
+      });
+
+      if (timeExemption) {
+        return { 
+          isExempted: true, 
+          reason: timeExemption.reason,
+          type: 'time_specific',
+          requestType: timeExemption.request_type,
+          startTime: timeExemption.start_time,
+          endTime: timeExemption.end_time
+        };
+      }
+
+      return { isExempted: false, reason: null, type: null };
+    } catch (error) {
+      console.error('[PayrollAcc] Error checking schedule exemption:', error);
+      return { isExempted: false, reason: null, type: null };
+    }
+  };
+
   // Calculate penalties for a user - aligned with HRAdmin Attendance.tsx (both regular and class schedule attendance)
   const calculatePenalties = async (userId: number, period?: string): Promise<{
     totalPenalty: number;
@@ -282,8 +339,16 @@ export const PayrollAcc = () => {
       const lateRecords: any[] = [];
       const absentRecords: any[] = [];
 
-      // Process regular attendance records
+      // Process regular attendance records with exemption checking
       for (const record of attendanceData || []) {
+        // Check if user is exempted for this date
+        const exemptionCheck = await checkUserExemption(userId, record.att_date);
+        
+        if (exemptionCheck.isExempted) {
+          console.log(`🛡️ [PayrollAcc] User ${userId} is exempted on ${record.att_date} (${exemptionCheck.requestType}: ${exemptionCheck.reason}) - SKIPPING PENALTIES`);
+          continue; // Skip penalty calculation for exempted dates
+        }
+
         // Add penalty amount from database (dual session penalties)
         const recordPenalty = record.penalty_amount || 0;
         totalPenalty += recordPenalty;
@@ -356,8 +421,16 @@ export const PayrollAcc = () => {
 
       console.log('📊 [PayrollAcc] Class schedule - Late:', classLateRecords.length, 'Absent:', classAbsentRecords.length);
 
-      // Calculate class schedule late penalties: ₱1 per minute late
+      // Calculate class schedule late penalties: ₱1 per minute late (with exemption checking)
       for (const record of classLateRecords) {
+        // Check if user is exempted for this date
+        const exemptionCheck = await checkUserExemption(userId, record.att_date);
+        
+        if (exemptionCheck.isExempted) {
+          console.log(`🛡️ [PayrollAcc] User ${userId} is exempted on ${record.att_date} for class ${record.subject} (${exemptionCheck.requestType}: ${exemptionCheck.reason}) - SKIPPING LATE PENALTY`);
+          continue; // Skip penalty calculation for exempted dates
+        }
+
         if (record.time_in && record.start_time) {
           // Parse time_in (timestamp) and start_time (HH:MM:SS format)
           const timeIn = new Date(record.time_in);
@@ -385,14 +458,23 @@ export const PayrollAcc = () => {
         }
       }
 
-      // Calculate class schedule absent penalties: ₱240 per absent class
-      const classAbsentPenalty = classAbsentRecords.length * 240;
-      totalAbsentPenalty += classAbsentPenalty;
-      totalPenalty += classAbsentPenalty;
-      absentCount += classAbsentRecords.length;
-
-      // Add class absent records to tracking
+      // Calculate class schedule absent penalties: ₱240 per absent class (with exemption checking)
+      let exemptedAbsentCount = 0;
       for (const record of classAbsentRecords) {
+        // Check if user is exempted for this date
+        const exemptionCheck = await checkUserExemption(userId, record.att_date);
+        
+        if (exemptionCheck.isExempted) {
+          console.log(`🛡️ [PayrollAcc] User ${userId} is exempted on ${record.att_date} for class ${record.subject} (${exemptionCheck.requestType}: ${exemptionCheck.reason}) - SKIPPING ABSENT PENALTY`);
+          exemptedAbsentCount++;
+          continue; // Skip penalty calculation for exempted dates
+        }
+
+        // Apply penalty for non-exempted absent records
+        totalAbsentPenalty += 240; // ₱240 per absent class
+        totalPenalty += 240;
+        absentCount++;
+        
         absentRecords.push({
           ...record,
           status: 'Absent',
@@ -400,6 +482,9 @@ export const PayrollAcc = () => {
         });
         console.log(`❌ [PayrollAcc] Class schedule absent - ${record.subject} on ${record.att_date}: ₱240 penalty`);
       }
+      
+      console.log(`🛡️ [PayrollAcc] Exempted ${exemptedAbsentCount} absent class records from penalties`);
+      console.log(`💰 [PayrollAcc] Applied penalties to ${absentCount} non-exempted absent records`);
 
       console.log('💰 [PayrollAcc] TOTAL PENALTIES (Regular + Class Schedule):');
       console.log('💰 [PayrollAcc] - Total late minutes:', totalLateMinutes, '= ₱' + totalLatePenalty);

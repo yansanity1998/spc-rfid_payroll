@@ -77,6 +77,68 @@ const Scanner = () => {
     setShowAlert(true);
   };
 
+  // Check if user has schedule exemption for current date/time
+  const checkScheduleExemption = async (userId: number, currentTime: Date) => {
+    try {
+      const today = currentTime.toISOString().split('T')[0];
+      const currentTimeStr = currentTime.toTimeString().split(' ')[0].substring(0, 5); // HH:MM format
+      
+      const { data, error } = await supabase
+        .from("schedule_exemptions")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("exemption_date", today);
+
+      if (error) {
+        console.error('[Scanner] Error checking exemptions:', error);
+        return { isExempted: false, reason: null };
+      }
+
+      if (!data || data.length === 0) {
+        return { isExempted: false, reason: null };
+      }
+
+      // Check for full day exemptions (leave requests)
+      const fullDayExemption = data.find(exemption => 
+        exemption.request_type === 'Leave' || 
+        (!exemption.start_time && !exemption.end_time)
+      );
+
+      if (fullDayExemption) {
+        return { 
+          isExempted: true, 
+          reason: fullDayExemption.reason,
+          type: 'full_day'
+        };
+      }
+
+      // Check for time-specific exemptions (gate pass requests)
+      const timeExemption = data.find(exemption => {
+        if (!exemption.start_time || !exemption.end_time) return false;
+        
+        const exemptionStart = exemption.start_time;
+        const exemptionEnd = exemption.end_time;
+        
+        return currentTimeStr >= exemptionStart && currentTimeStr <= exemptionEnd;
+      });
+
+      if (timeExemption) {
+        return { 
+          isExempted: true, 
+          reason: timeExemption.reason,
+          type: 'time_specific',
+          startTime: timeExemption.start_time,
+          endTime: timeExemption.end_time
+        };
+      }
+
+      return { isExempted: false, reason: null };
+    } catch (error) {
+      console.error('[Scanner] Error checking schedule exemption:', error);
+      return { isExempted: false, reason: null };
+    }
+  };
+
   // Determine which session (morning or afternoon) based on current time
   const getCurrentSession = (currentTime: Date) => {
     const phTime = new Intl.DateTimeFormat('en-US', {
@@ -194,6 +256,25 @@ const Scanner = () => {
       const validRoles = ['Faculty', 'SA', 'Accounting', 'Staff'];
       if (!validRoles.includes(user.role)) {
         showModernAlert('error', 'Invalid Role', `Role ${user.role} is not configured for attendance tracking.`, user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'error');
+        return;
+      }
+
+      // 🔍 Step 1.5: Check for schedule exemptions
+      const exemptionCheck = await checkScheduleExemption(user.id, now);
+      if (exemptionCheck.isExempted) {
+        const exemptionMessage = exemptionCheck.type === 'full_day' 
+          ? `You are exempted from attendance for the entire day due to: ${exemptionCheck.reason}`
+          : `You are exempted from attendance during ${exemptionCheck.startTime} - ${exemptionCheck.endTime} due to: ${exemptionCheck.reason}`;
+        
+        showModernAlert(
+          'info', 
+          'Schedule Exempted', 
+          exemptionMessage, 
+          user.name ?? user.id, 
+          user.role ?? '', 
+          user.profile_picture ?? '', 
+          'exempted'
+        );
         return;
       }
 
@@ -405,89 +486,162 @@ const Scanner = () => {
 
       {/* Scanner Interface - Centered Overlay */}
       <div className="absolute inset-0 z-20 flex items-center justify-center">
-        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-12 shadow-2xl max-w-md w-full mx-4">
-          {/* Scanner Header */}
-          <div className="text-center mb-8">
-            <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-red-700 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-              </svg>
-            </div>
-            <h2 className="text-3xl font-bold text-white mb-2">RFID Scanner</h2>
-            <p className="text-white/70">Attendance Management System</p>
-          </div>
-
-          {/* Scanner Status */}
-          <div className="text-center mb-8">
-            {loading ? (
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
-                <p className="text-white font-medium text-lg">Processing scan...</p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-16 h-16 border-4 border-white/50 rounded-full flex items-center justify-center animate-pulse">
-                  <div className="w-8 h-8 bg-white/70 rounded-full"></div>
-                </div>
-                <p className="text-white font-medium text-lg">Ready to scan RFID card</p>
-                <p className="text-white/60 text-sm">Tap your card or enter ID manually</p>
-              </div>
-            )}
-          </div>
-
-          {/* Hidden Input for RFID Scanner */}
-          <input
-            autoFocus
-            type="text"
-            value={scannedCard}
-            onChange={(e) => setScannedCard(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && scannedCard.trim() !== "") {
-                handleScan(scannedCard.trim());
-              }
-            }}
-            className="opacity-0 absolute -left-96 pointer-events-none"
-            placeholder="RFID will be scanned here"
-          />
-
-          {/* Manual Input Option */}
-          <div className="space-y-4">
-            <div className="flex flex-col">
-              <label className="mb-2 text-white font-medium">Manual Entry (Optional)</label>
-              <input
-                type="text"
-                value={scannedCard}
-                onChange={(e) => setScannedCard(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && scannedCard.trim() !== "") {
-                    handleScan(scannedCard.trim());
-                  }
-                }}
-                className="w-full h-12 px-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
-                placeholder="Enter card ID manually"
-                disabled={loading}
-              />
-            </div>
+        <div className="bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-2xl border-2 border-red-500/30 rounded-2xl shadow-[0_0_60px_rgba(239,68,68,0.3)] max-w-md w-full mx-4 overflow-hidden">
+          
+          {/* Animated Border Glow */}
+          <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 via-orange-500/20 to-red-500/20 animate-pulse rounded-2xl"></div>
+          
+          {/* Content Container */}
+          <div className="relative z-10 p-6">
             
-            <button
-              onClick={() => {
-                if (scannedCard.trim() !== "") {
+            {/* Scanner Header with Icon */}
+            <div className="text-center mb-6">
+              <div className="relative inline-block mb-4">
+                {/* Outer Rotating Ring */}
+                <div className="absolute inset-0 w-20 h-20 border-3 border-red-500/30 rounded-full animate-spin" style={{ animationDuration: '3s' }}></div>
+                
+                {/* Inner Icon Container */}
+                <div className="relative w-20 h-20 bg-gradient-to-br from-red-600 via-red-700 to-red-900 rounded-full flex items-center justify-center mx-auto shadow-2xl shadow-red-500/50">
+                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                  </svg>
+                  
+                  {/* Pulse Effect */}
+                  <div className="absolute inset-0 rounded-full bg-red-500/30 animate-ping"></div>
+                </div>
+              </div>
+              
+              <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-orange-400 to-red-400 mb-2 tracking-tight">
+                RFID SCANNER
+              </h2>
+              <p className="text-sm text-white/80 font-medium">Attendance Management System</p>
+              <div className="mt-3 flex items-center justify-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-green-400 text-xs font-semibold uppercase tracking-wider">System Online</span>
+              </div>
+            </div>
+
+            {/* Scanner Status - Compact Visual Area */}
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-2 border-red-500/20 rounded-xl p-6 mb-6 relative overflow-hidden">
+              {/* Animated Background Pattern */}
+              <div className="absolute inset-0 opacity-5">
+                <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-orange-500 animate-pulse"></div>
+              </div>
+              
+              <div className="relative z-10 text-center">
+                {loading ? (
+                  <div className="flex flex-col items-center gap-4">
+                    {/* Compact Spinner */}
+                    <div className="relative">
+                      <div className="w-20 h-20 border-4 border-red-500/20 border-t-red-500 rounded-full animate-spin"></div>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-12 h-12 bg-red-500/20 rounded-full animate-pulse"></div>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-white font-bold text-lg mb-1">Processing Scan...</p>
+                      <p className="text-white/60 text-sm">Please wait</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-4">
+                    {/* Compact Scanning Animation */}
+                    <div className="relative w-24 h-24">
+                      {/* Outer Pulse Rings */}
+                      <div className="absolute inset-0 border-3 border-red-500/30 rounded-full animate-ping" style={{ animationDuration: '2s' }}></div>
+                      <div className="absolute inset-2 border-3 border-orange-500/30 rounded-full animate-ping" style={{ animationDuration: '2.5s' }}></div>
+                      
+                      {/* Center Icon */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center shadow-2xl shadow-red-500/50">
+                          <svg className="w-8 h-8 text-white animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <p className="text-white font-bold text-xl mb-1 animate-pulse">READY TO SCAN</p>
+                      <p className="text-white/70 text-sm">Tap your RFID card</p>
+                      <p className="text-white/50 text-xs mt-1">or enter ID manually</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Hidden Input for RFID Scanner */}
+            <input
+              autoFocus
+              type="text"
+              value={scannedCard}
+              onChange={(e) => setScannedCard(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && scannedCard.trim() !== "") {
                   handleScan(scannedCard.trim());
                 }
               }}
-              disabled={loading || !scannedCard.trim()}
-              className="w-full h-12 bg-red-900 hover:bg-red-800 text-white font-semibold rounded-xl transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-            >
-              {loading ? "Processing..." : "Scan Attendance"}
-            </button>
-          </div>
+              className="opacity-0 absolute -left-96 pointer-events-none"
+              placeholder="RFID will be scanned here"
+            />
 
-          {/* Status Message */}
-          {message && (
-            <div className="mt-6 p-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl">
-              <p className="text-white text-center font-medium">{message}</p>
+            {/* Manual Input Section - Compact */}
+            <div className="space-y-3">
+              <div className="flex flex-col">
+                <label className="mb-2 text-white font-bold text-sm flex items-center gap-2">
+                  <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Manual Entry
+                </label>
+                <input
+                  type="text"
+                  value={scannedCard}
+                  onChange={(e) => setScannedCard(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && scannedCard.trim() !== "") {
+                      handleScan(scannedCard.trim());
+                    }
+                  }}
+                  className="w-full h-12 px-4 bg-slate-800/50 backdrop-blur-md border-2 border-red-500/30 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all duration-300 shadow-lg"
+                  placeholder="Enter card ID"
+                  disabled={loading}
+                />
+              </div>
+              
+              <button
+                onClick={() => {
+                  if (scannedCard.trim() !== "") {
+                    handleScan(scannedCard.trim());
+                  }
+                }}
+                disabled={loading || !scannedCard.trim()}
+                className="w-full h-12 bg-gradient-to-r from-red-600 via-red-700 to-red-800 hover:from-red-700 hover:via-red-800 hover:to-red-900 text-white font-bold rounded-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-red-500/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg flex items-center justify-center gap-2 group"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Submit Attendance
+                  </>
+                )}
+              </button>
             </div>
-          )}
+
+            {/* Status Message - Compact */}
+            {message && (
+              <div className="mt-4 p-3 bg-gradient-to-r from-red-500/20 to-orange-500/20 backdrop-blur-md border-2 border-red-500/30 rounded-lg shadow-lg">
+                <p className="text-white text-center font-semibold text-sm">{message}</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

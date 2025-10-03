@@ -293,6 +293,63 @@ export const Attendance = () => {
     }
   };
 
+  // Function to check if user has schedule exemption for a specific date
+  const checkUserExemption = async (userId: number, date: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("schedule_exemptions")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("exemption_date", date);
+
+      if (error) {
+        console.error('[HRAdmin] Error checking exemptions:', error);
+        return { isExempted: false, reason: null, type: null };
+      }
+
+      if (!data || data.length === 0) {
+        return { isExempted: false, reason: null, type: null };
+      }
+
+      // Check for full day exemptions (leave requests)
+      const fullDayExemption = data.find(exemption => 
+        exemption.request_type === 'Leave' || 
+        (!exemption.start_time && !exemption.end_time)
+      );
+
+      if (fullDayExemption) {
+        return { 
+          isExempted: true, 
+          reason: fullDayExemption.reason,
+          type: 'full_day',
+          requestType: fullDayExemption.request_type
+        };
+      }
+
+      // Check for time-specific exemptions (gate pass requests)
+      const timeExemption = data.find(exemption => {
+        if (!exemption.start_time || !exemption.end_time) return false;
+        return true; // Has time-specific exemption
+      });
+
+      if (timeExemption) {
+        return { 
+          isExempted: true, 
+          reason: timeExemption.reason,
+          type: 'time_specific',
+          requestType: timeExemption.request_type,
+          startTime: timeExemption.start_time,
+          endTime: timeExemption.end_time
+        };
+      }
+
+      return { isExempted: false, reason: null, type: null };
+    } catch (error) {
+      console.error('[HRAdmin] Error checking schedule exemption:', error);
+      return { isExempted: false, reason: null, type: null };
+    }
+  };
+
   const fetchAttendance = async () => {
     setLoading(true);
 
@@ -319,99 +376,111 @@ export const Attendance = () => {
         setRecords([]);
       } else {
         console.log("Raw attendance data:", data);
-        // Flatten into single array
-        const flat = data.map((row: any) => ({
-          id: row.id,
-          att_date: row.att_date,
-          time_in: row.time_in,
-          time_out: row.time_out,
-          attendance: row.attendance,
-          userId: row.user?.id,
-          name: row.user?.name,
-          role: row.user?.role,
-          semester: row.user?.semester,
-          schoolYear: row.user?.schoolYear,
-          hiredDate: row.user?.hiredDate,
-          status: (() => {
-            // Helper function to check if time is late based on Philippine timezone with 15-minute grace period
-            const isLateTimeIn = (timeInString: string) => {
-              if (!timeInString) return false;
+        
+        // Process attendance records with exemption checking
+        const processedRecords = await Promise.all(data.map(async (row: any) => {
+          // Check for exemptions for this user and date
+          const exemptionCheck = await checkUserExemption(row.user?.id, row.att_date);
+          
+          return {
+            id: row.id,
+            att_date: row.att_date,
+            time_in: row.time_in,
+            time_out: row.time_out,
+            attendance: row.attendance,
+            userId: row.user?.id,
+            name: row.user?.name,
+            role: row.user?.role,
+            semester: row.user?.semester,
+            schoolYear: row.user?.schoolYear,
+            hiredDate: row.user?.hiredDate,
+            exemption: exemptionCheck, // Add exemption info
+            status: (() => {
+              // If user is exempted, show exempted status
+              if (exemptionCheck.isExempted) {
+                return "Exempted";
+              }
+
+              // Helper function to check if time is late based on Philippine timezone with 15-minute grace period
+              const isLateTimeIn = (timeInString: string) => {
+                if (!timeInString) return false;
+                
+                const timeIn = new Date(timeInString);
+                
+                // Convert to Philippine time
+                const phTime = new Intl.DateTimeFormat('en-US', {
+                  timeZone: 'Asia/Manila',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false
+                });
+                
+                const timeInPH = phTime.format(timeIn);
+                const [timeInHour, timeInMinute] = timeInPH.split(':').map(Number);
+                const timeInMinutes = timeInHour * 60 + timeInMinute;
+                
+                // Schedule times with 15-minute grace period
+                const morningStart = 7 * 60; // 7:00 AM
+                const morningGrace = morningStart + 15; // 7:15 AM (grace period)
+                const afternoonStart = 13 * 60; // 1:00 PM
+                const afternoonGrace = afternoonStart + 15; // 1:15 PM (grace period)
+                const afternoonEnd = 19 * 60; // 7:00 PM
+                
+                // If time in is between 7:16 AM - 12:00 PM, check if late for morning (after grace period)
+                if (timeInMinutes >= morningStart && timeInMinutes <= 12 * 60) {
+                  return timeInMinutes > morningGrace;
+                }
+                
+                // If time in is between 1:16 PM - 7:00 PM, check if late for afternoon (after grace period)
+                if (timeInMinutes >= afternoonStart && timeInMinutes <= afternoonEnd) {
+                  return timeInMinutes > afternoonGrace;
+                }
+                
+                // If time in is after 7:00 PM, definitely late
+                if (timeInMinutes > afternoonEnd) {
+                  return true;
+                }
+                
+                return false;
+              };
               
-              const timeIn = new Date(timeInString);
-              
-              // Convert to Philippine time
-              const phTime = new Intl.DateTimeFormat('en-US', {
-                timeZone: 'Asia/Manila',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false
-              });
-              
-              const timeInPH = phTime.format(timeIn);
-              const [timeInHour, timeInMinute] = timeInPH.split(':').map(Number);
-              const timeInMinutes = timeInHour * 60 + timeInMinute;
-              
-              // Schedule times with 15-minute grace period
-              const morningStart = 7 * 60; // 7:00 AM
-              const morningGrace = morningStart + 15; // 7:15 AM (grace period)
-              const afternoonStart = 13 * 60; // 1:00 PM
-              const afternoonGrace = afternoonStart + 15; // 1:15 PM (grace period)
-              const afternoonEnd = 19 * 60; // 7:00 PM
-              
-              // If time in is between 7:16 AM - 12:00 PM, check if late for morning (after grace period)
-              if (timeInMinutes >= morningStart && timeInMinutes <= 12 * 60) {
-                return timeInMinutes > morningGrace;
+              // Determine status based on attendance and time (dual session aware)
+              if (row.attendance === false) {
+                return "Absent";
               }
               
-              // If time in is between 1:16 PM - 7:00 PM, check if late for afternoon (after grace period)
-              if (timeInMinutes >= afternoonStart && timeInMinutes <= afternoonEnd) {
-                return timeInMinutes > afternoonGrace;
+              if (!row.time_in && !row.time_out) {
+                return "Absent";
               }
               
-              // If time in is after 7:00 PM, definitely late
-              if (timeInMinutes > afternoonEnd) {
-                return true;
+              // Check if time in is late (but still present)
+              if (row.time_in && isLateTimeIn(row.time_in)) {
+                // If late but no time_out, still present (just late)
+                if (!row.time_out) {
+                  return "Late";
+                }
+                // If late and has time_out, show as Present (completed session but was late)
+                return "Present";
               }
               
-              return false;
-            };
-            
-            // Determine status based on attendance and time (dual session aware)
-            if (row.attendance === false) {
-              return "Absent";
-            }
-            
-            if (!row.time_in && !row.time_out) {
-              return "Absent";
-            }
-            
-            // Check if time in is late (but still present)
-            if (row.time_in && isLateTimeIn(row.time_in)) {
-              // If late but no time_out, still present (just late)
-              if (!row.time_out) {
-                return "Late";
+              // If has time_in but no time_out, currently present
+              if (row.time_in && !row.time_out) {
+                return "Present";
               }
-              // If late and has time_out, show as Present (completed session but was late)
-              return "Present";
-            }
-            
-            // If has time_in but no time_out, currently present
-            if (row.time_in && !row.time_out) {
-              return "Present";
-            }
-            
-            // If has both time_in and time_out, show as Present (completed their session)
-            if (row.time_in && row.time_out) {
-              return "Present";
-            }
-            
-            // Fallback
-            return row.time_in || row.time_out ? "Present" : "Absent";
-          })(),
+              
+              // If has both time_in and time_out, show as Present (completed their session)
+              if (row.time_in && row.time_out) {
+                return "Present";
+              }
+              
+              // Fallback
+              return row.time_in || row.time_out ? "Present" : "Absent";
+            })(),
+          };
         }));
 
         // Sort by most recent activity (either time_in or time_out, whichever is more recent)
-        const sortedFlat = flat.sort((a: any, b: any) => {
+        const sortedFlat = processedRecords.sort((a: any, b: any) => {
           // Get the most recent activity time for each record
           const getLatestActivity = (record: any) => {
             const timeIn = record.time_in ? new Date(record.time_in).getTime() : 0;
@@ -483,8 +552,8 @@ export const Attendance = () => {
       console.log("Fetched schedules:", schedulesData);
       console.log("Fetched attendance records:", attendanceData);
 
-      // Combine schedules with their most recent attendance records
-      const combinedScheduleData = (schedulesData || []).map(schedule => {
+      // Combine schedules with their most recent attendance records and check for exemptions
+      const combinedScheduleData = await Promise.all((schedulesData || []).map(async schedule => {
         // Find the most recent attendance record for this schedule
         const attendanceRecords = (attendanceData || []).filter(att => 
           att.schedule_id === schedule.id
@@ -495,22 +564,31 @@ export const Attendance = () => {
           new Date(b.att_date).getTime() - new Date(a.att_date).getTime()
         )[0];
 
-        // If no attendance record exists, mark as absent
+        // Get the date for exemption checking (use most recent record date or today)
+        const checkDate = mostRecentRecord?.att_date || new Date().toISOString().split('T')[0];
+        
+        // Check for exemptions for this user and date
+        const exemptionCheck = await checkUserExemption(schedule.user_id, checkDate);
+
+        // Determine attendance status
         let attendanceStatus = 'Absent';
-        if (!mostRecentRecord) {
-          attendanceStatus = 'Absent';
+        if (exemptionCheck.isExempted) {
+          attendanceStatus = 'Exempted';
+        } else if (mostRecentRecord) {
+          attendanceStatus = mostRecentRecord.attendance;
         }
 
         return {
           ...schedule,
           attendance_record: mostRecentRecord,
-          att_date: mostRecentRecord?.att_date || new Date().toISOString().split('T')[0],
+          att_date: checkDate,
           time_in: mostRecentRecord?.time_in || null,
           time_out: mostRecentRecord?.time_out || null,
-          attendance: mostRecentRecord?.attendance || attendanceStatus,
-          status: mostRecentRecord?.status || false
+          attendance: attendanceStatus,
+          status: mostRecentRecord?.status || false,
+          exemption: exemptionCheck // Add exemption info
         };
-      });
+      }));
 
       setScheduleAttendance(combinedScheduleData || []);
       

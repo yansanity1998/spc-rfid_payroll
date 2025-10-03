@@ -65,6 +65,7 @@ export const UserManagement = () => {
   const [sortBy, setSortBy] = useState("All");
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [selectedUserInfo, setSelectedUserInfo] = useState<any>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -135,7 +136,38 @@ export const UserManagement = () => {
     }
   };
 
+  const handleArchiveUser = async (id: string, userName: string) => {
+    const { error } = await supabase
+      .from("users")
+      .update({ status: "Archived" })
+      .eq("id", id);
+
+    if (error) {
+      console.error(error.message);
+      toast.error("Failed to archive user");
+    } else {
+      toast.success(`${userName} has been archived`);
+      fetchUsers();
+    }
+  };
+
+  const handleUnarchiveUser = async (id: string, userName: string) => {
+    const { error } = await supabase
+      .from("users")
+      .update({ status: "Active" })
+      .eq("id", id);
+
+    if (error) {
+      console.error(error.message);
+      toast.error("Failed to unarchive user");
+    } else {
+      toast.success(`${userName} has been restored to active`);
+      fetchUsers();
+    }
+  };
+
   const fetchUsers = async () => {
+    // Fetch all users first
     const { data, error } = await supabase
       .from("users")
       .select("*")
@@ -144,13 +176,18 @@ export const UserManagement = () => {
     if (error) {
       console.error(error);
     } else {
-      setUsers(data || []);
+      // Filter by archived status using existing status field
+      const filteredData = (data || []).filter(user => {
+        const isArchived = user.status === "Archived";
+        return showArchived ? isArchived : !isArchived;
+      });
+      setUsers(filteredData);
     }
   };
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [showArchived]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -542,6 +579,18 @@ export const UserManagement = () => {
               </div>
             </div>
 
+            {/* Toggle Archived Button */}
+            <button
+              onClick={() => setShowArchived(!showArchived)}
+              className={`group relative overflow-hidden ${showArchived ? 'bg-gradient-to-r from-gray-600 to-gray-700' : 'bg-gradient-to-r from-purple-600 to-purple-700'} text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              </svg>
+              {showArchived ? 'Show Active Users' : 'Show Archived Users'}
+              <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            </button>
+
             {/* Create Button */}
             <button
               onClick={() => showCreate(true)}
@@ -559,13 +608,23 @@ export const UserManagement = () => {
         {/* Modern User Table */}
         <div className="bg-gray-50 border border-gray-200 shadow-xl rounded-2xl mt-4 overflow-hidden">
           <div className="p-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-700 rounded-xl flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-700 rounded-xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-bold text-gray-800">{showArchived ? 'Archived Employees' : 'Employee Directory'}</h2>
               </div>
-              <h2 className="text-xl font-bold text-gray-800">Employee Directory</h2>
+              {showArchived && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                  </svg>
+                  Archived View
+                </span>
+              )}
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -612,7 +671,7 @@ export const UserManagement = () => {
                         <span className="text-gray-600 text-sm">{user.email}</span>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium shadow-sm ${getEmployeeTypeColor(user.role).split(' ').slice(2).join(' ')}`}>
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium shadow-sm whitespace-nowrap ${getEmployeeTypeColor(user.role).split(' ').slice(2).join(' ')}`}>
                           {user.role || 'No Role Assigned'}
                         </span>
                       </td>
@@ -629,13 +688,15 @@ export const UserManagement = () => {
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
                           user.status === "Active"
                             ? "bg-green-100 text-green-800"
+                            : user.status === "Archived"
+                            ? "bg-purple-100 text-purple-800"
                             : "bg-red-100 text-red-800"
                         }`}>
                           {user.status}
                         </span>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => {
                               setSelectedUserInfo(user);
@@ -649,28 +710,61 @@ export const UserManagement = () => {
                             </svg>
                             View
                           </button>
-                          <button
-                            onClick={() => {
-                              setEditUser(user);
-                              showEdit(true);
-                            }}
-                            className="px-2.5 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-md hover:from-blue-600 hover:to-blue-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md"
-                          >
-                            Edit
-                          </button>
-                          {user.status === "Active" ? (
+                          {!showArchived && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setEditUser(user);
+                                  showEdit(true);
+                                }}
+                                className="px-2.5 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-md hover:from-blue-600 hover:to-blue-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-1"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                                Edit
+                              </button>
+                              {user.status === "Active" ? (
+                                <button
+                                  onClick={() => handleToggleStatus(user.id, user.status)}
+                                  className="px-2.5 py-1.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-md hover:from-red-600 hover:to-red-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-1"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
+                                  </svg>
+                                  Deactivate
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleToggleStatus(user.id, user.status)}
+                                  className="px-2.5 py-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-1"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  Activate
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleArchiveUser(user.id, user.name)}
+                                className="px-2.5 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-md hover:from-orange-600 hover:to-orange-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-1"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                </svg>
+                                Archive
+                              </button>
+                            </>
+                          )}
+                          {showArchived && (
                             <button
-                              onClick={() => handleToggleStatus(user.id, user.status)}
-                              className="px-2.5 py-1.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-md hover:from-red-600 hover:to-red-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+                              onClick={() => handleUnarchiveUser(user.id, user.name)}
+                              className="px-2.5 py-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-1"
                             >
-                              Deactivate
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleToggleStatus(user.id, user.status)}
-                              className="px-2.5 py-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md"
-                            >
-                              Activate
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              Unarchive
                             </button>
                           )}
                         </div>
@@ -1183,6 +1277,7 @@ export const UserManagement = () => {
                 >
                   <option>Active</option>
                   <option>Inactive</option>
+                  <option>Archived</option>
                 </select>
               </div>
               
@@ -1425,10 +1520,16 @@ export const UserManagement = () => {
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium shadow-sm ${
                       selectedUserInfo.status === "Active"
                         ? "bg-green-100 text-green-800 border border-green-200"
+                        : selectedUserInfo.status === "Archived"
+                        ? "bg-purple-100 text-purple-800 border border-purple-200"
                         : "bg-red-100 text-red-800 border border-red-200"
                     }`}>
                       <div className={`w-1.5 h-1.5 rounded-full mr-1 ${
-                        selectedUserInfo.status === "Active" ? "bg-green-500" : "bg-red-500"
+                        selectedUserInfo.status === "Active" 
+                          ? "bg-green-500" 
+                          : selectedUserInfo.status === "Archived"
+                          ? "bg-purple-500"
+                          : "bg-red-500"
                       }`}></div>
                       {selectedUserInfo.status}
                     </span>
