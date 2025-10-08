@@ -10,14 +10,15 @@ export const Attendance = () => {
   const [scheduleSearch, setScheduleSearch] = useState(""); // 🔍 Schedule search state
   const [regularSortBy, setRegularSortBy] = useState("all"); // 📊 Regular attendance sorting
   const [scheduleSortBy, setScheduleSortBy] = useState("all"); // 📊 Schedule attendance sorting
+  const [deletingId, setDeletingId] = useState<number | string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   
-  // Pagination states for both tables
   const [regularAttendancePage, setRegularAttendancePage] = useState(1);
   const [attendancePage, setAttendancePage] = useState(1);
   const regularAttendanceRow = 5;
   const attendanceRow = 5;
 
-  // 🔍 Filter regular attendance logs (sort by current date and time)
+  // 🔍 Filter regular attendance logs (sort by latest date and tap time)
   const filtered = records
     .filter(
       (log) =>
@@ -29,20 +30,7 @@ export const Attendance = () => {
     )
     .filter((log) => regularSortBy === "all" || log.role === regularSortBy)
     .sort((a, b) => {
-      // Get current date in Philippine timezone
-      const currentDate = new Date().toLocaleDateString('en-CA', {
-        timeZone: 'Asia/Manila'
-      }); // Returns YYYY-MM-DD format
-      
-      // Check if records are from today
-      const aIsToday = a.att_date === currentDate;
-      const bIsToday = b.att_date === currentDate;
-      
-      // Prioritize today's records first
-      if (aIsToday && !bIsToday) return -1;
-      if (!aIsToday && bIsToday) return 1;
-      
-      // For records from the same day (or both not today), sort by most recent activity
+      // Sort by most recent tap time (time_in or time_out), newest first
       const getLatestActivity = (record: any) => {
         const timeIn = record.time_in ? new Date(record.time_in).getTime() : 0;
         const timeOut = record.time_out ? new Date(record.time_out).getTime() : 0;
@@ -51,8 +39,6 @@ export const Attendance = () => {
 
       const aLatest = getLatestActivity(a);
       const bLatest = getLatestActivity(b);
-      
-      // Sort in descending order (most recent first)
       return bLatest - aLatest;
     });
 
@@ -74,20 +60,15 @@ export const Attendance = () => {
     )
     .filter((record) => scheduleSortBy === "all" || record.users?.role === scheduleSortBy)
     .sort((a, b) => {
-      // Get current date in Philippine timezone
-      const currentDate = new Date().toLocaleDateString('en-CA', {
-        timeZone: 'Asia/Manila'
-      }); // Returns YYYY-MM-DD format
+      // First, sort by date (latest date first)
+      const dateA = new Date(a.att_date).getTime();
+      const dateB = new Date(b.att_date).getTime();
       
-      // Check if records are from today
-      const aIsToday = a.att_date === currentDate;
-      const bIsToday = b.att_date === currentDate;
+      if (dateB !== dateA) {
+        return dateB - dateA; // Latest date first
+      }
       
-      // Prioritize today's records first
-      if (aIsToday && !bIsToday) return -1;
-      if (!aIsToday && bIsToday) return 1;
-      
-      // For records from the same day (or both not today), sort by most recent activity
+      // If dates are the same, sort by most recent tap time (time_in or time_out)
       const getLatestActivity = (record: any) => {
         const timeIn = record.time_in ? new Date(record.time_in).getTime() : 0;
         const timeOut = record.time_out ? new Date(record.time_out).getTime() : 0;
@@ -97,7 +78,7 @@ export const Attendance = () => {
       const aLatest = getLatestActivity(a);
       const bLatest = getLatestActivity(b);
       
-      // Sort in descending order (most recent first)
+      // Sort in descending order (most recent tap time first)
       return bLatest - aLatest;
     });
 
@@ -204,6 +185,35 @@ export const Attendance = () => {
     });
   };
 
+  // Delete a regular attendance record
+  const handleDeleteAttendance = async (attendanceId: number | string) => {
+    // Only allow deleting persisted DB records (numeric IDs)
+    if (typeof attendanceId !== 'number') return;
+
+    try {
+      setDeletingId(attendanceId);
+      const { error } = await supabase
+        .from('attendance')
+        .delete()
+        .eq('id', attendanceId);
+
+      if (error) {
+        console.error('Error deleting attendance:', error);
+        alert('Failed to delete record. Please try again.');
+        return;
+      }
+
+      // Remove from local state
+      setRecords((prev) => prev.filter((r) => r.id !== attendanceId));
+    } catch (err) {
+      console.error('Unexpected error deleting attendance:', err);
+      alert('Unexpected error occurred.');
+    } finally {
+      setDeletingId(null);
+      setConfirmDeleteId(null);
+    }
+  };
+
   // Helper function to format date in Philippine timezone
   const formatPhilippineDate = (dateString: string) => {
     // Handle date-only strings (YYYY-MM-DD format)
@@ -219,10 +229,41 @@ export const Attendance = () => {
     });
   };
 
+  // Normalize a datetime string to Asia/Manila clock minutes since midnight
+  const getManilaMinutesSinceMidnight = (dateString: string | null | undefined) => {
+    if (!dateString) return null;
+    let date: Date;
+    if (dateString.includes('T')) {
+      if (!dateString.includes('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
+        date = new Date(dateString + 'Z');
+      } else {
+        date = new Date(dateString);
+      }
+    } else {
+      date = new Date(dateString + 'T00:00:00Z');
+    }
+    // Render date in Manila and extract hour/minute components
+    const parts = date.toLocaleTimeString('en-PH', {
+      timeZone: 'Asia/Manila',
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit'
+    }).split(':');
+    const hour = parseInt(parts[0], 10);
+    const minute = parseInt(parts[1], 10);
+    return hour * 60 + minute;
+  };
+
   // Function to add automatic absent records for users who forgot to tap
-  const addAutomaticAbsentRecords = async (existingRecords: any[]) => {
+  const addAutomaticAbsentRecords = async (existingRecords: any[], exemptedTodayUserIds?: Set<number>) => {
     try {
-      const today = new Date().toISOString().split("T")[0];
+      // Determine today's date in Manila and current Manila time
+      const nowUtc = new Date();
+      const today = new Date(nowUtc.toLocaleString('en-PH', { timeZone: 'Asia/Manila' }))
+        .toISOString()
+        .split('T')[0];
+      const currentMinutes = getManilaMinutesSinceMidnight(nowUtc.toISOString());
+      const afternoonEnd = 19 * 60; // 7:00 PM
       
       // Get all active users (Faculty, SA, Accounting, Staff)
       const { data: allUsers, error: usersError } = await supabase
@@ -237,6 +278,18 @@ export const Attendance = () => {
 
       console.log(`[AutoAbsent] Checking ${allUsers?.length || 0} users for today (${today})`);
 
+      // If not provided, prefetch exemptions for today once and cache in a Set for O(1) checks
+      let exemptedSet = exemptedTodayUserIds;
+      if (!exemptedSet) {
+        const userIds = (allUsers || []).map(u => u.id);
+        const { data: exemptionsToday } = await supabase
+          .from('schedule_exemptions')
+          .select('user_id, request_type, start_time, end_time, exemption_date')
+          .eq('exemption_date', today)
+          .in('user_id', userIds);
+        exemptedSet = new Set((exemptionsToday || []).map(e => e.user_id));
+      }
+
       // Check each user for attendance today
       for (const user of allUsers || []) {
         // Check if user has any attendance record for today
@@ -244,13 +297,17 @@ export const Attendance = () => {
           record.userId === user.id && record.att_date === today
         );
 
-        // If user has no attendance records for today, create absent record
-        if (userAttendanceToday.length === 0) {
-          console.log(`[AutoAbsent] Creating absent record for user ${user.name} (${user.id})`);
-          
-          // Create absent record in database
+        // Skip if user is exempted today
+        if (exemptedSet && exemptedSet.has(user.id)) {
+          console.log(`[AutoAbsent] Skipping user ${user.name} due to exemption.`);
+          continue;
+        }
+
+        // If user has no attendance records for today and it's past 7:00 PM, create one full-day absent
+        if (currentMinutes !== null && currentMinutes >= afternoonEnd && userAttendanceToday.length === 0) {
+          console.log(`[AutoAbsent] Creating full-day absent for user ${user.name} (${user.id})`);
           const { error: insertError } = await supabase
-            .from("attendance")
+            .from('attendance')
             .insert([
               {
                 user_id: user.id,
@@ -260,15 +317,13 @@ export const Attendance = () => {
                 status: false,
                 late_minutes: 0,
                 overtime_minutes: 0,
-                penalty_amount: 240, // ₱240 penalty for being absent
-                notes: "Automatic absent - No attendance recorded for both morning and afternoon sessions"
+                penalty_amount: 240,
+                notes: 'Automatic absent - No attendance recorded for both morning and afternoon sessions'
               }
             ]);
-
           if (insertError) {
-            console.error(`[AutoAbsent] Error creating absent record for user ${user.id}:`, insertError);
+            console.error(`[AutoAbsent] Error creating full-day absent for user ${user.id}:`, insertError);
           } else {
-            // Add to existing records for display
             existingRecords.push({
               id: `auto_absent_${user.id}_${today}`,
               att_date: today,
@@ -281,11 +336,9 @@ export const Attendance = () => {
               semester: null,
               schoolYear: null,
               hiredDate: null,
-              status: "Absent"
+              status: 'Absent'
             });
           }
-        } else {
-          console.log(`[AutoAbsent] User ${user.name} has ${userAttendanceToday.length} attendance record(s) today`);
         }
       }
     } catch (error) {
@@ -293,62 +346,7 @@ export const Attendance = () => {
     }
   };
 
-  // Function to check if user has schedule exemption for a specific date
-  const checkUserExemption = async (userId: number, date: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("schedule_exemptions")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("exemption_date", date);
-
-      if (error) {
-        console.error('[HRAdmin] Error checking exemptions:', error);
-        return { isExempted: false, reason: null, type: null };
-      }
-
-      if (!data || data.length === 0) {
-        return { isExempted: false, reason: null, type: null };
-      }
-
-      // Check for full day exemptions (leave requests)
-      const fullDayExemption = data.find(exemption => 
-        exemption.request_type === 'Leave' || 
-        (!exemption.start_time && !exemption.end_time)
-      );
-
-      if (fullDayExemption) {
-        return { 
-          isExempted: true, 
-          reason: fullDayExemption.reason,
-          type: 'full_day',
-          requestType: fullDayExemption.request_type
-        };
-      }
-
-      // Check for time-specific exemptions (gate pass requests)
-      const timeExemption = data.find(exemption => {
-        if (!exemption.start_time || !exemption.end_time) return false;
-        return true; // Has time-specific exemption
-      });
-
-      if (timeExemption) {
-        return { 
-          isExempted: true, 
-          reason: timeExemption.reason,
-          type: 'time_specific',
-          requestType: timeExemption.request_type,
-          startTime: timeExemption.start_time,
-          endTime: timeExemption.end_time
-        };
-      }
-
-      return { isExempted: false, reason: null, type: null };
-    } catch (error) {
-      console.error('[HRAdmin] Error checking schedule exemption:', error);
-      return { isExempted: false, reason: null, type: null };
-    }
-  };
+  // (removed old per-row exemption checker in favor of batched queries)
 
   const fetchAttendance = async () => {
     setLoading(true);
@@ -377,10 +375,38 @@ export const Attendance = () => {
       } else {
         console.log("Raw attendance data:", data);
         
-        // Process attendance records with exemption checking
-        const processedRecords = await Promise.all(data.map(async (row: any) => {
-          // Check for exemptions for this user and date
-          const exemptionCheck = await checkUserExemption(row.user?.id, row.att_date);
+        // Prepare batch exemption lookup for attendance records
+        const attendanceUserIds = Array.from(new Set((data || []).map((row: any) => row.user?.id).filter(Boolean)));
+        const attendanceDates = Array.from(new Set((data || []).map((row: any) => row.att_date).filter(Boolean)));
+        let exemptionMap = new Map<string, any>();
+        if (attendanceUserIds.length > 0 && attendanceDates.length > 0) {
+          const { data: exemptions } = await supabase
+            .from('schedule_exemptions')
+            .select('*')
+            .in('user_id', attendanceUserIds)
+            .in('exemption_date', attendanceDates);
+          for (const ex of (exemptions || [])) {
+            const key = `${ex.user_id}|${ex.exemption_date}`;
+            // Determine exemption type
+            let type = 'time_specific';
+            if (ex.request_type === 'Leave' || (!ex.start_time && !ex.end_time)) type = 'full_day';
+            exemptionMap.set(key, {
+              isExempted: true,
+              reason: ex.reason,
+              type,
+              requestType: ex.request_type,
+              startTime: ex.start_time,
+              endTime: ex.end_time,
+            });
+          }
+        }
+
+        // Process attendance records using preloaded exemption map
+        const processedRecords = (data || []).map((row: any) => {
+          const key = `${row.user?.id}|${row.att_date}`;
+          const exemptionCheck = exemptionMap.get(key) || { isExempted: false, reason: null, type: null };
+          
+          // Note: we no longer need to count per-day records for status
           
           return {
             id: row.id,
@@ -388,6 +414,21 @@ export const Attendance = () => {
             time_in: row.time_in,
             time_out: row.time_out,
             attendance: row.attendance,
+            session: (() => {
+              // Prefer explicit DB column first
+              if (row.session === 'morning' || row.session === 'afternoon') return row.session;
+              // Fallback to notes tag
+              const n: string = (row.notes || '').toString();
+              if (n.includes('Afternoon session')) return 'afternoon';
+              if (n.includes('Morning session')) return 'morning';
+              // Fallback to time window inference based on time_in
+              const minutes = getManilaMinutesSinceMidnight(row.time_in);
+              if (minutes !== null) {
+                if (minutes >= 7 * 60 && minutes < 12 * 60) return 'morning';
+                if (minutes >= 13 * 60 && minutes < 19 * 60) return 'afternoon';
+              }
+              return undefined;
+            })(),
             userId: row.user?.id,
             name: row.user?.name,
             role: row.user?.role,
@@ -396,88 +437,49 @@ export const Attendance = () => {
             hiredDate: row.user?.hiredDate,
             exemption: exemptionCheck, // Add exemption info
             status: (() => {
-              // If user is exempted, show exempted status
-              if (exemptionCheck.isExempted) {
-                return "Exempted";
-              }
+              // Respect exemptions first
+              if (exemptionCheck.isExempted) return "Exempted";
 
-              // Helper function to check if time is late based on Philippine timezone with 15-minute grace period
+              // Explicit absent flag from DB
+              if (row.attendance === false) return "Absent";
+
+              // No taps at all
+              if (!row.time_in && !row.time_out) return "Absent";
+
+              // Helper: Manila lateness check
               const isLateTimeIn = (timeInString: string) => {
                 if (!timeInString) return false;
-                
-                const timeIn = new Date(timeInString);
-                
-                // Convert to Philippine time
-                const phTime = new Intl.DateTimeFormat('en-US', {
-                  timeZone: 'Asia/Manila',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: false
-                });
-                
-                const timeInPH = phTime.format(timeIn);
-                const [timeInHour, timeInMinute] = timeInPH.split(':').map(Number);
-                const timeInMinutes = timeInHour * 60 + timeInMinute;
-                
-                // Schedule times with 15-minute grace period
+                const timeInMinutes = getManilaMinutesSinceMidnight(timeInString);
+                if (timeInMinutes === null) return false;
                 const morningStart = 7 * 60; // 7:00 AM
-                const morningGrace = morningStart + 15; // 7:15 AM (grace period)
+                const morningGrace = morningStart + 15; // 7:15 AM
+                const noon = 12 * 60; // 12:00 PM
                 const afternoonStart = 13 * 60; // 1:00 PM
-                const afternoonGrace = afternoonStart + 15; // 1:15 PM (grace period)
+                const afternoonGrace = afternoonStart + 15; // 1:15 PM
                 const afternoonEnd = 19 * 60; // 7:00 PM
-                
-                // If time in is between 7:16 AM - 12:00 PM, check if late for morning (after grace period)
-                if (timeInMinutes >= morningStart && timeInMinutes <= 12 * 60) {
+
+                if (timeInMinutes >= morningStart && timeInMinutes <= noon) {
                   return timeInMinutes > morningGrace;
                 }
-                
-                // If time in is between 1:16 PM - 7:00 PM, check if late for afternoon (after grace period)
                 if (timeInMinutes >= afternoonStart && timeInMinutes <= afternoonEnd) {
                   return timeInMinutes > afternoonGrace;
                 }
-                
-                // If time in is after 7:00 PM, definitely late
-                if (timeInMinutes > afternoonEnd) {
-                  return true;
-                }
-                
-                return false;
+                return timeInMinutes > afternoonEnd; // after 7pm considered late
               };
-              
-              // Determine status based on attendance and time (dual session aware)
-              if (row.attendance === false) {
-                return "Absent";
-              }
-              
-              if (!row.time_in && !row.time_out) {
-                return "Absent";
-              }
-              
-              // Check if time in is late (but still present)
-              if (row.time_in && isLateTimeIn(row.time_in)) {
-                // If late but no time_out, still present (just late)
-                if (!row.time_out) {
-                  return "Late";
-                }
-                // If late and has time_out, show as Present (completed session but was late)
-                return "Present";
-              }
-              
-              // If has time_in but no time_out, currently present
-              if (row.time_in && !row.time_out) {
-                return "Present";
-              }
-              
-              // If has both time_in and time_out, show as Present (completed their session)
-              if (row.time_in && row.time_out) {
-                return "Present";
-              }
-              
-              // Fallback
-              return row.time_in || row.time_out ? "Present" : "Absent";
+
+              // Both time in and out within a session -> Present
+              if (row.time_in && row.time_out) return "Present";
+
+              // Only time-in -> Late if beyond grace, else Present
+              if (row.time_in && !row.time_out) return isLateTimeIn(row.time_in) ? "Late" : "Present";
+
+              // Only time-out -> treat as Present (allowed per requirement)
+              if (!row.time_in && row.time_out) return "Present";
+
+              return "Absent";
             })(),
           };
-        }));
+        });
 
         // Sort by most recent activity (either time_in or time_out, whichever is more recent)
         const sortedFlat = processedRecords.sort((a: any, b: any) => {
@@ -498,7 +500,23 @@ export const Attendance = () => {
         console.log("Processed attendance data:", sortedFlat);
         
         // 🔥 Add automatic absent records for users who forgot to tap (both morning and afternoon)
-        await addAutomaticAbsentRecords(sortedFlat);
+        // Prefetch today's exemptions for auto-absent check
+        const nowUtc = new Date();
+        const today = new Date(nowUtc.toLocaleString('en-PH', { timeZone: 'Asia/Manila' }))
+          .toISOString()
+          .split('T')[0];
+        const autoAbsentUserIds = Array.from(new Set(sortedFlat.map((r: any) => r.userId).filter(Boolean)));
+        let exemptedTodaySet: Set<number> | undefined = undefined;
+        if (autoAbsentUserIds.length > 0) {
+          const { data: exemptionsToday } = await supabase
+            .from('schedule_exemptions')
+            .select('user_id')
+            .eq('exemption_date', today)
+            .in('user_id', autoAbsentUserIds);
+          exemptedTodaySet = new Set((exemptionsToday || []).map(e => e.user_id));
+        }
+
+        await addAutomaticAbsentRecords(sortedFlat, exemptedTodaySet);
         
         setRecords(sortedFlat);
       }
@@ -552,8 +570,36 @@ export const Attendance = () => {
       console.log("Fetched schedules:", schedulesData);
       console.log("Fetched attendance records:", attendanceData);
 
+      // Prepare batch exemption lookup for schedules (include today for rows with no recent record)
+      const scheduleUserIds = Array.from(new Set((schedulesData || []).map(s => s.user_id)));
+      const mostRecentDates = new Set<string>();
+      (attendanceData || []).forEach(a => mostRecentDates.add(a.att_date));
+      const todayStr = new Date().toISOString().split('T')[0];
+      const scheduleDates = Array.from(new Set([ ...Array.from(mostRecentDates), todayStr ]));
+      let scheduleExemptionsMap = new Map<string, any>();
+      if (scheduleUserIds.length > 0 && scheduleDates.length > 0) {
+        const { data: scheduleExemptions } = await supabase
+          .from('schedule_exemptions')
+          .select('*')
+          .in('user_id', scheduleUserIds)
+          .in('exemption_date', scheduleDates);
+        for (const ex of (scheduleExemptions || [])) {
+          const key = `${ex.user_id}|${ex.exemption_date}`;
+          let type = 'time_specific';
+          if (ex.request_type === 'Leave' || (!ex.start_time && !ex.end_time)) type = 'full_day';
+          scheduleExemptionsMap.set(key, {
+            isExempted: true,
+            reason: ex.reason,
+            type,
+            requestType: ex.request_type,
+            startTime: ex.start_time,
+            endTime: ex.end_time,
+          });
+        }
+      }
+
       // Combine schedules with their most recent attendance records and check for exemptions
-      const combinedScheduleData = await Promise.all((schedulesData || []).map(async schedule => {
+      const combinedScheduleData = (schedulesData || []).map(schedule => {
         // Find the most recent attendance record for this schedule
         const attendanceRecords = (attendanceData || []).filter(att => 
           att.schedule_id === schedule.id
@@ -565,10 +611,10 @@ export const Attendance = () => {
         )[0];
 
         // Get the date for exemption checking (use most recent record date or today)
-        const checkDate = mostRecentRecord?.att_date || new Date().toISOString().split('T')[0];
+        const checkDate = mostRecentRecord?.att_date || todayStr;
         
-        // Check for exemptions for this user and date
-        const exemptionCheck = await checkUserExemption(schedule.user_id, checkDate);
+        // Check for exemptions from preloaded map
+        const exemptionCheck = scheduleExemptionsMap.get(`${schedule.user_id}|${checkDate}`) || { isExempted: false, reason: null, type: null };
 
         // Determine attendance status
         let attendanceStatus = 'Absent';
@@ -588,7 +634,7 @@ export const Attendance = () => {
           status: mostRecentRecord?.status || false,
           exemption: exemptionCheck // Add exemption info
         };
-      }));
+      });
 
       setScheduleAttendance(combinedScheduleData || []);
       
@@ -604,6 +650,19 @@ export const Attendance = () => {
   useEffect(() => {
     fetchAttendance();
   }, []);
+
+  // Lock background scroll when modal is open
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    if (confirmDeleteId !== null) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = originalOverflow || '';
+    }
+    return () => {
+      document.body.style.overflow = originalOverflow || '';
+    };
+  }, [confirmDeleteId]);
 
 
 
@@ -752,7 +811,7 @@ export const Attendance = () => {
             <div className="absolute -bottom-1 -right-1 w-12 h-12 bg-white/10 rounded-full"></div>
           </div>
 
-          {/* Completed Card */}
+          {/* Exempted Card */}
           <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
             <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
             <div className="relative z-10 flex items-center justify-between">
@@ -763,10 +822,10 @@ export const Attendance = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <h2 className="text-base font-semibold">Completed</h2>
+                  <h2 className="text-base font-semibold">Exempted</h2>
                 </div>
-                <p className="text-2xl font-bold">{filtered.filter((l) => l.status === "Completed").length}</p>
-                <p className="text-blue-100 text-xs mt-1">Finished work day</p>
+                <p className="text-2xl font-bold">{filtered.filter((l) => l.status === "Exempted").length}</p>
+                <p className="text-blue-100 text-xs mt-1">Schedule exemption</p>
               </div>
             </div>
             <div className="absolute -bottom-1 -right-1 w-12 h-12 bg-white/10 rounded-full"></div>
@@ -841,9 +900,11 @@ export const Attendance = () => {
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">School Year</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Hired Date</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Date</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Session</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Time In</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Time Out</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Status</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -886,6 +947,9 @@ export const Attendance = () => {
                       <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
                         {formatPhilippineDate(log.att_date)}
                       </td>
+                      <td className="px-3 py-3 border-b border-gray-200 text-gray-700 text-sm">
+                        {log.session ? (log.session === 'morning' ? 'Morning' : 'Afternoon') : '--'}
+                      </td>
                       <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
                         {log.time_in
                           ? formatPhilippineDateTime(log.time_in)
@@ -900,7 +964,7 @@ export const Attendance = () => {
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
                           log.status === "Present"
                             ? "bg-green-100 text-green-800"
-                            : log.status === "Completed"
+                            : log.status === "Exempted"
                             ? "bg-blue-100 text-blue-800"
                             : log.status === "Late"
                             ? "bg-orange-100 text-orange-800"
@@ -910,6 +974,30 @@ export const Attendance = () => {
                         }`}>
                           {log.status}
                         </span>
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200">
+                        {typeof log.id === 'number' ? (
+                          <button
+                            onClick={() => typeof log.id === 'number' ? setConfirmDeleteId(log.id) : null}
+                            disabled={deletingId === log.id}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+                            title="Delete attendance record"
+                          >
+                            {deletingId === log.id ? (
+                              <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <circle cx="12" cy="12" r="10" strokeWidth="4" className="opacity-25" />
+                                <path d="M4 12a8 8 0 018-8" strokeWidth="4" className="opacity-75" />
+                              </svg>
+                            ) : (
+                              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m-7 0h8l-1-2H10l-1 2z" />
+                              </svg>
+                            )}
+                            <span>{deletingId === log.id ? 'Deleting...' : 'Delete'}</span>
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-400">--</span>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -1350,6 +1438,55 @@ export const Attendance = () => {
           </div>
         </div>
       </main>
+      {/* Delete Confirmation Modal */}
+      {confirmDeleteId !== null && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setConfirmDeleteId(null)}></div>
+          <div className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="bg-gradient-to-r from-red-600 to-red-700 px-5 py-4 sticky top-0 z-10">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m-7 0h8l-1-2H10l-1 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-white text-lg font-semibold">Delete Attendance</h3>
+              </div>
+            </div>
+            <div className="px-5 py-4 overflow-y-auto">
+              <p className="text-gray-700 text-sm">Are you sure you want to delete this attendance record? This action cannot be undone.</p>
+            </div>
+            <div className="px-5 pb-5 flex items-center justify-center gap-3 sticky bottom-0 bg-white border-t border-gray-200 z-10 pt-3">
+              <button
+                onClick={() => setConfirmDeleteId(null)}
+                className="px-5 py-2.5 rounded-xl border-2 border-gray-300 text-gray-700 bg-white hover:bg-gray-50 text-sm font-semibold shadow-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteAttendance(confirmDeleteId)}
+                className="group relative overflow-hidden bg-gradient-to-r from-red-600 to-red-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                disabled={deletingId === confirmDeleteId}
+              >
+                <span className="inline-flex items-center gap-2">
+                  {deletingId === confirmDeleteId ? (
+                    <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <circle cx="12" cy="12" r="10" strokeWidth="4" className="opacity-25" />
+                      <path d="M4 12a8 8 0 018-8" strokeWidth="4" className="opacity-75" />
+                    </svg>
+                  ) : (
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m-7 0h8l-1-2H10l-1 2z" />
+                    </svg>
+                  )}
+                  <span>{deletingId === confirmDeleteId ? 'Deleting...' : 'Delete'}</span>
+                </span>
+                <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

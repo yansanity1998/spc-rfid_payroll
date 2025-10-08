@@ -108,7 +108,7 @@ const ModernLoginForm = ({ onClose }: { onClose: () => void }) => {
         <p className="text-white/70">Sign in to your account</p>
       </div>
 
-      <form onSubmit={handleLogin} className="space-y-6">
+      <form onSubmit={handleLogin} autoComplete="off" className="space-y-6">
         <div className="space-y-4">
           <div className="flex flex-col">
             <label className="mb-2 text-white font-medium">Email</label>
@@ -132,7 +132,7 @@ const ModernLoginForm = ({ onClose }: { onClose: () => void }) => {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full h-12 px-4 pr-12 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300"
                 placeholder="Enter your password"
-                autoComplete="new-password"
+                autoComplete="off"
                 required
               />
               <button
@@ -201,6 +201,18 @@ export const LandingPage = () => {
     }, 3000);
     return () => clearInterval(timer);
   }, [carouselImages.length]);
+
+  // Prevent background scroll when modal is open
+  useEffect(() => {
+    if (showLoginModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showLoginModal]);
 
 
   return (
@@ -505,17 +517,17 @@ export const LandingPage = () => {
 
       {/* Login Modal */}
       {showLoginModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="relative max-w-md w-full">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="relative max-w-md w-full my-8">
             <button
               onClick={() => setShowLoginModal(false)}
-              className="absolute -top-2 -right-2 sm:-top-4 sm:-right-4 z-10 bg-red-900 text-white p-2 sm:p-3 rounded-full hover:bg-red-800 transition-colors shadow-2xl"
+              className="sticky top-0 -mb-8 ml-auto block -mr-2 sm:-mr-4 z-10 bg-red-900 text-white p-2 sm:p-3 rounded-full hover:bg-red-800 transition-colors shadow-2xl"
             >
               <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-2xl">
               <ModernLoginForm onClose={() => setShowLoginModal(false)} />
             </div>
           </div>

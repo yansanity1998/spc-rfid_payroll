@@ -340,23 +340,29 @@ export const PayrollAcc = () => {
       const absentRecords: any[] = [];
 
       // Process regular attendance records with exemption checking
+      // Sum database-computed penalties, track late minutes, and detect full-day absences once per date
+      const absentDatesRegular = new Set<string>();
+      const recordsByDate: Record<string, any[]> = {};
+      for (const rec of attendanceData || []) {
+        if (!recordsByDate[rec.att_date]) recordsByDate[rec.att_date] = [];
+        recordsByDate[rec.att_date].push(rec);
+      }
+
       for (const record of attendanceData || []) {
-        // Check if user is exempted for this date
         const exemptionCheck = await checkUserExemption(userId, record.att_date);
-        
         if (exemptionCheck.isExempted) {
           console.log(`🛡️ [PayrollAcc] User ${userId} is exempted on ${record.att_date} (${exemptionCheck.requestType}: ${exemptionCheck.reason}) - SKIPPING PENALTIES`);
-          continue; // Skip penalty calculation for exempted dates
+          continue;
         }
 
-        // Add penalty amount from database (dual session penalties)
+        // Add DB penalty directly (already includes late/absent for dual session)
         const recordPenalty = record.penalty_amount || 0;
         totalPenalty += recordPenalty;
-        
-        // Track late records (records with late_minutes > 0)
+
+        // Late tracking for reporting (₱1/min policy)
         if (record.late_minutes && record.late_minutes > 0) {
           totalLateMinutes += record.late_minutes;
-          totalLatePenalty += record.late_minutes; // ₱1 per minute late
+          totalLatePenalty += record.late_minutes;
           lateRecords.push({
             ...record,
             status: 'Late',
@@ -366,18 +372,35 @@ export const PayrollAcc = () => {
           });
           console.log(`⏰ [PayrollAcc] Regular attendance late on ${record.att_date}: ${record.late_minutes} minutes = ₱${record.late_minutes}`);
         }
-        
-        // Track absent records (no time_in and time_out)
-        if (!record.time_in && !record.time_out) {
-          absentCount++;
-          totalAbsentPenalty += 240; // ₱240 per absent day
+      }
+
+      // Determine full-day absences ONCE per date (avoid double-charging per session)
+      for (const [date, dayRecords] of Object.entries(recordsByDate)) {
+        const exemptionCheck = await checkUserExemption(userId, date);
+        if (exemptionCheck.isExempted) continue;
+
+        const anyPresentTap = dayRecords.some(r => !!r.time_in || !!r.time_out);
+        const hasAutoAbsent = dayRecords.some(r => (!r.time_in && !r.time_out) && (r.attendance === false || (r.notes && r.notes.toLowerCase().includes('automatic absent'))));
+
+        if (!anyPresentTap && hasAutoAbsent) {
+          // Count absent day once for reporting; penalty already included via record.penalty_amount
+          if (!absentDatesRegular.has(date)) absentDatesRegular.add(date);
+          const absentRecord = dayRecords.find(r => (!r.time_in && !r.time_out) && (r.attendance === false || (r.notes && r.notes.toLowerCase().includes('automatic absent'))));
           absentRecords.push({
-            ...record,
+            ...(absentRecord || { att_date: date }),
             status: 'Absent',
             source: 'regular_attendance'
           });
-          console.log(`❌ [PayrollAcc] Regular attendance absent on ${record.att_date}: ₱240 penalty`);
         }
+      }
+
+      // Update absent counters for reporting (do not add to totalPenalty again)
+      absentCount += absentDatesRegular.size;
+      // Keep absent penalty for regular attendance aligned with DB (use the penalty on auto-absent records if available)
+      for (const date of absentDatesRegular) {
+        const dayRecords = recordsByDate[date] || [];
+        const autoAbsentRec = dayRecords.find(r => (!r.time_in && !r.time_out) && (r.attendance === false || (r.notes && r.notes.toLowerCase().includes('automatic absent'))));
+        totalAbsentPenalty += autoAbsentRec?.penalty_amount || 240;
       }
 
       // 🔥 PART 4: Process class schedule attendance (same logic as HRAdmin Attendance.tsx)

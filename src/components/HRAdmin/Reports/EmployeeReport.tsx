@@ -147,12 +147,36 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
     toast.success("Employee report exported successfully!");
   };
 
-  // Print functionality
-  const handlePrint = () => {
+  // Print functionality (fetch all users fresh before printing)
+  const handlePrint = async () => {
+    setLoading(true);
+    let dataset: Employee[] = [];
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching employees for print:", error);
+        toast.error("Failed to fetch latest employees for print");
+        // fallback to currently loaded list
+        dataset = employees;
+      } else {
+        dataset = data || [];
+      }
+    } catch (err) {
+      console.error("Error:", err);
+      toast.error("An error occurred while preparing print");
+      dataset = employees;
+    } finally {
+      setLoading(false);
+    }
+
     const printContent = `
       <html>
         <head>
-          <title>Employee Report - ${selectedRole}</title>
+          <title>Employee Report - All</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; font-size: 12px; }
             h1 { color: #dc2626; text-align: center; margin-bottom: 30px; }
@@ -174,8 +198,8 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
         <body>
           <h1>Employee Report</h1>
           <div class="header">
-            <p><strong>Role Filter:</strong> ${selectedRole}</p>
-            <p><strong>Total Employees:</strong> ${filteredAndSortedEmployees.length}</p>
+            <p><strong>Role Filter:</strong> All</p>
+            <p><strong>Total Employees:</strong> ${dataset.length}</p>
             <p><strong>Generated on:</strong> ${new Date().toLocaleDateString()}</p>
           </div>
           <table>
@@ -195,7 +219,7 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
               </tr>
             </thead>
             <tbody>
-              ${filteredAndSortedEmployees.map(emp => `
+              ${dataset.map(emp => `
                 <tr>
                   <td>${emp.name || "N/A"}</td>
                   <td>${emp.email || "N/A"}</td>
