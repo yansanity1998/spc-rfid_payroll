@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import supabase from "../../utils/supabase";
 import { spc1, spc2, spc3, spc4 } from "../../utils";
 import { Link } from "react-router-dom";
@@ -8,6 +8,7 @@ const Scanner = () => {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const hiddenInputRef = useRef<HTMLInputElement>(null);
   
   // Session and Action Selection
   const [selectedSession, setSelectedSession] = useState<'morning' | 'afternoon'>('morning');
@@ -50,6 +51,26 @@ const Scanner = () => {
       return () => clearTimeout(timer);
     }
   }, [showAlert]);
+
+  // Refocus hidden input after scan completes to receive next RFID tap
+  useEffect(() => {
+    if (!loading && hiddenInputRef.current) {
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        hiddenInputRef.current?.focus();
+      }, 100);
+    }
+  }, [loading]);
+
+  // Keep hidden input focused at all times for RFID scanning
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!loading && hiddenInputRef.current && document.activeElement !== hiddenInputRef.current) {
+        hiddenInputRef.current.focus();
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [loading]);
 
   // Function to speak text
   const speak = (text: string) => {
@@ -232,7 +253,8 @@ const Scanner = () => {
   };
 
   // Calculate penalties with precise durations (to the minute) and distinct morning vs afternoon logic
-  const calculatePenalties = (timeIn: Date, timeOut: Date | null, session: 'morning' | 'afternoon') => {
+  // Special handling for SA: single session 7 AM - 5 PM
+  const calculatePenalties = (timeIn: Date, timeOut: Date | null, session: 'morning' | 'afternoon', userRole: string = '') => {
     const penalties = {
       lateMinutes: 0,
       overtimeMinutes: 0,
@@ -242,7 +264,43 @@ const Scanner = () => {
       notes: [] as string[]
     };
 
-    // Configuration allowing different logic/ratios per session
+    // Build session start/cutoff Date objects for today for exact computation
+    const buildTodayAt = (hour: number, minute: number, second = 0) => {
+      const d = new Date(timeIn);
+      d.setHours(hour, minute, second, 0);
+      return d;
+    };
+
+    // SA has single session: 7 AM - 5 PM
+    if (userRole === 'SA') {
+      const saStart = buildTodayAt(7, 0, 0); // 7:00 AM
+      const saEnd = buildTodayAt(17, 0, 0); // 5:00 PM
+      const graceMinutes = 15;
+      const latePerMinute = 1;
+      const overtimePerMinute = 0.5;
+
+      // Late calculation for time in (7:00 AM + 15 min grace = 7:15 AM)
+      const gracePoint = new Date(saStart.getTime() + graceMinutes * 60_000);
+      if (timeIn.getTime() > gracePoint.getTime()) {
+        const lateMs = timeIn.getTime() - gracePoint.getTime();
+        penalties.lateMinutes = Math.ceil(lateMs / 60_000);
+        penalties.latePenalty = penalties.lateMinutes * latePerMinute;
+        penalties.notes.push(`Late by ${penalties.lateMinutes} minute(s) after ${graceMinutes}-min grace`);
+      }
+
+      // Overtime calculation for time out (after 5:00 PM)
+      if (timeOut && timeOut.getTime() > saEnd.getTime()) {
+        const overtimeMs = timeOut.getTime() - saEnd.getTime();
+        penalties.overtimeMinutes = Math.ceil(overtimeMs / 60_000);
+        penalties.overtimePenalty = penalties.overtimeMinutes * overtimePerMinute;
+        penalties.notes.push(`Overtime by ${penalties.overtimeMinutes} minute(s) past 5:00 PM`);
+      }
+
+      penalties.totalPenalty = penalties.latePenalty + penalties.overtimePenalty;
+      return penalties;
+    }
+
+    // Regular dual session logic for other roles (Faculty, Accounting, Staff)
     const RATES = {
       morning: {
         graceMinutes: 15,
@@ -255,13 +313,6 @@ const Scanner = () => {
         overtimePerMinute: 0.5, // ₱ per minute overtime after cutoff
       },
     } as const;
-
-    // Build session start/cutoff Date objects for today for exact computation
-    const buildTodayAt = (hour: number, minute: number, second = 0) => {
-      const d = new Date(timeIn);
-      d.setHours(hour, minute, second, 0);
-      return d;
-    };
 
     const morningStart = buildTodayAt(7, 0, 0); // 7:00:00
     const afternoonStart = buildTodayAt(13, 0, 0); // 13:00:00
@@ -318,9 +369,13 @@ const Scanner = () => {
       // Use user-selected session instead of auto-detection
       const activeSession = selectedSession;
       
-      console.log(`[Scanner] System time: ${now.toLocaleString()}`);
+      console.log(`[Scanner] ========================================`);
+      console.log(`[Scanner] 🕒 USING LAPTOP/DEVICE TIME`);
+      console.log(`[Scanner] System Date/Time: ${now.toLocaleString()}`);
+      console.log(`[Scanner] Date (YYYY-MM-DD): ${today}`);
+      console.log(`[Scanner] Time: ${now.toLocaleTimeString()}`);
       console.log(`[Scanner] Selected session: ${activeSession}`);
-      console.log(`[Scanner] Date: ${today}`);
+      console.log(`[Scanner] ========================================`);
 
       // 🔍 Step 1: Find user with this cardId in users table
       const { data: user, error: userError } = await supabase
@@ -364,7 +419,7 @@ const Scanner = () => {
         return;
       }
 
-      // 🔍 Step 2: Check existing attendance records for today (both morning and afternoon)
+      // 🔍 Step 2: Check existing attendance records for today
       let { data: existingRecords, error: fetchError } = await supabase
         .from("attendance")
         .select("*")
@@ -389,6 +444,144 @@ const Scanner = () => {
         if (latestOpen && latestOpen.length > 0) {
           existingRecords = latestOpen;
         }
+      }
+
+      // ⭐ SPECIAL HANDLING FOR SA: Single session (7 AM - 5 PM)
+      if (user.role === 'SA') {
+        console.log(`[Scanner] SA user detected - using single session mode`);
+        
+        // Find any existing record for today (SA only has one record per day)
+        const saRecord = existingRecords && existingRecords.length > 0 ? existingRecords[0] : null;
+        
+        if (selectedAction === 'time_in') {
+          // TIME IN for SA
+          if (!saRecord) {
+            // Create new record
+            const penalties = calculatePenalties(now, null, 'afternoon', user.role);
+            const displayPenalty = round2(penalties.latePenalty);
+            
+            const { error: insertError } = await supabase.from("attendance").insert([{
+              user_id: user.id,
+              att_date: today,
+              time_in: phNow.toISOString(),
+              status: true,
+              late_minutes: penalties.lateMinutes,
+              penalty_amount: displayPenalty,
+              notes: `Afternoon session - Status: ${penalties.lateMinutes > 0 ? `Late by ${penalties.lateMinutes} min` : 'On time'}${displayPenalty > 0 ? `; Penalty: ₱${displayPenalty}` : ''}${penalties.notes.length ? `; ${penalties.notes.join('; ')}` : ''}`
+            }]);
+
+            if (insertError) throw insertError;
+            
+            const isLate = displayPenalty > 0;
+            const penaltyMessage = isLate
+              ? `Time In - Late by ${penalties.lateMinutes} minutes. Penalty: ₱${displayPenalty}.`
+              : `Time In! Welcome! Your attendance has been recorded.`;
+            
+            showModernAlert(
+              isLate ? 'error' : 'success',
+              isLate ? 'Late Time In' : 'Time In Successful',
+              penaltyMessage,
+              user.name ?? user.id,
+              user.role ?? '',
+              user.profile_picture ?? '',
+              'time_in'
+            );
+            playSound(isLate ? 'error' : 'success');
+            speakAttendance('time_in', user.name ?? String(user.id), now);
+          } else if (saRecord.time_out) {
+            // Already completed for the day
+            showModernAlert(
+              'info',
+              'Already Completed',
+              'You have already completed your attendance for today.',
+              user.name ?? user.id,
+              user.role ?? '',
+              user.profile_picture ?? '',
+              'completed'
+            );
+            playSound('info');
+          } else {
+            // Already timed in, update time in
+            const penalties = calculatePenalties(now, null, 'afternoon', user.role);
+            const displayPenalty = round2(penalties.latePenalty);
+            
+            const { error: updateError } = await supabase
+              .from("attendance")
+              .update({
+                time_in: phNow.toISOString(),
+                status: true,
+                late_minutes: penalties.lateMinutes,
+                penalty_amount: displayPenalty,
+                notes: `Afternoon session (updated) - Status: ${penalties.lateMinutes > 0 ? `Late by ${penalties.lateMinutes} min` : 'On time'}${displayPenalty > 0 ? `; Penalty: ₱${displayPenalty}` : ''}${penalties.notes.length ? `; ${penalties.notes.join('; ')}` : ''}`
+              })
+              .eq("id", saRecord.id);
+
+            if (updateError) throw updateError;
+            
+            const isLate = displayPenalty > 0;
+            showModernAlert(
+              isLate ? 'error' : 'success',
+              isLate ? 'Late Time In' : 'Time In Updated',
+              isLate ? `Late by ${penalties.lateMinutes} minutes. Penalty: ₱${displayPenalty}.` : 'Your time in has been updated.',
+              user.name ?? user.id,
+              user.role ?? '',
+              user.profile_picture ?? '',
+              'time_in'
+            );
+            playSound(isLate ? 'error' : 'success');
+            speakAttendance('time_in', user.name ?? String(user.id), now);
+          }
+        } else {
+          // TIME OUT for SA
+          if (!saRecord || !saRecord.time_in) {
+            showModernAlert('error', 'No Time In Record', 'You haven\'t timed in yet. Please time in first.', user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'error');
+            playSound('error');
+          } else if (saRecord.time_out) {
+            showModernAlert('info', 'Already Timed Out', 'You have already timed out for today.', user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'completed');
+            playSound('info');
+          } else {
+            // Process time out
+            const timeInDate = new Date(saRecord.time_in);
+            const penalties = calculatePenalties(timeInDate, now, 'afternoon', user.role);
+            const displayLate = round2(penalties.latePenalty);
+            const displayOvertime = round2(penalties.overtimePenalty);
+            const existingDbPenalty = Number(saRecord.penalty_amount) || 0;
+            const displayTotal = round2(existingDbPenalty + displayOvertime);
+            
+            const { error: updateError } = await supabase
+              .from("attendance")
+              .update({
+                time_out: phNow.toISOString(),
+                status: false,
+                late_minutes: penalties.lateMinutes,
+                overtime_minutes: penalties.overtimeMinutes,
+                penalty_amount: displayTotal,
+                att_date: today,
+                notes: `Afternoon session - Status: ${penalties.lateMinutes > 0 ? `Late by ${penalties.lateMinutes} min` : 'On time'}${penalties.overtimeMinutes > 0 ? `; Overtime: ${penalties.overtimeMinutes} min` : ''}; Total Penalty: ₱${displayTotal}${penalties.notes.length ? `; ${penalties.notes.join('; ')}` : ''}`
+              })
+              .eq("id", saRecord.id);
+
+            if (updateError) throw updateError;
+            
+            const hasAnyPenalty = displayTotal > 0;
+            const penaltyParts: string[] = [];
+            if (existingDbPenalty > 0 || displayLate > 0) {
+              penaltyParts.push(`Late: ₱${round2(existingDbPenalty || displayLate)} (${penalties.lateMinutes} min)`);
+            }
+            if (displayOvertime > 0) {
+              penaltyParts.push(`Overtime: ₱${displayOvertime} (${penalties.overtimeMinutes} min)`);
+            }
+            const penaltyBreakdown = penaltyParts.length ? ` Penalties → ${penaltyParts.join(' | ')}. Total: ₱${displayTotal}.` : '';
+            const penaltyMessage = `Time Out!${hasAnyPenalty ? penaltyBreakdown : ' Your departure has been recorded.'}`;
+            
+            showModernAlert('success', 'Time Out Successful', penaltyMessage, user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_out');
+            playSound('success');
+            speakAttendance('time_out', user.name ?? String(user.id), now);
+          }
+        }
+        
+        // Exit early for SA users
+        return;
       }
 
       // Separate morning and afternoon records based on notes field (primary) or time_in (fallback)
@@ -445,7 +638,7 @@ const Scanner = () => {
         // TIME IN ACTION
         if (!currentRecord) {
           // Create new record for this session
-          const penalties = calculatePenalties(now, null, activeSession);
+          const penalties = calculatePenalties(now, null, activeSession, user.role);
           const displayPenalty = round2(penalties.latePenalty);
           
           const { error: insertError } = await supabase.from("attendance").insert([
@@ -482,7 +675,7 @@ const Scanner = () => {
           speakAttendance('time_in', user.name ?? String(user.id), now);
         } else if (currentRecord.time_out) {
           // If current session record already has time_out, create a NEW record for re-entry
-          const penalties = calculatePenalties(now, null, activeSession);
+          const penalties = calculatePenalties(now, null, activeSession, user.role);
           const displayPenalty = round2(penalties.latePenalty);
           
           const { error: insertError } = await supabase.from("attendance").insert([
@@ -519,7 +712,7 @@ const Scanner = () => {
           speakAttendance('time_in', user.name ?? String(user.id), now);
         } else {
           // Update existing record with new time in (only if no time_out yet)
-          const penalties = calculatePenalties(now, null, activeSession);
+          const penalties = calculatePenalties(now, null, activeSession, user.role);
           const displayPenalty = round2(penalties.latePenalty);
           
           const { error: updateError } = await supabase
@@ -590,7 +783,7 @@ const Scanner = () => {
           : (recordNotes.includes('Morning session') ? 'morning' : null);
         const resolvedSession = (sessionFromNotes || activeSession || getCurrentSession(timeInDate)) as 'morning' | 'afternoon';
         const sessionLabel = resolvedSession === 'morning' ? 'Morning' : 'Afternoon';
-        const penalties = calculatePenalties(timeInDate, now, resolvedSession);
+        const penalties = calculatePenalties(timeInDate, now, resolvedSession, user.role);
         const displayLate = round2(penalties.latePenalty);
         const displayOvertime = round2(penalties.overtimePenalty);
         // Add overtime to whatever late penalty was stored at time-in
@@ -674,8 +867,19 @@ const Scanner = () => {
       </div>
 
       {/* Scanner Interface - Centered Overlay */}
-      <div className="absolute inset-0 z-20 flex items-center justify-center p-4">
-        <div className="bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-2xl border-2 border-red-500/30 rounded-2xl shadow-[0_0_60px_rgba(239,68,68,0.3)] max-w-lg w-full max-h-[90vh] overflow-y-auto">
+      <div 
+        className="absolute inset-0 z-20 flex items-center justify-center p-4"
+        onClick={() => {
+          // Refocus hidden input when clicking anywhere on scanner
+          if (!loading && hiddenInputRef.current) {
+            hiddenInputRef.current.focus();
+          }
+        }}
+      >
+        <div 
+          className="bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-2xl border-2 border-red-500/30 rounded-2xl shadow-[0_0_60px_rgba(239,68,68,0.3)] max-w-lg w-full max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
           
           {/* Animated Border Glow */}
           <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 via-orange-500/20 to-red-500/20 animate-pulse rounded-2xl"></div>
@@ -751,6 +955,10 @@ const Scanner = () => {
                     <div>
                       <p className="text-white font-bold text-sm animate-pulse">READY TO SCAN</p>
                       <p className="text-white/70 text-xs">Tap card or enter ID</p>
+                      <div className="mt-2 flex items-center justify-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-green-400 text-[10px] font-semibold uppercase tracking-wider">RFID Active</span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -765,6 +973,8 @@ const Scanner = () => {
                   onClick={() => {
                     setSelectedSession('morning');
                     speak('Morning session selected');
+                    // Refocus hidden input after button click
+                    setTimeout(() => hiddenInputRef.current?.focus(), 50);
                   }}
                   className={`py-2 px-2 rounded-lg text-xs font-semibold transition-all duration-300 flex flex-col items-center justify-center gap-1 ${
                     selectedSession === 'morning'
@@ -782,6 +992,8 @@ const Scanner = () => {
                   onClick={() => {
                     setSelectedSession('afternoon');
                     speak('Afternoon session selected');
+                    // Refocus hidden input after button click
+                    setTimeout(() => hiddenInputRef.current?.focus(), 50);
                   }}
                   className={`py-2 px-2 rounded-lg text-xs font-semibold transition-all duration-300 flex flex-col items-center justify-center gap-1 ${
                     selectedSession === 'afternoon'
@@ -806,6 +1018,8 @@ const Scanner = () => {
                   onClick={() => {
                     setSelectedAction('time_in');
                     speak('Time in selected');
+                    // Refocus hidden input after button click
+                    setTimeout(() => hiddenInputRef.current?.focus(), 50);
                   }}
                   className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-300 flex items-center justify-center gap-1.5 ${
                     selectedAction === 'time_in'
@@ -822,6 +1036,8 @@ const Scanner = () => {
                   onClick={() => {
                     setSelectedAction('time_out');
                     speak('Time out selected');
+                    // Refocus hidden input after button click
+                    setTimeout(() => hiddenInputRef.current?.focus(), 50);
                   }}
                   className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-300 flex items-center justify-center gap-1.5 ${
                     selectedAction === 'time_out'
@@ -839,6 +1055,7 @@ const Scanner = () => {
 
             {/* Hidden Input for RFID Scanner */}
             <input
+              ref={hiddenInputRef}
               autoFocus
               type="text"
               value={scannedCard}
@@ -848,7 +1065,7 @@ const Scanner = () => {
                   handleScan(scannedCard.trim());
                 }
               }}
-              className="opacity-0 absolute -left-96 pointer-events-none"
+              className="opacity-0 absolute -left-96"
               placeholder="RFID will be scanned here"
             />
 
@@ -869,6 +1086,12 @@ const Scanner = () => {
                     if (e.key === "Enter" && scannedCard.trim() !== "") {
                       handleScan(scannedCard.trim());
                     }
+                  }}
+                  onBlur={() => {
+                    // Refocus hidden input when manual input loses focus
+                    setTimeout(() => {
+                      hiddenInputRef.current?.focus();
+                    }, 100);
                   }}
                   className="w-full h-10 px-3 bg-slate-800/50 backdrop-blur-md border-2 border-red-500/30 rounded-lg text-white text-sm placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all duration-300 shadow-lg"
                   placeholder="Enter card ID"

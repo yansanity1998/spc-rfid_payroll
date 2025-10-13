@@ -565,6 +565,40 @@ export const PayrollAcc = () => {
     fetchUsersWithPayrolls();
   }, []);
 
+  // Prevent body scroll when modals are open
+  useEffect(() => {
+    if (showForm || showHistoryModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    // Cleanup function to restore scroll on unmount
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showForm, showHistoryModal]);
+
+  // Get default gross pay based on user role
+  const getDefaultGrossPay = (role: string): number => {
+    switch (role) {
+      case "Faculty":
+        return 30000;
+      case "SA":
+        return 6000;
+      case "Guard":
+        return 10000;
+      case "Staff":
+        return 25000;
+      case "HR Personnel":
+        return 30000;
+      case "Accounting":
+        return 25000;
+      default:
+        return 0;
+    }
+  };
+
   // Input change with automatic net pay calculation
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -575,7 +609,12 @@ export const PayrollAcc = () => {
     if (name === 'user_id' && value) {
       const userId = parseInt(value);
       
-      console.log(`🔄 [PayrollAcc] User selected: ${value}, calculating penalties and fetching loans...`);
+      // Find the selected user to get their role
+      const selectedUser = users.find(u => u.id === userId);
+      const defaultGross = selectedUser ? getDefaultGrossPay(selectedUser.role) : 0;
+      
+      console.log(`🔄 [PayrollAcc] User selected: ${value} (${selectedUser?.role}), default gross pay: ₱${defaultGross.toLocaleString()}`);
+      console.log(`🔄 [PayrollAcc] Calculating penalties and fetching loans...`);
       
       // Calculate penalties and fetch loans in parallel
       Promise.all([
@@ -595,23 +634,25 @@ export const PayrollAcc = () => {
         newLoans[userId] = loanResult;
         setLoans(newLoans);
         
-        // Update form data with calculated penalties and loans (keep them separate)
+        // Update form data with default gross pay, calculated penalties and loans
         setFormData(prev => ({
           ...prev,
           user_id: value,
+          gross: defaultGross, // Set default gross pay based on role
           deductions: penaltyResult.totalPenalty, // Only penalties in deductions
           loan_deduction: loanResult.totalLoanDeduction, // Loans separate
-          net: (prev.gross || 0) - penaltyResult.totalPenalty - loanResult.totalLoanDeduction // Net = Gross - Deductions - Loan Deductions
+          net: defaultGross - penaltyResult.totalPenalty - loanResult.totalLoanDeduction // Net = Gross - Deductions - Loan Deductions
         }));
       }).catch((error) => {
         console.error('❌ [PayrollAcc] Error calculating penalties/loans:', error);
-        // Set form data without penalties/loans on error
+        // Set form data with default gross pay but without penalties/loans on error
         setFormData(prev => ({
           ...prev,
           user_id: value,
+          gross: defaultGross, // Set default gross pay even on error
           deductions: 0,
           loan_deduction: 0,
-          net: prev.gross || 0 // Net = Gross when no deductions
+          net: defaultGross // Net = Gross when no deductions
         }));
       });
       return; // Exit early since we're handling the async update above
@@ -1260,8 +1301,8 @@ export const PayrollAcc = () => {
 
         {/* Modern Add Payroll Modal */}
         {showForm && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50 p-4">
-            <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50 p-4 overflow-y-auto">
+            <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 my-8">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-8 h-8 bg-gradient-to-br from-red-600 to-red-700 rounded-lg flex items-center justify-center">
                   <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1410,8 +1451,8 @@ export const PayrollAcc = () => {
 
         {/* Payroll History Modal */}
         {showHistoryModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full my-8">
               <div className="p-6">
                 {/* Modal Header */}
                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
