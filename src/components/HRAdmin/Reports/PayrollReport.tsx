@@ -62,30 +62,16 @@ export const PayrollReport = ({ onBack }: PayrollReportProps) => {
         console.error("Error fetching payroll records:", error);
         toast.error("Failed to fetch payroll data");
       } else {
-        // Flatten payrolls like in Payroll.tsx
+        // Only show users who have actual payroll records
         const flattenedPayrolls = (data || [])
+          .filter((user) => user.payrolls?.length > 0) // Filter out users without payroll records
           .map((user) =>
-            user.payrolls?.length
-              ? user.payrolls.map((pr: any) => ({
-                  ...pr,
-                  userId: user.id,
-                  name: user.name,
-                  role: user.role,
-                }))
-              : [
-                  {
-                    id: `no-payroll-${user.id}`,
-                    userId: user.id,
-                    name: user.name,
-                    role: user.role,
-                    period: "--",
-                    gross: 0,
-                    deductions: 0,
-                    loan_deduction: 0,
-                    net: 0,
-                    status: "No Record",
-                  },
-                ]
+            user.payrolls.map((pr: any) => ({
+              ...pr,
+              userId: user.id,
+              name: user.name,
+              role: user.role,
+            }))
           )
           .flat();
         setPayrollRecords(flattenedPayrolls);

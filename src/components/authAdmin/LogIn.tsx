@@ -147,7 +147,7 @@ export const LogIn = () => {
         return;
       }
       
-      // Handle SA role
+      // Handle SA role 
       if (userProfile.role === "SA") {
         console.log("SA role found in users table by auth_id");
         userRole = "SA";

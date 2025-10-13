@@ -67,7 +67,7 @@ export const UserManagement = () => {
 
   // Prevent body scroll when modal is open
   useEffect(() => {
-    if (showInfoModal) {
+    if (showInfoModal || edit) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -75,7 +75,7 @@ export const UserManagement = () => {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [showInfoModal]);
+  }, [showInfoModal, edit]);
 
   // Color coding system for employee types
   const getEmployeeTypeColor = (role: string) => {
@@ -330,15 +330,15 @@ export const UserManagement = () => {
             <table className="min-w-full border-collapse text-sm">
               <thead className="bg-gradient-to-r from-red-600 to-red-700 text-white sticky top-0 z-10">
                 <tr>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Profile</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Name</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Email</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Employee Type</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Position</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Department</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Hired Date</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Status</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Actions</th>
+                  <th className="px-2 py-2.5 text-center border-b text-sm font-medium whitespace-nowrap">Profile</th>
+                  <th className="px-2 py-2.5 text-center border-b text-sm font-medium whitespace-nowrap">Name</th>
+                  <th className="px-2 py-2.5 text-center border-b text-sm font-medium whitespace-nowrap">Email</th>
+                  <th className="px-2 py-2.5 text-center border-b text-sm font-medium whitespace-nowrap">Employee Type</th>
+                  <th className="px-2 py-2.5 text-center border-b text-sm font-medium whitespace-nowrap">Position</th>
+                  <th className="px-2 py-2.5 text-center border-b text-sm font-medium whitespace-nowrap">Department</th>
+                  <th className="px-2 py-2.5 text-center border-b text-sm font-medium whitespace-nowrap">Hired Date</th>
+                  <th className="px-2 py-2.5 text-center border-b text-sm font-medium whitespace-nowrap">Status</th>
+                  <th className="px-2 py-2.5 text-center border-b text-sm font-medium whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -516,7 +516,7 @@ export const UserManagement = () => {
 
       {/* Modern Edit Modal */}
       {edit && editUser && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/50 z-50 flex items-center justify-center p-4 overflow-hidden">
           <form
             onSubmit={handleEdit}
             className="w-full max-w-md bg-white/90 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl overflow-hidden max-h-[90vh]"

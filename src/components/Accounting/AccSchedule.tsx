@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import supabase from '../../utils/supabase';
-import { SANav } from './SANav';
+import { NavAccounting } from './NavAcc';
 
 interface Schedule {
   id: number;
@@ -14,11 +14,10 @@ interface Schedule {
   created_at: string;
 }
 
-const SASchedule: React.FC = () => {
+const AccSchedule: React.FC = () => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
-
   // Convert time to Philippine format
   const formatPhilippineTime = (timeString: string) => {
     if (!timeString) return '';
@@ -143,8 +142,8 @@ const SASchedule: React.FC = () => {
   const groupedSchedules = groupSchedulesByDay();
 
   return (
-    <div className="min-h-screen w-full lg:ml-70 py-5 roboto px-3 sm:px-5 bg-red-200">
-      <SANav />
+    <div className="min-h-screen w-full lg:ml-70 py-5 roboto px-3 sm:px-5 bg-green-50">
+      <NavAccounting />
       <main className="flex flex-col w-full max-w-7xl mx-auto p-4 sm:p-6 bg-white border border-gray-200 shadow-2xl rounded-2xl">
           {/* Notification */}
           {notification && (
@@ -172,17 +171,17 @@ const SASchedule: React.FC = () => {
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">My Schedule</h1>
                 <p className="text-gray-600 mt-1">
-                  View your weekly schedule and work hours
+                  View your weekly schedule and default work hours
                   {currentUser && (
                     <span className="ml-2 text-sm">
-                      • {currentUser.first_name} {currentUser.last_name}
+                      • {currentUser.name}
                     </span>
                   )}
                 </p>
               </div>
               <button
                 onClick={fetchSchedules}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-600 to-yellow-500 text-white rounded-lg hover:from-yellow-700 hover:to-yellow-600 transition-all shadow-md hover:shadow-lg text-sm"
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-green-500 text-white rounded-lg hover:from-green-700 hover:to-green-600 transition-all shadow-md hover:shadow-lg text-sm"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -192,40 +191,57 @@ const SASchedule: React.FC = () => {
             </div>
           </div>
 
-          {/* Default Work Hours Card - SA Special Schedule */}
-          <div className="bg-gradient-to-br from-yellow-50 to-white rounded-xl shadow-sm border-2 border-yellow-200 p-6 mb-6">
+          {/* Default Work Hours Card */}
+          <div className="bg-gradient-to-br from-green-50 to-white rounded-xl shadow-sm border-2 border-green-200 p-6 mb-6">
             <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg">
+              <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div className="flex-1">
-                <h2 className="text-lg font-bold text-gray-900 mb-3">Student Assistant Work Hours</h2>
-                <div className="bg-white rounded-lg p-4 border border-yellow-200 shadow-sm">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                      </svg>
+                <h2 className="text-lg font-bold text-gray-900 mb-3">Default Work Hours</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Morning Session */}
+                  <div className="bg-white rounded-lg p-4 border border-green-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
+                        <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                      </div>
+                      <h3 className="font-semibold text-gray-900">Morning Session</h3>
                     </div>
-                    <h3 className="font-semibold text-gray-900">Single Session Schedule</h3>
+                    <p className="text-2xl font-bold text-green-600">7:00 AM - 12:00 PM</p>
+                    <p className="text-sm text-gray-600 mt-1">15-minute grace period until 7:15 AM</p>
                   </div>
-                  <p className="text-2xl font-bold text-yellow-600">7:00 AM - 5:00 PM</p>
-                  <p className="text-sm text-gray-600 mt-1">15-minute grace period until 7:15 AM</p>
+                  
+                  {/* Afternoon Session */}
+                  <div className="bg-white rounded-lg p-4 border border-green-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                        </svg>
+                      </div>
+                      <h3 className="font-semibold text-gray-900">Afternoon Session</h3>
+                    </div>
+                    <p className="text-2xl font-bold text-green-600">1:00 PM - 7:00 PM</p>
+                    <p className="text-sm text-gray-600 mt-1">15-minute grace period until 1:15 PM</p>
+                  </div>
                 </div>
                 
                 {/* Additional Info */}
-                <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+                <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-100">
                   <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div className="text-sm text-gray-700">
                       <p className="font-medium mb-1">Penalty Information:</p>
                       <ul className="list-disc list-inside space-y-1 text-gray-600">
-                        <li>Late arrival: ₱1 per minute (after 7:15 AM grace period)</li>
-                        <li>Overtime work: ₱0.50 per minute past 5:00 PM</li>
+                        <li>Late arrival: ₱1 per minute (after grace period)</li>
+                        <li>Overtime work: ₱0.50 per minute past 7:00 PM</li>
                       </ul>
                     </div>
                   </div>
@@ -251,7 +267,7 @@ const SASchedule: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {daysOfWeek.map((day) => (
                 <div key={day} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className="bg-gradient-to-r from-yellow-600 to-yellow-500 px-6 py-4">
+                  <div className="bg-gradient-to-r from-green-600 to-green-500 px-6 py-4">
                     <h3 className="text-lg font-semibold text-white">{day}</h3>
                   </div>
                   
@@ -271,8 +287,8 @@ const SASchedule: React.FC = () => {
                           <div key={schedule.id} className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                             {/* Time */}
                             <div className="flex items-center gap-2 mb-3">
-                              <div className="flex-shrink-0 w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-                                <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                               </div>
@@ -287,7 +303,7 @@ const SASchedule: React.FC = () => {
                             {schedule.subject && (
                               <div className="mb-2">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <svg className="w-3 h-3 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                                   </svg>
                                   <span className="text-xs font-medium text-gray-600">Subject</span>
@@ -300,7 +316,7 @@ const SASchedule: React.FC = () => {
                             {schedule.room && (
                               <div className="mb-2">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <svg className="w-3 h-3 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                   </svg>
@@ -314,7 +330,7 @@ const SASchedule: React.FC = () => {
                             {schedule.notes && (
                               <div>
                                 <div className="flex items-center gap-2 mb-1">
-                                  <svg className="w-3 h-3 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                   </svg>
                                   <span className="text-xs font-medium text-gray-600">Notes</span>
@@ -336,4 +352,4 @@ const SASchedule: React.FC = () => {
   );
 };
 
-export default SASchedule;
+export default AccSchedule;

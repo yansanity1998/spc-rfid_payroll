@@ -12,7 +12,9 @@ export const Attendance = () => {
   const [scheduleSortBy, setScheduleSortBy] = useState("all"); // 📊 Schedule attendance sorting
   const [deletingId, setDeletingId] = useState<number | string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
-  
+  const [selectedUserInfo, setSelectedUserInfo] = useState<any>(null);
+  const [showInfoModal, setShowInfoModal] = useState(false);
+
   const [regularAttendancePage, setRegularAttendancePage] = useState(1);
   const [attendancePage, setAttendancePage] = useState(1);
   const regularAttendanceRow = 5;
@@ -63,11 +65,11 @@ export const Attendance = () => {
       // First, sort by date (latest date first)
       const dateA = new Date(a.att_date).getTime();
       const dateB = new Date(b.att_date).getTime();
-      
+
       if (dateB !== dateA) {
         return dateB - dateA; // Latest date first
       }
-      
+
       // If dates are the same, sort by most recent tap time (time_in or time_out)
       const getLatestActivity = (record: any) => {
         const timeIn = record.time_in ? new Date(record.time_in).getTime() : 0;
@@ -77,7 +79,7 @@ export const Attendance = () => {
 
       const aLatest = getLatestActivity(a);
       const bLatest = getLatestActivity(b);
-      
+
       // Sort in descending order (most recent tap time first)
       return bLatest - aLatest;
     });
@@ -85,7 +87,7 @@ export const Attendance = () => {
   // Calculate total working hours dynamically from FILTERED data
   const totalWorkingHours = useMemo(() => {
     let totalMinutes = 0;
-    
+
     // Calculate from FILTERED regular attendance records
     filtered.forEach(record => {
       if (record.time_in && record.time_out) {
@@ -96,7 +98,7 @@ export const Attendance = () => {
         totalMinutes += diffMinutes;
       }
     });
-    
+
     // Calculate from FILTERED class schedule attendance records
     filteredScheduleAttendance.forEach(record => {
       if (record.time_in && record.time_out) {
@@ -107,14 +109,13 @@ export const Attendance = () => {
         totalMinutes += diffMinutes;
       }
     });
-    
+
     // Convert total minutes to hours and minutes
     const hours = Math.floor(totalMinutes / 60);
     const minutes = Math.floor(totalMinutes % 60);
-    
+
     return { hours, minutes, totalMinutes };
   }, [filtered, filteredScheduleAttendance]);
-
 
   // Color coding system for employee types
   const getEmployeeTypeColor = (role: string) => {
@@ -141,20 +142,20 @@ export const Attendance = () => {
   // Helper function to format time in Philippine timezone with AM/PM
   const formatPhilippineTime = (timeString: string) => {
     if (!timeString) return "N/A";
-    
+
     // Handle time string format (HH:MM:SS or HH:MM)
     const timeParts = timeString.split(':');
     if (timeParts.length >= 2) {
       const hours = parseInt(timeParts[0]);
       const minutes = parseInt(timeParts[1]);
-      
+
       // Convert to 12-hour format with AM/PM
       const period = hours >= 12 ? 'PM' : 'AM';
       const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-      
+
       return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
     }
-    
+
     return timeString;
   };
 
@@ -162,7 +163,7 @@ export const Attendance = () => {
   const formatPhilippineDateTime = (dateString: string) => {
     // Handle different date string formats from Supabase
     let date: Date;
-    
+
     if (dateString.includes('T')) {
       // ISO format with time
       if (!dateString.includes('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
@@ -175,7 +176,7 @@ export const Attendance = () => {
       // Date only format, treat as UTC
       date = new Date(dateString + 'T00:00:00Z');
     }
-    
+
     // Convert to Philippine time
     return date.toLocaleTimeString('en-PH', {
       timeZone: 'Asia/Manila',
@@ -217,10 +218,10 @@ export const Attendance = () => {
   // Helper function to format date in Philippine timezone
   const formatPhilippineDate = (dateString: string) => {
     // Handle date-only strings (YYYY-MM-DD format)
-    const date = dateString.includes('T') 
+    const date = dateString.includes('T')
       ? new Date(dateString)
       : new Date(dateString + 'T00:00:00Z');
-    
+
     return date.toLocaleDateString('en-PH', {
       timeZone: 'Asia/Manila',
       year: 'numeric',
@@ -264,7 +265,7 @@ export const Attendance = () => {
         .split('T')[0];
       const currentMinutes = getManilaMinutesSinceMidnight(nowUtc.toISOString());
       const afternoonEnd = 19 * 60; // 7:00 PM
-      
+
       // Get all active users (Faculty, SA, Accounting, Staff)
       const { data: allUsers, error: usersError } = await supabase
         .from("users")
@@ -293,7 +294,7 @@ export const Attendance = () => {
       // Check each user for attendance today
       for (const user of allUsers || []) {
         // Check if user has any attendance record for today
-        const userAttendanceToday = existingRecords.filter(record => 
+        const userAttendanceToday = existingRecords.filter(record =>
           record.userId === user.id && record.att_date === today
         );
 
@@ -374,7 +375,7 @@ export const Attendance = () => {
         setRecords([]);
       } else {
         console.log("Raw attendance data:", data);
-        
+
         // Prepare batch exemption lookup for attendance records
         const attendanceUserIds = Array.from(new Set((data || []).map((row: any) => row.user?.id).filter(Boolean)));
         const attendanceDates = Array.from(new Set((data || []).map((row: any) => row.att_date).filter(Boolean)));
@@ -405,9 +406,9 @@ export const Attendance = () => {
         const processedRecords = (data || []).map((row: any) => {
           const key = `${row.user?.id}|${row.att_date}`;
           const exemptionCheck = exemptionMap.get(key) || { isExempted: false, reason: null, type: null };
-          
+
           // Note: we no longer need to count per-day records for status
-          
+
           return {
             id: row.id,
             att_date: row.att_date,
@@ -492,13 +493,13 @@ export const Attendance = () => {
 
           const aLatest = getLatestActivity(a);
           const bLatest = getLatestActivity(b);
-          
+
           // Sort in descending order (most recent first)
           return bLatest - aLatest;
         });
 
         console.log("Processed attendance data:", sortedFlat);
-        
+
         // 🔥 Add automatic absent records for users who forgot to tap (both morning and afternoon)
         // Prefetch today's exemptions for auto-absent check
         const nowUtc = new Date();
@@ -517,7 +518,7 @@ export const Attendance = () => {
         }
 
         await addAutomaticAbsentRecords(sortedFlat, exemptedTodaySet);
-        
+
         setRecords(sortedFlat);
       }
 
@@ -601,18 +602,18 @@ export const Attendance = () => {
       // Combine schedules with their most recent attendance records and check for exemptions
       const combinedScheduleData = (schedulesData || []).map(schedule => {
         // Find the most recent attendance record for this schedule
-        const attendanceRecords = (attendanceData || []).filter(att => 
+        const attendanceRecords = (attendanceData || []).filter(att =>
           att.schedule_id === schedule.id
         );
-        
+
         // Sort by date descending to get the most recent record
-        const mostRecentRecord = attendanceRecords.sort((a, b) => 
+        const mostRecentRecord = attendanceRecords.sort((a, b) =>
           new Date(b.att_date).getTime() - new Date(a.att_date).getTime()
         )[0];
 
         // Get the date for exemption checking (use most recent record date or today)
         const checkDate = mostRecentRecord?.att_date || todayStr;
-        
+
         // Check for exemptions from preloaded map
         const exemptionCheck = scheduleExemptionsMap.get(`${schedule.user_id}|${checkDate}`) || { isExempted: false, reason: null, type: null };
 
@@ -637,7 +638,7 @@ export const Attendance = () => {
       });
 
       setScheduleAttendance(combinedScheduleData || []);
-      
+
     } catch (error) {
       console.error("Error in fetchAttendance:", error);
       setRecords([]);
@@ -654,7 +655,7 @@ export const Attendance = () => {
   // Lock background scroll when modal is open
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
-    if (confirmDeleteId !== null) {
+    if (confirmDeleteId !== null || showInfoModal) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = originalOverflow || '';
@@ -662,9 +663,7 @@ export const Attendance = () => {
     return () => {
       document.body.style.overflow = originalOverflow || '';
     };
-  }, [confirmDeleteId]);
-
-
+  }, [confirmDeleteId, showInfoModal]);
 
   // Pagination for regular attendance table
   const regularAttendanceLast = regularAttendanceRow * regularAttendancePage;
@@ -709,7 +708,7 @@ export const Attendance = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
-              
+
               {/* Role Filter Dropdown */}
               <div className="relative">
                 <select
@@ -893,24 +892,21 @@ export const Attendance = () => {
             <table className="min-w-full border-collapse text-sm">
               <thead className="bg-gradient-to-r from-red-600 to-red-700 text-white sticky top-0 z-10">
                 <tr>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">User ID</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Name</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Employee Type</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Semester</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">School Year</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Hired Date</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Date</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Session</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Time In</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Time Out</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Status</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Information</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={10} className="text-center py-8">
+                    <td colSpan={9} className="text-center py-8">
                       <div className="flex items-center justify-center gap-3">
                         <div className="w-6 h-6 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
                         <span className="text-gray-600 font-medium">Loading attendance records...</span>
@@ -920,9 +916,6 @@ export const Attendance = () => {
                 ) : regularAttendancePageData.length > 0 ? (
                   regularAttendancePageData.map((log) => (
                     <tr key={log.id} className="hover:bg-white/80 transition-all duration-200 group">
-                      <td className="px-3 py-3 border-b border-gray-200">
-                        <span className="font-medium text-gray-700 text-sm">{log.userId}</span>
-                      </td>
                       <td className="px-3 py-3 border-b border-gray-200">
                         <div className="flex flex-col">
                           <span className="font-semibold text-gray-800 text-sm">{log.name || 'No Name'}</span>
@@ -934,21 +927,28 @@ export const Attendance = () => {
                         </span>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
-                        {log.semester ?? "--"}
-                      </td>
-                      <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
-                        {log.schoolYear ?? "--"}
-                      </td>
-                      <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
-                        {log.hiredDate
-                          ? formatPhilippineDate(log.hiredDate)
-                          : "--"}
-                      </td>
-                      <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
                         {formatPhilippineDate(log.att_date)}
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200 text-gray-700 text-sm">
-                        {log.session ? (log.session === 'morning' ? 'Morning' : 'Afternoon') : '--'}
+                        {log.session ? (
+                          <div className="flex items-center gap-2">
+                            {log.session === 'morning' ? (
+                              <>
+                                <svg className="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
+                                </svg>
+                                <span>Morning</span>
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4 text-indigo-500" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                                </svg>
+                                <span>Afternoon</span>
+                              </>
+                            )}
+                          </div>
+                        ) : '--'}
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
                         {log.time_in
@@ -974,6 +974,21 @@ export const Attendance = () => {
                         }`}>
                           {log.status}
                         </span>
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200">
+                        <button
+                          onClick={() => {
+                            setSelectedUserInfo(log);
+                            setShowInfoModal(true);
+                          }}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-800 text-white hover:bg-red-900 shadow-sm transition-colors"
+                          title="View user information"
+                        >
+                          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>Info</span>
+                        </button>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
                         {typeof log.id === 'number' ? (
@@ -1003,7 +1018,7 @@ export const Attendance = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={10} className="text-center py-12">
+                    <td colSpan={9} className="text-center py-12">
                       <div className="flex flex-col items-center gap-4">
                         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
                           <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1438,6 +1453,118 @@ export const Attendance = () => {
           </div>
         </div>
       </main>
+      {/* User Information Modal */}
+      {showInfoModal && selectedUserInfo && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowInfoModal(false)}></div>
+          <div className="relative w-full max-w-sm mx-4 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-red-800 to-red-900 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-white text-base font-semibold">User Information</h3>
+                </div>
+                <button
+                  onClick={() => setShowInfoModal(false)}
+                  className="text-white/80 hover:text-white transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-500 font-medium">User ID</p>
+                  <p className="text-sm text-gray-900 font-semibold">{selectedUserInfo.userId || '--'}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-500 font-medium">Full Name</p>
+                  <p className="text-sm text-gray-900 font-semibold">{selectedUserInfo.name || '--'}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-500 font-medium">Role</p>
+                  <p className="text-sm text-gray-900 font-semibold">{selectedUserInfo.role || '--'}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-500 font-medium">Semester</p>
+                  <p className="text-sm text-gray-900 font-semibold">{selectedUserInfo.semester || '--'}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-500 font-medium">School Year</p>
+                  <p className="text-sm text-gray-900 font-semibold">{selectedUserInfo.schoolYear || '--'}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-500 font-medium">Hired Date</p>
+                  <p className="text-sm text-gray-900 font-semibold">
+                    {selectedUserInfo.hiredDate ? formatPhilippineDate(selectedUserInfo.hiredDate) : '--'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="px-4 pb-4">
+              <button
+                onClick={() => setShowInfoModal(false)}
+                className="w-full bg-gradient-to-r from-red-800 to-red-900 text-white py-2.5 rounded-lg text-sm font-semibold hover:from-red-900 hover:to-red-950 transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {confirmDeleteId !== null && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center">

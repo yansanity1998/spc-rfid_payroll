@@ -484,31 +484,16 @@ export const Payroll = () => {
     }
   };
 
-  // Flatten payrolls and sort by recent payroll additions from accounting
+  // Only show users who have actual payroll records
   const payrolls = users
+    .filter((user) => user.payrolls?.length > 0) // Filter out users without payroll records
     .map((user) =>
-      user.payrolls?.length
-        ? user.payrolls.map((pr: any) => ({
-            ...pr,
-            userId: user.id,
-            name: user.name,
-            role: user.role,
-          }))
-        : [
-            {
-              id: `no-payroll-${user.id}`,
-              userId: user.id,
-              name: user.name,
-              role: user.role,
-              period: "--",
-              gross: 0,
-              deductions: 0,
-              loan_deduction: 0,
-              net: 0,
-              status: "No Record",
-              created_at: null,
-            },
-          ]
+      user.payrolls.map((pr: any) => ({
+        ...pr,
+        userId: user.id,
+        name: user.name,
+        role: user.role,
+      }))
     )
     .flat();
 

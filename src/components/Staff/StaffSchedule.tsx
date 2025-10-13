@@ -166,11 +166,11 @@ const StaffSchedule: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">My Schedule</h1>
               <p className="text-gray-600 mt-1">
-                View your weekly schedule
+                View your weekly schedule and default work hours
                 {currentUser && (
                   <span className="ml-2 text-sm">
                     • {currentUser.name}
@@ -180,13 +180,72 @@ const StaffSchedule: React.FC = () => {
             </div>
             <button
               onClick={fetchSchedules}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-lg hover:from-red-700 hover:to-red-600 transition-all shadow-md hover:shadow-lg text-sm"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               Refresh Schedule
             </button>
+          </div>
+        </div>
+
+        {/* Default Work Hours Card */}
+        <div className="bg-gradient-to-br from-red-50 to-white rounded-xl shadow-sm border-2 border-red-200 p-6 mb-6">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h2 className="text-lg font-bold text-gray-900 mb-3">Default Work Hours</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Morning Session */}
+                <div className="bg-white rounded-lg p-4 border border-red-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="font-semibold text-gray-900">Morning Session</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-red-600">7:00 AM - 12:00 PM</p>
+                  <p className="text-sm text-gray-600 mt-1">15-minute grace period until 7:15 AM</p>
+                </div>
+                
+                {/* Afternoon Session */}
+                <div className="bg-white rounded-lg p-4 border border-red-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                      </svg>
+                    </div>
+                    <h3 className="font-semibold text-gray-900">Afternoon Session</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-red-600">1:00 PM - 7:00 PM</p>
+                  <p className="text-sm text-gray-600 mt-1">15-minute grace period until 1:15 PM</p>
+                </div>
+              </div>
+              
+              {/* Additional Info */}
+              <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-100">
+                <div className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="text-sm text-gray-700">
+                    <p className="font-medium mb-1">Penalty Information:</p>
+                    <ul className="list-disc list-inside space-y-1 text-gray-600">
+                      <li>Late arrival: ₱1 per minute (after grace period)</li>
+                      <li>Overtime work: ₱0.50 per minute past 7:00 PM</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -199,14 +258,14 @@ const StaffSchedule: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4h3a1 1 0 011 1v9a1 1 0 01-1 1H5a1 1 0 01-1-1V8a1 1 0 011-1h3z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No schedule found</h3>
-              <p className="text-gray-500">Your schedule will appear here once it's created by HR.</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No additional schedules</h3>
+              <p className="text-gray-500">You follow the default work hours shown above. Additional schedules will appear here if assigned by HR.</p>
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {daysOfWeek.map((day) => (
-              <div key={day} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div key={day} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow">
                 <div className="bg-gradient-to-r from-red-600 to-red-500 px-6 py-4">
                   <h3 className="text-lg font-semibold text-white">{day}</h3>
                 </div>
@@ -219,7 +278,7 @@ const StaffSchedule: React.FC = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
-                      <p className="text-gray-500 text-sm">No schedule</p>
+                      <p className="text-gray-500 text-sm">Default work hours apply</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
