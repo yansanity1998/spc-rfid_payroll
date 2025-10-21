@@ -1,10 +1,7 @@
--- Make users table completely unrestricted like other tables
--- This removes all RLS restrictions and makes the table fully accessible
 
--- Step 1: Disable RLS completely on users table
-ALTER TABLE public.users DISABLE ROW LEVEL SECURITY;
+-- Enable RLS for users table
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
--- Step 2: Drop ALL existing policies (brute force approach)
 DROP POLICY IF EXISTS "Allow all SELECT operations" ON public.users;
 DROP POLICY IF EXISTS "Allow all INSERT operations" ON public.users;
 DROP POLICY IF EXISTS "Allow all UPDATE operations" ON public.users;
@@ -33,11 +30,18 @@ BEGIN
     END LOOP;
 END $$;
 
--- Step 4: Grant FULL unrestricted access to ALL roles
-GRANT ALL ON public.users TO anon;
-GRANT ALL ON public.users TO authenticated;
-GRANT ALL ON public.users TO service_role;
-GRANT ALL ON public.users TO public;
+
+-- Step 5: Add policy to allow access only to active users
+CREATE POLICY "Allow access to active users only" ON public.users
+    FOR SELECT, UPDATE, DELETE
+    USING (status = 'Active');
+
+-- Allow inserts for authenticated users
+CREATE POLICY "Allow insert for authenticated users" ON public.users
+    FOR INSERT
+    WITH CHECK (status = 'Active');
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.users TO authenticated;
 GRANT ALL ON public.users TO postgres;
 
 -- Step 5: Grant sequence permissions (for auto-increment ID) - Dynamic approach

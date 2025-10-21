@@ -18,17 +18,29 @@ interface Employee {
   department?: string;
 }
 
+interface Scholarship {
+  id: number;
+  user_id: number;
+  has_scholarship: boolean;
+  scholarship_period?: string;
+  school_year?: string;
+  amount?: number;
+  notes?: string;
+}
+
 interface EmployeeReportProps {
   onBack: () => void;
 }
 
 export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [scholarships, setScholarships] = useState<Scholarship[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRole, setSelectedRole] = useState<string>("All");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<string>("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [scholarshipFilter, setScholarshipFilter] = useState<string>("All");
 
   // Role color system matching UserManagement
   const getRoleColor = (role: string) => {
@@ -66,6 +78,17 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
       } else {
         setEmployees(data || []);
       }
+
+      // Fetch scholarship data for Faculty users
+      const { data: scholarshipData, error: scholarshipError } = await supabase
+        .from("scholarship")
+        .select("*");
+
+      if (scholarshipError) {
+        console.error("Error fetching scholarships:", scholarshipError);
+      } else {
+        setScholarships(scholarshipData || []);
+      }
     } catch (err) {
       console.error("Error:", err);
       toast.error("An error occurred while fetching data");
@@ -86,11 +109,23 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
         employee.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         employee.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         employee.role?.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesRole && matchesSearch;
+      
+      // Scholarship filter
+      let matchesScholarship = true;
+      if (scholarshipFilter === "Active Scholarship") {
+        const hasScholarship = scholarships.find(s => s.user_id === employee.id && s.has_scholarship);
+        matchesScholarship = !!hasScholarship;
+      } else if (scholarshipFilter === "No Scholarship") {
+        const hasScholarship = scholarships.find(s => s.user_id === employee.id && s.has_scholarship);
+        matchesScholarship = !hasScholarship;
+      }
+      
+      return matchesRole && matchesSearch && matchesScholarship;
     });
 
     // Sort employees
     filtered.sort((a, b) => {
+      // Regular sorting for fields
       let aValue: any = a[sortBy as keyof Employee];
       let bValue: any = b[sortBy as keyof Employee];
 
@@ -105,7 +140,7 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
     });
 
     return filtered;
-  }, [employees, selectedRole, searchTerm, sortBy, sortOrder]);
+  }, [employees, selectedRole, searchTerm, sortBy, sortOrder, scholarships, scholarshipFilter]);
 
   // Get unique roles for filter dropdown
   const availableRoles = useMemo(() => {
@@ -113,22 +148,36 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
     return ["All", ...roles.sort()];
   }, [employees]);
 
+  // Get scholarship for employee
+  const getScholarship = (userId: number) => {
+    return scholarships.find(s => s.user_id === userId && s.has_scholarship);
+  };
+
   // Export to CSV
   const exportToCSV = () => {
-    const csvData = filteredAndSortedEmployees.map(emp => ({
-      Name: emp.name || "",
-      Email: emp.email || "",
-      Role: emp.role || "",
-      Position: emp.positions || "",
-      Department: emp.department || "",
-      Age: emp.age || "",
-      Gender: emp.gender || "",
-      Address: emp.address || "",
-      Contact: emp.contact_no || "",
-      Status: emp.status || "",
-      "Hired Date": emp.hiredDate ? new Date(emp.hiredDate).toLocaleDateString() : "",
-      "Date Created": new Date(emp.created_at).toLocaleDateString()
-    }));
+    const csvData = filteredAndSortedEmployees.map(emp => {
+      const scholarship = getScholarship(emp.id);
+      return {
+        Name: emp.name || "",
+        Email: emp.email || "",
+        Role: emp.role || "",
+        Position: emp.positions || "",
+        Department: emp.department || "",
+        Age: emp.age || "",
+        Gender: emp.gender || "",
+        Address: emp.address || "",
+        Contact: emp.contact_no || "",
+        Status: emp.status || "",
+        "Hired Date": emp.hiredDate ? new Date(emp.hiredDate).toLocaleDateString() : "",
+        "Date Created": new Date(emp.created_at).toLocaleDateString(),
+        ...(emp.role === "Faculty" && {
+          "Has Scholarship": scholarship ? "Yes" : "No",
+          "Scholarship Period": scholarship?.scholarship_period || "",
+          "School Year": scholarship?.school_year || "",
+          "Scholarship Amount": scholarship?.amount || ""
+        })
+      };
+    });
 
     const headers = Object.keys(csvData[0] || {});
     const csvContent = [
@@ -147,31 +196,11 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
     toast.success("Employee report exported successfully!");
   };
 
-  // Print functionality (fetch all users fresh before printing)
+  // Print functionality (use filtered data)
   const handlePrint = async () => {
-    setLoading(true);
-    let dataset: Employee[] = [];
-    try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Error fetching employees for print:", error);
-        toast.error("Failed to fetch latest employees for print");
-        // fallback to currently loaded list
-        dataset = employees;
-      } else {
-        dataset = data || [];
-      }
-    } catch (err) {
-      console.error("Error:", err);
-      toast.error("An error occurred while preparing print");
-      dataset = employees;
-    } finally {
-      setLoading(false);
-    }
+    // Use the already filtered and sorted employees
+    const dataset = filteredAndSortedEmployees;
+    const scholarshipDataset = scholarships;
 
     const printContent = `
       <html>
@@ -198,7 +227,8 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
         <body>
           <h1>Employee Report</h1>
           <div class="header">
-            <p><strong>Role Filter:</strong> All</p>
+            <p><strong>Role Filter:</strong> ${selectedRole}</p>
+            <p><strong>Scholarship Filter:</strong> ${scholarshipFilter}</p>
             <p><strong>Total Employees:</strong> ${dataset.length}</p>
             <p><strong>Generated on:</strong> ${new Date().toLocaleDateString()}</p>
           </div>
@@ -216,10 +246,13 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
                 <th>Contact</th>
                 <th>Hired Date</th>
                 <th>Status</th>
+                <th>Scholarship</th>
               </tr>
             </thead>
             <tbody>
-              ${dataset.map(emp => `
+              ${dataset.map(emp => {
+                const scholarship = scholarshipDataset.find(s => s.user_id === emp.id && s.has_scholarship);
+                return `
                 <tr>
                   <td>${emp.name || "N/A"}</td>
                   <td>${emp.email || "N/A"}</td>
@@ -232,8 +265,10 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
                   <td>${emp.contact_no || "N/A"}</td>
                   <td>${emp.hiredDate ? new Date(emp.hiredDate).toLocaleDateString() : "N/A"}</td>
                   <td class="status-${emp.status?.toLowerCase()}">${emp.status || "N/A"}</td>
+                  <td>${emp.role === "Faculty" ? (scholarship ? `Yes (${scholarship.scholarship_period}, ${scholarship.school_year})` : "No") : "N/A"}</td>
                 </tr>
-              `).join("")}
+              `;
+              }).join("")}
             </tbody>
           </table>
         </body>
@@ -252,8 +287,8 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen w-full lg:ml-70 py-5 roboto px-3 sm:px-5 bg-red-200">
-        <main className="flex flex-col w-full max-w-7xl mx-auto p-4 sm:p-6 bg-white border border-gray-200 shadow-2xl rounded-2xl">
+      <div className="min-h-screen w-full lg:ml-64 py-5 roboto bg-red-200 flex items-start justify-center">
+        <main className="flex flex-col w-full max-w-6xl p-3 sm:p-4 bg-white border border-gray-200 shadow-2xl rounded-2xl mx-4">
           <div className="flex items-center justify-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
             <span className="ml-3 text-lg text-gray-600">Loading employee data...</span>
@@ -264,8 +299,8 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
   }
 
   return (
-    <div className="min-h-screen w-full lg:ml-70 py-5 roboto px-3 sm:px-5 bg-red-200">
-      <main className="flex flex-col w-full max-w-7xl mx-auto p-4 sm:p-6 bg-white border border-gray-200 shadow-2xl rounded-2xl">
+    <div className="min-h-screen w-full lg:ml-64 py-5 roboto bg-red-200 flex items-start justify-center">
+      <main className="flex flex-col w-full max-w-6xl p-3 sm:p-4 bg-white border border-gray-200 shadow-2xl rounded-2xl mx-4">
         {/* Header */}
         <section className="flex-shrink-0 space-y-4">
           <div className="mb-6">
@@ -283,15 +318,15 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                 </svg>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Employee Reports</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Employee Reports</h1>
             </div>
             <p className="text-gray-600">Comprehensive employee information and role-based filtering</p>
           </div>
         </section>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-xl shadow-lg text-white">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4">
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-3 rounded-lg shadow-lg text-white">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-blue-100 text-sm">Total Employees</p>
@@ -305,7 +340,7 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-green-500 to-green-600 p-4 rounded-xl shadow-lg text-white">
+          <div className="bg-gradient-to-br from-green-500 to-green-600 p-3 rounded-lg shadow-lg text-white">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-green-100 text-sm">Active Employees</p>
@@ -319,7 +354,7 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-4 rounded-xl shadow-lg text-white">
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-3 rounded-lg shadow-lg text-white">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-purple-100 text-sm">Filtered Results</p>
@@ -333,7 +368,7 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-4 rounded-xl shadow-lg text-white">
+          <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-3 rounded-lg shadow-lg text-white">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-orange-100 text-sm">Total Roles</p>
@@ -349,11 +384,11 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
         </div>
 
         {/* Controls */}
-        <div className="bg-gray-50 p-4 rounded-xl mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-gray-50 p-3 rounded-lg mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
             {/* Role Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Role</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Filter by Role</label>
               <select
                 value={selectedRole}
                 onChange={(e) => setSelectedRole(e.target.value)}
@@ -367,9 +402,23 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
               </select>
             </div>
 
+            {/* Scholarship Filter */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Scholarship Status</label>
+              <select
+                value={scholarshipFilter}
+                onChange={(e) => setScholarshipFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              >
+                <option value="All">All Employees</option>
+                <option value="Active Scholarship">Active Scholarship</option>
+                <option value="No Scholarship">No Scholarship</option>
+              </select>
+            </div>
+
             {/* Search */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
               <input
                 type="text"
                 value={searchTerm}
@@ -381,7 +430,7 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
 
             {/* Sort By */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Sort By</label>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
@@ -400,7 +449,7 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
 
             {/* Sort Order */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Order</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Order</label>
               <select
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value as "asc" | "desc")}
@@ -449,82 +498,101 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
         </div>
 
         {/* Employee Table */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Personal Info</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hired Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            <table className="w-full text-xs sm:text-sm">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Employee</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Role</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Position</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Department</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Info</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Contact</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Hired</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Scholarship</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white">
                 {filteredAndSortedEmployees.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={9} className="px-6 py-16 text-center text-gray-400">
                       <div className="flex flex-col items-center">
-                        <svg className="w-12 h-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-10 h-10 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                         </svg>
-                        <p className="text-lg font-medium">No employees found</p>
-                        <p className="text-sm">Try adjusting your filters or search terms</p>
+                        <p className="text-sm font-medium text-gray-500">No employees found</p>
+                        <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
                       </div>
                     </td>
                   </tr>
                 ) : (
                   filteredAndSortedEmployees.map((employee) => (
-                    <tr key={employee.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{employee.name || "N/A"}</div>
-                          <div className="text-sm text-gray-500">{employee.email || "N/A"}</div>
-                          <div className="text-xs text-gray-400">ID: {employee.id}</div>
-                        </div>
+                    <tr key={employee.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="text-sm font-medium text-gray-900">{employee.name || "—"}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{employee.email || "—"}</div>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r ${getRoleColor(employee.role)}`}>
-                          {employee.role || "N/A"}
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium bg-gradient-to-r ${getRoleColor(employee.role)}`}>
+                          {employee.role || "—"}
                         </span>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {employee.positions || "N/A"}
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {employee.positions || "—"}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {employee.department || "N/A"}
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {employee.department || "—"}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          <div>Age: {employee.age || "N/A"}</div>
-                          <div>Gender: {employee.gender || "N/A"}</div>
+                      <td className="px-4 py-3">
+                        <div className="text-xs text-gray-600">
+                          <div>{employee.age || "—"} • {employee.gender || "—"}</div>
                         </div>
                       </td>
-                      <td className="px-4 py-4">
-                        <div className="text-sm text-gray-900">
-                          <div>Phone: {employee.contact_no || "N/A"}</div>
-                          <div className="text-xs text-gray-500 max-w-xs truncate" title={employee.address}>
-                            Address: {employee.address || "N/A"}
+                      <td className="px-4 py-3">
+                        <div className="text-xs text-gray-600">
+                          <div>{employee.contact_no || "—"}</div>
+                          <div className="text-gray-400 max-w-xs truncate mt-0.5" title={employee.address}>
+                            {employee.address || "—"}
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {employee.hiredDate ? new Date(employee.hiredDate).toLocaleDateString() : "N/A"}
-                        </div>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {employee.hiredDate ? new Date(employee.hiredDate).toLocaleDateString() : "—"}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
                           employee.status === "Active" 
-                            ? "bg-green-100 text-green-800" 
-                            : "bg-red-100 text-red-800"
+                            ? "bg-green-50 text-green-700 border border-green-200" 
+                            : "bg-red-50 text-red-700 border border-red-200"
                         }`}>
-                          {employee.status || "N/A"}
+                          {employee.status || "—"}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {employee.role === "Faculty" ? (
+                          (() => {
+                            const scholarship = getScholarship(employee.id);
+                            return scholarship ? (
+                              <div className="text-xs">
+                                <span className="inline-flex px-2 py-0.5 rounded bg-yellow-50 text-yellow-700 border border-yellow-200 font-medium">
+                                  Active
+                                </span>
+                                <div className="text-gray-500 mt-1">
+                                  {scholarship.scholarship_period}
+                                </div>
+                                <div className="text-gray-400">
+                                  {scholarship.school_year}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            );
+                          })()
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
                       </td>
                     </tr>
                   ))

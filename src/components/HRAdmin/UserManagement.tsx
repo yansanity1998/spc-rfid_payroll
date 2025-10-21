@@ -65,6 +65,7 @@ export const UserManagement = () => {
   const [sortBy, setSortBy] = useState("All");
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [selectedUserInfo, setSelectedUserInfo] = useState<any>(null);
+  const [selectedUserScholarship, setSelectedUserScholarship] = useState<any>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [scanningRfid, setScanningRfid] = useState(false);
   const [scannedCard, setScannedCard] = useState("");
@@ -116,6 +117,13 @@ export const UserManagement = () => {
   });
 
   const [editUser, setEditUser] = useState<any | null>(null);
+  const [scholarshipData, setScholarshipData] = useState<any>({
+    has_scholarship: false,
+    scholarship_period: '',
+    school_year: '',
+    amount: '',
+    notes: ''
+  });
 
 
 
@@ -439,6 +447,61 @@ export const UserManagement = () => {
         positions: (editUser.role === "Faculty" || editUser.role === "SA" || editUser.role === "Staff") ? editUser.positions : null,
       };
 
+      // Handle scholarship data for Faculty users
+      if (editUser.role === "Faculty" && scholarshipData.has_scholarship) {
+        // Check if scholarship record exists
+        const { data: existingScholarship } = await supabase
+          .from('scholarship')
+          .select('*')
+          .eq('user_id', editUser.id)
+          .eq('school_year', scholarshipData.school_year)
+          .eq('scholarship_period', scholarshipData.scholarship_period)
+          .single();
+
+        const scholarshipPayload = {
+          user_id: editUser.id,
+          has_scholarship: scholarshipData.has_scholarship,
+          scholarship_period: scholarshipData.scholarship_period,
+          school_year: scholarshipData.school_year,
+          amount: scholarshipData.amount ? parseFloat(scholarshipData.amount) : null,
+          notes: scholarshipData.notes || null,
+          updated_at: new Date().toISOString()
+        };
+
+        if (existingScholarship) {
+          // Update existing scholarship
+          const { error: scholarshipError } = await supabase
+            .from('scholarship')
+            .update(scholarshipPayload)
+            .eq('id', existingScholarship.id);
+
+          if (scholarshipError) {
+            console.error('Scholarship update error:', scholarshipError);
+            toast.error('Failed to update scholarship: ' + scholarshipError.message);
+          }
+        } else {
+          // Insert new scholarship
+          const { error: scholarshipError } = await supabase
+            .from('scholarship')
+            .insert(scholarshipPayload);
+
+          if (scholarshipError) {
+            console.error('Scholarship insert error:', scholarshipError);
+            toast.error('Failed to create scholarship: ' + scholarshipError.message);
+          }
+        }
+      } else if (editUser.role === "Faculty" && !scholarshipData.has_scholarship) {
+        // Delete scholarship records if has_scholarship is false
+        const { error: deleteError } = await supabase
+          .from('scholarship')
+          .delete()
+          .eq('user_id', editUser.id);
+
+        if (deleteError) {
+          console.error('Scholarship delete error:', deleteError);
+        }
+      }
+
       // Handle profile picture upload if a new one was selected
       if (editUser.newProfilePicture) {
         try {
@@ -697,8 +760,24 @@ export const UserManagement = () => {
                       <td className="px-3 py-3 border-b border-gray-200">
                         <div className="flex items-center gap-1.5">
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               setSelectedUserInfo(user);
+                              
+                              // Fetch scholarship data if user is Faculty
+                              if (user.role === "Faculty") {
+                                const { data: scholarship } = await supabase
+                                  .from('scholarship')
+                                  .select('*')
+                                  .eq('user_id', user.id)
+                                  .order('created_at', { ascending: false })
+                                  .limit(1)
+                                  .single();
+                                
+                                setSelectedUserScholarship(scholarship || null);
+                              } else {
+                                setSelectedUserScholarship(null);
+                              }
+                              
                               setShowInfoModal(true);
                             }}
                             className="px-2.5 py-1.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-md hover:from-purple-600 hover:to-purple-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-1"
@@ -712,8 +791,38 @@ export const UserManagement = () => {
                           {!showArchived && (
                             <>
                               <button
-                                onClick={() => {
+                                onClick={async () => {
                                   setEditUser(user);
+
+                                  // Fetch scholarship data if user is Faculty
+                                  if (user.role === "Faculty") {
+                                    const { data: scholarship } = await supabase
+                                      .from('scholarship')
+                                      .select('*')
+                                      .eq('user_id', user.id)
+                                      .order('created_at', { ascending: false })
+                                      .limit(1)
+                                      .single();
+                                    
+                                    if (scholarship) {
+                                      setScholarshipData({
+                                        has_scholarship: scholarship.has_scholarship,
+                                        scholarship_period: scholarship.scholarship_period || '',
+                                        school_year: scholarship.school_year || '',
+                                        amount: scholarship.amount || '',
+                                        notes: scholarship.notes || ''
+                                      });
+                                    } else {
+                                      setScholarshipData({
+                                        has_scholarship: false,
+                                        scholarship_period: '',
+                                        school_year: '',
+                                        amount: '',
+                                        notes: ''
+                                      });
+                                    }
+                                  }
+
                                   showEdit(true);
                                 }}
                                 className="px-2.5 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-md hover:from-blue-600 hover:to-blue-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-1"
@@ -1338,6 +1447,102 @@ export const UserManagement = () => {
                 />
               </div>
               
+              {/* Scholarship Section - Only for Faculty */}
+              {editUser.role === "Faculty" && (
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-8 h-8 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-base font-bold text-gray-800">Scholarship Information</h3>
+                  </div>
+                  
+                  <div className="space-y-4 bg-yellow-50/50 border border-yellow-200 rounded-xl p-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Has Scholarship?</label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="has_scholarship"
+                            checked={scholarshipData.has_scholarship === true}
+                            onChange={() => setScholarshipData({ ...scholarshipData, has_scholarship: true })}
+                            className="w-4 h-4 text-red-600 focus:ring-red-500"
+                          />
+                          <span className="text-sm font-medium text-gray-700">Yes</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="has_scholarship"
+                            checked={scholarshipData.has_scholarship === false}
+                            onChange={() => setScholarshipData({ ...scholarshipData, has_scholarship: false })}
+                            className="w-4 h-4 text-red-600 focus:ring-red-500"
+                          />
+                          <span className="text-sm font-medium text-gray-700">No</span>
+                        </label>
+                      </div>
+                    </div>
+                    
+                    {scholarshipData.has_scholarship && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Scholarship Period</label>
+                          <select
+                            value={scholarshipData.scholarship_period}
+                            onChange={(e) => setScholarshipData({ ...scholarshipData, scholarship_period: e.target.value })}
+                            className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                            required={scholarshipData.has_scholarship}
+                          >
+                            <option value="">-- Select Period --</option>
+                            <option value="1st sem">1st Semester</option>
+                            <option value="2nd sem">2nd Semester</option>
+                            <option value="Whole School Year">Whole School Year</option>
+                          </select>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">School Year</label>
+                          <input
+                            type="text"
+                            value={scholarshipData.school_year}
+                            onChange={(e) => setScholarshipData({ ...scholarshipData, school_year: e.target.value })}
+                            className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                            placeholder="e.g., 2024-2025"
+                            required={scholarshipData.has_scholarship}
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Scholarship Amount (₱)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={scholarshipData.amount}
+                            onChange={(e) => setScholarshipData({ ...scholarshipData, amount: e.target.value })}
+                            className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                            placeholder="Enter amount"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Notes</label>
+                          <textarea
+                            value={scholarshipData.notes}
+                            onChange={(e) => setScholarshipData({ ...scholarshipData, notes: e.target.value })}
+                            className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 resize-none"
+                            placeholder="Additional scholarship details"
+                            rows={2}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+              
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">RFID Management</label>
                 {!editingRfid ? (
@@ -1703,6 +1908,121 @@ export const UserManagement = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Scholarship Information - Only for Faculty */}
+                {selectedUserInfo.role === "Faculty" && (
+                  <div className="lg:col-span-2 mt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-6 h-6 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-md flex items-center justify-center shadow-sm">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <h4 className="text-base font-bold text-gray-800">Scholarship Information</h4>
+                    </div>
+                    
+                    {selectedUserScholarship && selectedUserScholarship.has_scholarship ? (
+                      <div className="group bg-gradient-to-r from-white to-yellow-50 border border-yellow-200 rounded-md p-4 shadow-sm hover:shadow-md transition-all duration-300">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Scholarship Status */}
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-green-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                            <div className="flex-1">
+                              <h5 className="font-semibold text-gray-800 text-sm mb-1">Status</h5>
+                              <p className="text-yellow-600 text-xs mb-2">Scholarship active</p>
+                              <div className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-green-100 to-green-200 rounded-lg border border-green-300">
+                                <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                                <span className="text-green-800 font-semibold text-sm">Active Scholarship</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Scholarship Period */}
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 bg-gradient-to-br from-yellow-100 to-yellow-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 0V6a2 2 0 012-2h4a2 2 0 012 2v1m-6 0h8m-8 0H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-2" />
+                              </svg>
+                            </div>
+                            <div className="flex-1">
+                              <h5 className="font-semibold text-gray-800 text-sm mb-1">Period</h5>
+                              <p className="text-yellow-600 text-xs mb-2">Valid duration</p>
+                              <p className="text-lg font-bold text-gray-800">{selectedUserScholarship.scholarship_period}</p>
+                            </div>
+                          </div>
+
+                          {/* School Year */}
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                              </svg>
+                            </div>
+                            <div className="flex-1">
+                              <h5 className="font-semibold text-gray-800 text-sm mb-1">School Year</h5>
+                              <p className="text-yellow-600 text-xs mb-2">Academic year</p>
+                              <p className="text-lg font-bold text-gray-800">{selectedUserScholarship.school_year}</p>
+                            </div>
+                          </div>
+
+                          {/* Scholarship Amount */}
+                          {selectedUserScholarship.amount && (
+                            <div className="flex items-start gap-3">
+                              <div className="w-8 h-8 bg-gradient-to-br from-purple-100 to-purple-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </div>
+                              <div className="flex-1">
+                                <h5 className="font-semibold text-gray-800 text-sm mb-1">Amount</h5>
+                                <p className="text-yellow-600 text-xs mb-2">Scholarship value</p>
+                                <p className="text-lg font-bold text-gray-800">₱{parseFloat(selectedUserScholarship.amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Notes Section */}
+                        {selectedUserScholarship.notes && (
+                          <div className="mt-4 pt-4 border-t border-yellow-200">
+                            <div className="flex items-start gap-3">
+                              <div className="w-6 h-6 bg-gradient-to-br from-yellow-100 to-yellow-200 rounded-md flex items-center justify-center flex-shrink-0">
+                                <svg className="w-3 h-3 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                </svg>
+                              </div>
+                              <div className="flex-1">
+                                <h5 className="font-semibold text-gray-800 text-sm mb-1">Additional Notes</h5>
+                                <p className="text-yellow-600 text-xs mb-2">Scholarship details</p>
+                                <div className="bg-gradient-to-r from-gray-50 to-yellow-50 rounded-md p-3 border border-yellow-100">
+                                  <p className="text-gray-800 leading-relaxed text-sm">{selectedUserScholarship.notes}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="group bg-gradient-to-r from-white to-gray-50 border border-gray-200 rounded-md p-4 shadow-sm hover:shadow-md transition-all duration-300">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <h5 className="font-semibold text-gray-800 text-sm mb-1">No Scholarship</h5>
+                            <p className="text-gray-500 text-sm">This faculty member does not currently have an active scholarship.</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
