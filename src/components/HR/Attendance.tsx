@@ -10,6 +10,7 @@ export const Attendance = () => {
   const [scheduleSearch, setScheduleSearch] = useState(""); // 🔍 Schedule search state
   const [regularSortBy, setRegularSortBy] = useState("all"); // 📊 Regular attendance sorting
   const [scheduleSortBy, setScheduleSortBy] = useState("all"); // 📊 Schedule attendance sorting
+  const [sessionSort, setSessionSort] = useState("all"); // 📊 Session sorting (all, morning, afternoon)
   const [deletingId, setDeletingId] = useState<number | string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [selectedUserInfo, setSelectedUserInfo] = useState<any>(null);
@@ -31,6 +32,11 @@ export const Attendance = () => {
         log.status?.toLowerCase().includes(search.toLowerCase())
     )
     .filter((log) => regularSortBy === "all" || log.role === regularSortBy)
+    .filter((log) => {
+      // Filter by session
+      if (sessionSort === "all") return true;
+      return log.session === sessionSort;
+    })
     .sort((a, b) => {
       // Sort by most recent tap time (time_in or time_out), newest first
       const getLatestActivity = (record: any) => {
@@ -724,6 +730,22 @@ export const Attendance = () => {
                   <option value="Staff">Staff</option>
                   <option value="SA">SA</option>
                   <option value="Guard">Guard</option>
+                </select>
+                <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+
+              {/* Session Filter Dropdown */}
+              <div className="relative">
+                <select
+                  value={sessionSort}
+                  onChange={(e) => setSessionSort(e.target.value)}
+                  className="appearance-none bg-white border-2 border-gray-300 rounded-xl px-4 py-2.5 pr-10 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 shadow-sm"
+                >
+                  <option value="all">All Sessions</option>
+                  <option value="morning">Morning</option>
+                  <option value="afternoon">Afternoon</option>
                 </select>
                 <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

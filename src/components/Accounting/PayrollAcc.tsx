@@ -151,64 +151,7 @@ export const PayrollAcc = () => {
     }
   };
 
-  // Function to check if user has schedule exemption for a specific date
-  const checkUserExemption = async (userId: number, date: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("schedule_exemptions")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("exemption_date", date);
-
-      if (error) {
-        console.error('[PayrollAcc] Error checking exemptions:', error);
-        return { isExempted: false, reason: null, type: null };
-      }
-
-      if (!data || data.length === 0) {
-        return { isExempted: false, reason: null, type: null };
-      }
-
-      // Check for full day exemptions (leave requests)
-      const fullDayExemption = data.find(exemption => 
-        exemption.request_type === 'Leave' || 
-        (!exemption.start_time && !exemption.end_time)
-      );
-
-      if (fullDayExemption) {
-        return { 
-          isExempted: true, 
-          reason: fullDayExemption.reason,
-          type: 'full_day',
-          requestType: fullDayExemption.request_type
-        };
-      }
-
-      // Check for time-specific exemptions (gate pass requests)
-      const timeExemption = data.find(exemption => {
-        if (!exemption.start_time || !exemption.end_time) return false;
-        return true; // Has time-specific exemption
-      });
-
-      if (timeExemption) {
-        return { 
-          isExempted: true, 
-          reason: timeExemption.reason,
-          type: 'time_specific',
-          requestType: timeExemption.request_type,
-          startTime: timeExemption.start_time,
-          endTime: timeExemption.end_time
-        };
-      }
-
-      return { isExempted: false, reason: null, type: null };
-    } catch (error) {
-      console.error('[PayrollAcc] Error checking schedule exemption:', error);
-      return { isExempted: false, reason: null, type: null };
-    }
-  };
-
-  // Calculate penalties for a user - aligned with HRAdmin Attendance.tsx (both regular and class schedule attendance)
+  // Calculate penalties for a user - OPTIMIZED for speed with parallel queries and map lookups
   const calculatePenalties = async (userId: number, period?: string): Promise<{
     totalPenalty: number;
     breakdown: {
@@ -246,81 +189,114 @@ export const PayrollAcc = () => {
 
       console.log('📅 [PayrollAcc] Date range:', startDate, 'to', endDate);
 
-      // 🔥 PART 1: Fetch regular attendance records (dual session) with penalty data
-      const { data: attendanceData, error: attendanceError } = await supabase
-        .from("attendance")
-        .select(`
-          id,
-          user_id,
-          att_date,
-          time_in,
-          time_out,
-          late_minutes,
-          overtime_minutes,
-          penalty_amount,
-          notes,
-          created_at,
-          user:users (
+      // 🚀 OPTIMIZATION: Fetch ALL exemptions for the date range ONCE
+      const { data: exemptionsData, error: exemptionsError } = await supabase
+        .from("schedule_exemptions")
+        .select("*")
+        .eq("user_id", userId)
+        .gte("exemption_date", startDate)
+        .lte("exemption_date", endDate);
+
+      if (exemptionsError) {
+        console.error('[PayrollAcc] Error fetching exemptions:', exemptionsError);
+      }
+
+      // Create a fast lookup map: date -> exemption info
+      const exemptionsMap = new Map<string, any>();
+      (exemptionsData || []).forEach(exemption => {
+        const fullDayExemption = exemption.request_type === 'Leave' || (!exemption.start_time && !exemption.end_time);
+        exemptionsMap.set(exemption.exemption_date, {
+          isExempted: true,
+          reason: exemption.reason,
+          type: fullDayExemption ? 'full_day' : 'time_specific',
+          requestType: exemption.request_type,
+          startTime: exemption.start_time,
+          endTime: exemption.end_time
+        });
+      });
+
+      console.log('🛡️ [PayrollAcc] Loaded', exemptionsMap.size, 'exemptions for fast lookup');
+
+      // 🚀 OPTIMIZATION: Fetch all data in parallel for maximum speed
+      const [attendanceResult, schedulesResult, classAttendanceResult] = await Promise.all([
+        // PART 1: Regular attendance records (dual session) with penalty data
+        supabase
+          .from("attendance")
+          .select(`
             id,
-            name,
-            role
-          )
-        `)
-        .eq('user_id', userId)
-        .gte('att_date', startDate)
-        .lte('att_date', endDate)
-        .order("att_date", { ascending: false });
+            user_id,
+            att_date,
+            time_in,
+            time_out,
+            late_minutes,
+            overtime_minutes,
+            penalty_amount,
+            notes,
+            created_at,
+            user:users (
+              id,
+              name,
+              role
+            )
+          `)
+          .eq('user_id', userId)
+          .gte('att_date', startDate)
+          .lte('att_date', endDate)
+          .order("att_date", { ascending: false }),
+        
+        // PART 2: Class schedule data
+        supabase
+          .from("schedules")
+          .select(`
+            id,
+            user_id,
+            day_of_week,
+            start_time,
+            end_time,
+            subject,
+            room,
+            notes,
+            created_at,
+            users (
+              id,
+              name,
+              email,
+              role
+            )
+          `)
+          .eq('user_id', userId)
+          .order("created_at", { ascending: false }),
+        
+        // PART 3: Class attendance records
+        supabase
+          .from("class_attendance")
+          .select(`
+            id,
+            user_id,
+            schedule_id,
+            att_date,
+            time_in,
+            time_out,
+            attendance,
+            status,
+            created_at
+          `)
+          .eq('user_id', userId)
+          .gte('att_date', startDate)
+          .lte('att_date', endDate)
+          .order("created_at", { ascending: false })
+      ]);
+
+      const { data: attendanceData, error: attendanceError } = attendanceResult;
+      const { data: schedulesData, error: schedulesError } = schedulesResult;
+      const { data: classAttendanceData, error: classAttendanceError } = classAttendanceResult;
 
       if (attendanceError) {
         console.error('❌ [PayrollAcc] Error fetching regular attendance:', attendanceError);
       }
-
-      // 🔥 PART 2: Fetch class schedule attendance data (same as HRAdmin Attendance.tsx)
-      const { data: schedulesData, error: schedulesError } = await supabase
-        .from("schedules")
-        .select(`
-          id,
-          user_id,
-          day_of_week,
-          start_time,
-          end_time,
-          subject,
-          room,
-          notes,
-          created_at,
-          users (
-            id,
-            name,
-            email,
-            role
-          )
-        `)
-        .eq('user_id', userId)
-        .order("created_at", { ascending: false });
-
       if (schedulesError) {
         console.error('❌ [PayrollAcc] Error fetching schedules:', schedulesError);
       }
-
-      // Fetch class attendance records
-      const { data: classAttendanceData, error: classAttendanceError } = await supabase
-        .from("class_attendance")
-        .select(`
-          id,
-          user_id,
-          schedule_id,
-          att_date,
-          time_in,
-          time_out,
-          attendance,
-          status,
-          created_at
-        `)
-        .eq('user_id', userId)
-        .gte('att_date', startDate)
-        .lte('att_date', endDate)
-        .order("created_at", { ascending: false });
-
       if (classAttendanceError) {
         console.error('❌ [PayrollAcc] Error fetching class attendance:', classAttendanceError);
       }
@@ -349,7 +325,8 @@ export const PayrollAcc = () => {
       }
 
       for (const record of attendanceData || []) {
-        const exemptionCheck = await checkUserExemption(userId, record.att_date);
+        // 🚀 FAST LOOKUP: Check exemption from map instead of database
+        const exemptionCheck = exemptionsMap.get(record.att_date) || { isExempted: false };
         if (exemptionCheck.isExempted) {
           console.log(`🛡️ [PayrollAcc] User ${userId} is exempted on ${record.att_date} (${exemptionCheck.requestType}: ${exemptionCheck.reason}) - SKIPPING PENALTIES`);
           continue;
@@ -376,7 +353,8 @@ export const PayrollAcc = () => {
 
       // Determine full-day absences ONCE per date (avoid double-charging per session)
       for (const [date, dayRecords] of Object.entries(recordsByDate)) {
-        const exemptionCheck = await checkUserExemption(userId, date);
+        // 🚀 FAST LOOKUP: Check exemption from map
+        const exemptionCheck = exemptionsMap.get(date) || { isExempted: false };
         if (exemptionCheck.isExempted) continue;
 
         const anyPresentTap = dayRecords.some(r => !!r.time_in || !!r.time_out);
@@ -446,8 +424,8 @@ export const PayrollAcc = () => {
 
       // Calculate class schedule late penalties: ₱1 per minute late (with exemption checking)
       for (const record of classLateRecords) {
-        // Check if user is exempted for this date
-        const exemptionCheck = await checkUserExemption(userId, record.att_date);
+        // 🚀 FAST LOOKUP: Check exemption from map
+        const exemptionCheck = exemptionsMap.get(record.att_date) || { isExempted: false };
         
         if (exemptionCheck.isExempted) {
           console.log(`🛡️ [PayrollAcc] User ${userId} is exempted on ${record.att_date} for class ${record.subject} (${exemptionCheck.requestType}: ${exemptionCheck.reason}) - SKIPPING LATE PENALTY`);
@@ -484,8 +462,8 @@ export const PayrollAcc = () => {
       // Calculate class schedule absent penalties: ₱240 per absent class (with exemption checking)
       let exemptedAbsentCount = 0;
       for (const record of classAbsentRecords) {
-        // Check if user is exempted for this date
-        const exemptionCheck = await checkUserExemption(userId, record.att_date);
+        // 🚀 FAST LOOKUP: Check exemption from map
+        const exemptionCheck = exemptionsMap.get(record.att_date) || { isExempted: false };
         
         if (exemptionCheck.isExempted) {
           console.log(`🛡️ [PayrollAcc] User ${userId} is exempted on ${record.att_date} for class ${record.subject} (${exemptionCheck.requestType}: ${exemptionCheck.reason}) - SKIPPING ABSENT PENALTY`);
@@ -1287,17 +1265,23 @@ export const PayrollAcc = () => {
 
         {/* Modern Add Payroll Modal */}
         {showForm && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50 p-4 overflow-y-auto">
-            <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 my-8">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-br from-red-600 to-red-700 rounded-lg flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
+          <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50 p-4">
+            <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 flex flex-col max-h-[90vh]">
+              {/* Modal Header - Fixed */}
+              <div className="p-6 pb-4 border-b border-gray-200 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-red-600 to-red-700 rounded-lg flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-800">Add Payroll Record</h2>
                 </div>
-                <h2 className="text-xl font-bold text-gray-800">Add Payroll Record</h2>
               </div>
-              <div className="flex flex-col gap-3">
+
+              {/* Modal Body - Scrollable */}
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="flex flex-col gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Employee</label>
                   <select
@@ -1415,8 +1399,12 @@ export const PayrollAcc = () => {
                     </div>
                   )}
                 </div>
-                
-                <div className="flex justify-center gap-3 mt-4">
+                </div>
+              </div>
+
+              {/* Modal Footer - Fixed */}
+              <div className="p-6 pt-4 border-t border-gray-200 flex-shrink-0">
+                <div className="flex justify-center gap-3">
                   <button
                     onClick={() => setShowForm(false)}
                     className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-all duration-200 font-medium"

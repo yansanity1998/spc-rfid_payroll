@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import supabase from "../../utils/supabase";
 import toast from "react-hot-toast";
+import jsPDF from "jspdf";
 
 // Custom CSS for animations
 const customStyles = `
@@ -65,6 +66,374 @@ export const UserManagement = () => {
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [selectedUserInfo, setSelectedUserInfo] = useState<any>(null);
   const [selectedUserScholarship, setSelectedUserScholarship] = useState<any>(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+  // Function to generate PDF for user information
+  const generateUserPDF = async () => {
+    if (!selectedUserInfo) return;
+    
+    setIsGeneratingPDF(true);
+    
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 15;
+      let yPos = 15;
+
+      // Document Border
+      doc.setDrawColor(220, 38, 38);
+      doc.setLineWidth(1.5);
+      doc.rect(10, 10, pageWidth - 20, pageHeight - 20);
+      
+      // Inner border
+      doc.setLineWidth(0.5);
+      doc.rect(12, 12, pageWidth - 24, pageHeight - 24);
+      
+      // Header Section - Reduced height
+      yPos = 18;
+      doc.setFillColor(220, 38, 38);
+      doc.rect(margin, yPos, pageWidth - (margin * 2), 22, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('SPC RFID PAYROLL SYSTEM', pageWidth / 2, yPos + 9, { align: 'center' });
+      
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text('EMPLOYEE INFORMATION RECORD', pageWidth / 2, yPos + 16, { align: 'center' });
+      
+      yPos += 28;
+
+      // Employee Profile Box with Border - Reduced height
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.5);
+      doc.setFillColor(250, 250, 250);
+      doc.roundedRect(margin, yPos, pageWidth - (margin * 2), 28, 2, 2, 'FD');
+      
+      // Profile Picture - Try to load actual image or fall back to initials
+      let profilePictureLoaded = false;
+      const profilePicUrl = selectedUserInfo.profile_picture;
+      
+      if (profilePicUrl) {
+        try {
+          // Function to load image asynchronously
+          const loadImage = (url: string): Promise<string> => {
+            return new Promise((resolve, reject) => {
+              const img = new Image();
+              img.crossOrigin = 'anonymous';
+              
+              // Add timeout to handle cases where images take too long
+              const timeout = setTimeout(() => {
+                reject(new Error('Image load timeout'));
+              }, 10000); // 10 second timeout
+              
+              img.onload = () => {
+                clearTimeout(timeout);
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  ctx.drawImage(img, 0, 0);
+                  const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                  resolve(dataUrl);
+                } else {
+                  reject(new Error('Could not get canvas context'));
+                }
+              };
+              
+              img.onerror = () => {
+                clearTimeout(timeout);
+                reject(new Error('Failed to load image'));
+              };
+              
+              img.src = url + '?t=' + Date.now(); // Add cache busting
+            });
+          };
+
+          const imageDataUrl = await loadImage(profilePicUrl);
+          // Draw circular clipping mask
+          const centerX = margin + 12;
+          const centerY = yPos + 14;
+          const radius = 10;
+          
+          // Add image as square (jsPDF doesn't support circular clipping)
+          const imageSize = radius * 2;
+          doc.addImage(imageDataUrl, 'JPEG', centerX - radius, centerY - radius, imageSize, imageSize);
+          
+          profilePictureLoaded = true;
+        } catch (error) {
+          console.error('Error loading profile picture:', error);
+          profilePictureLoaded = false;
+        }
+      }
+      
+      // Fall back to initials if no profile picture or if it failed to load
+      if (!profilePictureLoaded) {
+        doc.setFillColor(220, 38, 38);
+        doc.circle(margin + 12, yPos + 14, 10, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        const initials = selectedUserInfo.name ? selectedUserInfo.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : 'NA';
+        doc.text(initials, margin + 12, yPos + 17, { align: 'center' });
+      }
+    
+    // Employee Name and Details - Smaller fonts
+    doc.setTextColor(31, 41, 55);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(selectedUserInfo.name || 'N/A', margin + 26, yPos + 10);
+    
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text(selectedUserInfo.email || 'N/A', margin + 26, yPos + 16);
+    
+    // Role and Position Badge - Smaller
+    const roleColors: any = {
+      'Administrator': [147, 51, 234],
+      'HR Personnel': [59, 130, 246],
+      'Accounting': [34, 197, 94],
+      'Faculty': [220, 38, 38],
+      'Staff': [249, 115, 22],
+      'SA': [234, 179, 8],
+      'Guard': [20, 184, 166]
+    };
+    const roleColor = roleColors[selectedUserInfo.role] || [107, 114, 128];
+    doc.setFillColor(roleColor[0], roleColor[1], roleColor[2]);
+    doc.roundedRect(margin + 26, yPos + 19, 30, 6, 1, 1, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text(selectedUserInfo.role || 'N/A', margin + 41, yPos + 23, { align: 'center' });
+    
+    if (selectedUserInfo.positions) {
+      doc.setFillColor(100, 100, 100);
+      doc.roundedRect(margin + 58, yPos + 19, 35, 6, 1, 1, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.text(selectedUserInfo.positions, margin + 75.5, yPos + 23, { align: 'center' });
+    }
+    
+    // Status Badge (Right side) - Smaller
+    const statusX = pageWidth - margin - 25;
+    if (selectedUserInfo.status === 'Active') {
+      doc.setFillColor(34, 197, 94);
+    } else if (selectedUserInfo.status === 'Archived') {
+      doc.setFillColor(147, 51, 234);
+    } else {
+      doc.setFillColor(239, 68, 68);
+    }
+    doc.roundedRect(statusX, yPos + 11, 22, 6, 1, 1, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text(selectedUserInfo.status || 'N/A', statusX + 11, yPos + 15, { align: 'center' });
+    
+    yPos += 32;
+
+    // Personal Information Section with Table - Reduced spacing
+    doc.setFillColor(220, 38, 38);
+    doc.rect(margin, yPos, pageWidth - (margin * 2), 6, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PERSONAL INFORMATION', margin + 2, yPos + 4);
+    yPos += 7;
+
+    // Personal info table - Reduced row height
+    const personalInfo = [
+      { label: 'Age', value: selectedUserInfo.age || 'Not specified' },
+      { label: 'Gender', value: selectedUserInfo.gender || 'Not specified' },
+      { label: 'Contact Number', value: selectedUserInfo.contact_no || 'Not specified' },
+    ];
+
+    personalInfo.forEach((info, index) => {
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.3);
+      doc.setFillColor(index % 2 === 0 ? 250 : 255, index % 2 === 0 ? 250 : 255, index % 2 === 0 ? 250 : 255);
+      doc.rect(margin, yPos, pageWidth - (margin * 2), 7, 'FD');
+      
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(60, 60, 60);
+      doc.text(info.label, margin + 2, yPos + 4.5);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(40, 40, 40);
+      doc.text(String(info.value), margin + 45, yPos + 4.5);
+      yPos += 7;
+    });
+
+    yPos += 3;
+
+    // Work Information Section with Table - Reduced spacing
+    doc.setFillColor(220, 38, 38);
+    doc.rect(margin, yPos, pageWidth - (margin * 2), 6, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('WORK INFORMATION', margin + 2, yPos + 4);
+    yPos += 7;
+
+    const workInfo = [
+      { label: 'Department', value: selectedUserInfo.department || 'Not specified' },
+      { label: 'Hired Date', value: selectedUserInfo.hiredDate ? new Date(selectedUserInfo.hiredDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Not specified' },
+    ];
+
+    if ((selectedUserInfo.role === 'Faculty' || selectedUserInfo.role === 'SA') && selectedUserInfo.semester && selectedUserInfo.schoolYear) {
+      workInfo.push({
+        label: 'Academic Year',
+        value: `Semester ${selectedUserInfo.semester}, ${selectedUserInfo.schoolYear}`
+      });
+    }
+
+    workInfo.forEach((info, index) => {
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.3);
+      doc.setFillColor(index % 2 === 0 ? 250 : 255, index % 2 === 0 ? 250 : 255, index % 2 === 0 ? 250 : 255);
+      doc.rect(margin, yPos, pageWidth - (margin * 2), 7, 'FD');
+      
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(60, 60, 60);
+      doc.text(info.label, margin + 2, yPos + 4.5);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(40, 40, 40);
+      doc.text(String(info.value), margin + 45, yPos + 4.5);
+      yPos += 7;
+    });
+
+    yPos += 3;
+
+    // Address Information Section - Reduced spacing
+    doc.setFillColor(220, 38, 38);
+    doc.rect(margin, yPos, pageWidth - (margin * 2), 6, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ADDRESS INFORMATION', margin + 2, yPos + 4);
+    yPos += 7;
+
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.setFillColor(250, 250, 250);
+    const address = selectedUserInfo.address || 'Address not specified';
+    const addressLines = doc.splitTextToSize(address, pageWidth - (margin * 2) - 6);
+    const addressHeight = (addressLines.length * 4) + 6;
+    doc.rect(margin, yPos, pageWidth - (margin * 2), addressHeight, 'FD');
+    
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(40, 40, 40);
+    doc.text(addressLines, margin + 2, yPos + 4);
+    yPos += addressHeight + 3;
+
+    // Scholarship Information (Faculty only) - Reduced spacing
+    if (selectedUserInfo.role === 'Faculty' && selectedUserScholarship) {
+      doc.setFillColor(220, 38, 38);
+      doc.rect(margin, yPos, pageWidth - (margin * 2), 6, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text('SCHOLARSHIP INFORMATION', margin + 2, yPos + 4);
+      yPos += 7;
+
+      if (selectedUserScholarship.has_scholarship) {
+        const scholarshipInfo = [
+          { label: 'Status', value: 'Active Scholarship' },
+          { label: 'Period', value: selectedUserScholarship.scholarship_period || 'N/A' },
+          { label: 'School Year', value: selectedUserScholarship.school_year || 'N/A' },
+        ];
+
+        if (selectedUserScholarship.amount) {
+          scholarshipInfo.push({
+            label: 'Amount',
+            value: `₱${parseFloat(selectedUserScholarship.amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          });
+        }
+
+        scholarshipInfo.forEach((info, index) => {
+          doc.setDrawColor(200, 200, 200);
+          doc.setLineWidth(0.3);
+          doc.setFillColor(index % 2 === 0 ? 250 : 255, index % 2 === 0 ? 250 : 255, index % 2 === 0 ? 250 : 255);
+          doc.rect(margin, yPos, pageWidth - (margin * 2), 7, 'FD');
+          
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(60, 60, 60);
+          doc.text(info.label, margin + 2, yPos + 4.5);
+          
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(40, 40, 40);
+          doc.text(String(info.value), margin + 45, yPos + 4.5);
+          yPos += 7;
+        });
+
+        if (selectedUserScholarship.notes) {
+          yPos += 1;
+          doc.setDrawColor(200, 200, 200);
+          doc.setLineWidth(0.3);
+          doc.setFillColor(250, 250, 250);
+          const notesLines = doc.splitTextToSize(selectedUserScholarship.notes, pageWidth - (margin * 2) - 6);
+          const notesHeight = (notesLines.length * 4) + 6;
+          doc.rect(margin, yPos, pageWidth - (margin * 2), notesHeight, 'FD');
+          
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(60, 60, 60);
+          doc.text('Notes:', margin + 2, yPos + 4);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(40, 40, 40);
+          doc.text(notesLines, margin + 2, yPos + 8);
+          yPos += notesHeight;
+        }
+      } else {
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.3);
+        doc.setFillColor(250, 250, 250);
+        doc.rect(margin, yPos, pageWidth - (margin * 2), 7, 'FD');
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(100, 100, 100);
+        doc.text('No active scholarship', margin + 2, yPos + 4.5);
+        yPos += 7;
+      }
+    }
+
+    // Footer Section
+    const footerY = pageHeight - 25;
+    doc.setDrawColor(220, 38, 38);
+    doc.setLineWidth(0.5);
+    doc.line(margin, footerY, pageWidth - margin, footerY);
+    
+    doc.setFontSize(7);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'italic');
+    doc.text(`Document generated on: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`, margin, footerY + 5);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(220, 38, 38);
+    doc.text('SPC RFID Payroll System', pageWidth / 2, footerY + 5, { align: 'center' });
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text('Confidential Employee Record', pageWidth - margin, footerY + 5, { align: 'right' });
+
+    // Save PDF
+    const fileName = `${selectedUserInfo.name.replace(/\s+/g, '_')}_Employee_Record.pdf`;
+    doc.save(fileName);
+    toast.success('PDF generated successfully!');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF. Please try again.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -319,8 +688,8 @@ export const UserManagement = () => {
   const currentUsers = filteredUsers.slice(indexFirst, indexLast);
 
   return (
-    <div className="min-h-screen w-full py-5 roboto px-3 sm:px-5 bg-red-200 flex items-center justify-center">
-      <main className="flex flex-col w-full max-w-6xl p-4 sm:p-6 bg-white border border-gray-200 shadow-2xl rounded-2xl">
+    <div className="min-h-screen w-full lg:ml-70 py-5 roboto px-3 sm:px-5 bg-red-200">
+      <main className="flex flex-col w-full max-w-7xl mx-auto p-4 sm:p-6 bg-white border border-gray-200 shadow-2xl rounded-2xl">
         {/* Modern Header */}
         <section className="flex-shrink-0 space-y-4">
           <div className="mb-4">
@@ -1463,7 +1832,26 @@ export const UserManagement = () => {
 
             {/* Enhanced Footer */}
             <div className="bg-gradient-to-r from-gray-100 via-white to-gray-100 px-6 py-4 border-t border-gray-200">
-              <div className="flex justify-center">
+              <div className="flex justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={generateUserPDF}
+                  disabled={isGeneratingPDF}
+                  className={`group relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-300 flex items-center gap-2 border border-blue-500 ${isGeneratingPDF ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-xl hover:scale-105'}`}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  {isGeneratingPDF ? (
+                    <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                  )}
+                  <span className="relative z-10">{isGeneratingPDF ? 'Generating PDF...' : 'Print PDF'}</span>
+                  {!isGeneratingPDF && <div className="absolute inset-0 bg-gradient-to-r from-blue-700 to-blue-800 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>}
+                </button>
                 <button
                   type="button"
                   onClick={() => {

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import supabase from "../../utils/supabase";
 import { spc1, spc2, spc3, spc4 } from "../../utils";
 import { Link } from "react-router-dom";
+import TapHistory from "./TapHistory";
 
 const Scanner = () => {
   const [scannedCard, setScannedCard] = useState("");
@@ -130,6 +131,37 @@ const Scanner = () => {
     });
     const phrase = action === 'time_in' ? 'Time in' : 'Time out';
     speak(`${phrase} for ${userName} at ${timeSpoken}`);
+  };
+
+  // Function to log tap to history
+  const logTapToHistory = (
+    userName: string,
+    userRole: string,
+    profilePicture: string,
+    action: 'time_in' | 'time_out',
+    session: 'morning' | 'afternoon',
+    type: 'success' | 'error' | 'info'
+  ) => {
+    const currentTime = new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+
+    if ((window as any).addTapHistory) {
+      (window as any).addTapHistory({
+        id: `${Date.now()}-${Math.random()}`,
+        userName,
+        userRole,
+        profilePicture,
+        action,
+        session,
+        time: currentTime,
+        timestamp: new Date(),
+        type
+      });
+    }
   };
 
   // Function to show modern alert
@@ -472,21 +504,19 @@ const Scanner = () => {
 
             if (insertError) throw insertError;
             
-            const isLate = displayPenalty > 0;
-            const penaltyMessage = isLate
-              ? `Time In - Late by ${penalties.lateMinutes} minutes. Penalty: ₱${displayPenalty}.`
-              : `Time In! Welcome! Your attendance has been recorded.`;
+            const penaltyMessage = `Time In! Welcome! Your attendance has been recorded.`;
             
             showModernAlert(
-              isLate ? 'error' : 'success',
-              isLate ? 'Late Time In' : 'Time In Successful',
+              'success',
+              'Time In Successful',
               penaltyMessage,
               user.name ?? user.id,
               user.role ?? '',
               user.profile_picture ?? '',
               'time_in'
             );
-            playSound(isLate ? 'error' : 'success');
+            logTapToHistory(user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_in', 'afternoon', 'success');
+            playSound('success');
             speakAttendance('time_in', user.name ?? String(user.id), now);
           } else if (saRecord.time_out) {
             // Already completed for the day
@@ -518,17 +548,17 @@ const Scanner = () => {
 
             if (updateError) throw updateError;
             
-            const isLate = displayPenalty > 0;
             showModernAlert(
-              isLate ? 'error' : 'success',
-              isLate ? 'Late Time In' : 'Time In Updated',
-              isLate ? `Late by ${penalties.lateMinutes} minutes. Penalty: ₱${displayPenalty}.` : 'Your time in has been updated.',
+              'success',
+              'Time In Updated',
+              'Your time in has been updated.',
               user.name ?? user.id,
               user.role ?? '',
               user.profile_picture ?? '',
               'time_in'
             );
-            playSound(isLate ? 'error' : 'success');
+            logTapToHistory(user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_in', 'afternoon', 'success');
+            playSound('success');
             speakAttendance('time_in', user.name ?? String(user.id), now);
           }
         } else {
@@ -543,7 +573,6 @@ const Scanner = () => {
             // Process time out
             const timeInDate = new Date(saRecord.time_in);
             const penalties = calculatePenalties(timeInDate, now, 'afternoon', user.role);
-            const displayLate = round2(penalties.latePenalty);
             const displayOvertime = round2(penalties.overtimePenalty);
             const existingDbPenalty = Number(saRecord.penalty_amount) || 0;
             const displayTotal = round2(existingDbPenalty + displayOvertime);
@@ -563,18 +592,10 @@ const Scanner = () => {
 
             if (updateError) throw updateError;
             
-            const hasAnyPenalty = displayTotal > 0;
-            const penaltyParts: string[] = [];
-            if (existingDbPenalty > 0 || displayLate > 0) {
-              penaltyParts.push(`Late: ₱${round2(existingDbPenalty || displayLate)} (${penalties.lateMinutes} min)`);
-            }
-            if (displayOvertime > 0) {
-              penaltyParts.push(`Overtime: ₱${displayOvertime} (${penalties.overtimeMinutes} min)`);
-            }
-            const penaltyBreakdown = penaltyParts.length ? ` Penalties → ${penaltyParts.join(' | ')}. Total: ₱${displayTotal}.` : '';
-            const penaltyMessage = `Time Out!${hasAnyPenalty ? penaltyBreakdown : ' Your departure has been recorded.'}`;
+            const penaltyMessage = `Time Out! Your departure has been recorded.`;
             
             showModernAlert('success', 'Time Out Successful', penaltyMessage, user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_out');
+            logTapToHistory(user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_out', 'afternoon', 'success');
             playSound('success');
             speakAttendance('time_out', user.name ?? String(user.id), now);
           }
@@ -636,6 +657,22 @@ const Scanner = () => {
       // Handle based on selected action (Time In or Time Out)
       if (selectedAction === 'time_in') {
         // TIME IN ACTION
+        // 🚫 Check if current session is already completed (has both time_in and time_out)
+        if (currentRecord && currentRecord.time_in && currentRecord.time_out) {
+          console.log(`[Scanner] User ${user.name} has already completed ${sessionName} session - blocking time in`);
+          showModernAlert(
+            'info',
+            'Session Already Completed',
+            `You have already completed your ${sessionName.toLowerCase()} session for today. Please select the other session if you need to record attendance.`,
+            user.name ?? user.id,
+            user.role ?? '',
+            user.profile_picture ?? '',
+            'completed'
+          );
+          playSound('info');
+          return;
+        }
+        
         if (!currentRecord) {
           // Create new record for this session
           const penalties = calculatePenalties(now, null, activeSession, user.role);
@@ -657,21 +694,19 @@ const Scanner = () => {
           
           console.log(`[Scanner] Created new ${sessionName} session record for user ${user.name}`);
           
-          const isLate = displayPenalty > 0;
-          const penaltyMessage = isLate
-            ? `${sessionName} Time In - Late by ${penalties.lateMinutes} minutes. Penalty: ₱${displayPenalty}.`
-            : `${sessionName} Time In! Welcome! Your attendance has been recorded.`;
+          const penaltyMessage = `${sessionName} Time In! Welcome! Your attendance has been recorded.`;
           
           showModernAlert(
-            isLate ? 'error' : 'success',
-            isLate ? 'Late Time In' : 'Time In Successful',
+            'success',
+            'Time In Successful',
             penaltyMessage,
             user.name ?? user.id,
             user.role ?? '',
             user.profile_picture ?? '',
             'time_in'
           );
-          playSound(isLate ? 'error' : 'success');
+          logTapToHistory(user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_in', activeSession, 'success');
+          playSound('success');
           speakAttendance('time_in', user.name ?? String(user.id), now);
         } else if (currentRecord.time_out) {
           // If current session record already has time_out, create a NEW record for re-entry
@@ -694,21 +729,19 @@ const Scanner = () => {
           
           console.log(`[Scanner] Created re-entry ${sessionName} session record for user ${user.name}`);
           
-          const isLate = displayPenalty > 0;
-          const penaltyMessage = isLate
-            ? `${sessionName} Time In (Re-entry) - Late by ${penalties.lateMinutes} minutes. Penalty: ₱${displayPenalty}.`
-            : `${sessionName} Time In! Welcome back! Your re-entry has been recorded.`;
+          const penaltyMessage = `${sessionName} Time In! Welcome back! Your re-entry has been recorded.`;
           
           showModernAlert(
-            isLate ? 'error' : 'success',
-            isLate ? 'Late Time In' : 'Time In Successful',
+            'success',
+            'Time In Successful',
             penaltyMessage,
             user.name ?? user.id,
             user.role ?? '',
             user.profile_picture ?? '',
             'time_in'
           );
-          playSound(isLate ? 'error' : 'success');
+          logTapToHistory(user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_in', activeSession, 'success');
+          playSound('success');
           speakAttendance('time_in', user.name ?? String(user.id), now);
         } else {
           // Update existing record with new time in (only if no time_out yet)
@@ -731,21 +764,19 @@ const Scanner = () => {
           
           console.log(`[Scanner] Updated ${sessionName} session record for user ${user.name}`);
           
-          const isLateRe = displayPenalty > 0;
-          const penaltyMessage = isLateRe
-            ? `${sessionName} Time In - Late by ${penalties.lateMinutes} minutes. Penalty: ₱${displayPenalty}.`
-            : `${sessionName} Time In! Your attendance has been updated.`;
+          const penaltyMessage = `${sessionName} Time In! Your attendance has been updated.`;
           
           showModernAlert(
-            isLateRe ? 'error' : 'success',
-            isLateRe ? 'Late Time In' : 'Time In Successful',
+            'success',
+            'Time In Successful',
             penaltyMessage,
             user.name ?? user.id,
             user.role ?? '',
             user.profile_picture ?? '',
             'time_in'
           );
-          playSound(isLateRe ? 'error' : 'success');
+          logTapToHistory(user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_in', activeSession, 'success');
+          playSound('success');
           speakAttendance('time_in', user.name ?? String(user.id), now);
         }
       } else {
@@ -784,7 +815,6 @@ const Scanner = () => {
         const resolvedSession = (sessionFromNotes || activeSession || getCurrentSession(timeInDate)) as 'morning' | 'afternoon';
         const sessionLabel = resolvedSession === 'morning' ? 'Morning' : 'Afternoon';
         const penalties = calculatePenalties(timeInDate, now, resolvedSession, user.role);
-        const displayLate = round2(penalties.latePenalty);
         const displayOvertime = round2(penalties.overtimePenalty);
         // Add overtime to whatever late penalty was stored at time-in
         const existingDbPenalty = Number(recordToUpdate.penalty_amount) || 0;
@@ -805,19 +835,10 @@ const Scanner = () => {
 
         if (updateError) throw updateError;
         
-        const hasAnyPenalty = displayTotal > 0;
-        const penaltyParts: string[] = [];
-        if (existingDbPenalty > 0 || displayLate > 0) {
-          // Show the stored late penalty (from time-in) to match DB
-          penaltyParts.push(`Late: ₱${round2(existingDbPenalty || displayLate)} (${penalties.lateMinutes} min)`);
-        }
-        if (displayOvertime > 0) {
-          penaltyParts.push(`Overtime: ₱${displayOvertime} (${penalties.overtimeMinutes} min)`);
-        }
-        const penaltyBreakdown = penaltyParts.length ? ` Penalties → ${penaltyParts.join(' | ')}. Total: ₱${displayTotal}.` : '';
-        const penaltyMessage = `${sessionLabel} Time Out!${hasAnyPenalty ? penaltyBreakdown : ' Your departure has been recorded.'}`;
+        const penaltyMessage = `${sessionLabel} Time Out! Your departure has been recorded.`;
         
         showModernAlert('success', 'Time Out Successful', penaltyMessage, user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_out');
+        logTapToHistory(user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'time_out', activeSession, 'success');
         playSound('success');
         speakAttendance('time_out', user.name ?? String(user.id), now);
       }
@@ -853,8 +874,8 @@ const Scanner = () => {
         <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 via-red-900/60 to-slate-900/80"></div>
       </div>
       
-      {/* Back to Home Button - Top Right */}
-      <div className="absolute top-6 right-6 z-50">
+      {/* Back to Home Button - Top Left */}
+      <div className="absolute top-6 left-6 z-50">
         <Link
           to="/"
           className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-semibold transition-all duration-300 hover:scale-105 shadow-lg flex items-center gap-2"
@@ -862,13 +883,13 @@ const Scanner = () => {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-          Back to Home
+          Back
         </Link>
       </div>
 
       {/* Scanner Interface - Centered Overlay */}
       <div 
-        className="absolute inset-0 z-20 flex items-center justify-center p-4"
+        className="absolute inset-0 z-20 flex items-center justify-center gap-6 p-4"
         onClick={() => {
           // Refocus hidden input when clicking anywhere on scanner
           if (!loading && hiddenInputRef.current) {
@@ -876,8 +897,9 @@ const Scanner = () => {
           }
         }}
       >
+        {/* Main Scanner Container */}
         <div 
-          className="bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-2xl border-2 border-red-500/30 rounded-2xl shadow-[0_0_60px_rgba(239,68,68,0.3)] max-w-lg w-full max-h-[90vh] overflow-y-auto"
+          className="bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-2xl border-2 border-red-500/30 rounded-2xl shadow-[0_0_60px_rgba(239,68,68,0.3)] max-w-2xl w-full max-h-[90vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           
@@ -1131,6 +1153,14 @@ const Scanner = () => {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Tap History Container */}
+        <div 
+          className="hidden xl:block max-w-md w-full max-h-[90vh]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <TapHistory />
         </div>
       </div>
 

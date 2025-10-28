@@ -42,25 +42,25 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [scholarshipFilter, setScholarshipFilter] = useState<string>("All");
 
-  // Role color system matching UserManagement
+  // Role color system - solid colors with visible text
   const getRoleColor = (role: string) => {
     switch (role) {
       case "Administrator":
-        return "from-purple-500 to-purple-600 text-purple-800 bg-purple-100";
+        return "bg-purple-100 text-purple-800 border border-purple-300";
       case "HR Personnel":
-        return "from-blue-500 to-blue-600 text-blue-800 bg-blue-100";
+        return "bg-blue-100 text-blue-800 border border-blue-300";
       case "Accounting":
-        return "from-green-500 to-green-600 text-green-800 bg-green-100";
+        return "bg-green-100 text-green-800 border border-green-300";
       case "Faculty":
-        return "from-red-500 to-red-600 text-red-800 bg-red-100";
+        return "bg-red-100 text-red-800 border border-red-300";
       case "Staff":
-        return "from-orange-500 to-orange-600 text-orange-800 bg-orange-100";
+        return "bg-orange-100 text-orange-800 border border-orange-300";
       case "SA":
-        return "from-yellow-500 to-yellow-600 text-yellow-800 bg-yellow-100";
+        return "bg-yellow-100 text-yellow-800 border border-yellow-300";
       case "Guard":
-        return "from-teal-500 to-teal-600 text-teal-800 bg-teal-100";
+        return "bg-teal-100 text-teal-800 border border-teal-300";
       default:
-        return "from-gray-500 to-gray-600 text-gray-800 bg-gray-100";
+        return "bg-gray-100 text-gray-800 border border-gray-300";
     }
   };
 
@@ -535,7 +535,7 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
                         <div className="text-xs text-gray-500 mt-0.5">{employee.email || "—"}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium bg-gradient-to-r ${getRoleColor(employee.role)}`}>
+                        <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium ${getRoleColor(employee.role)}`}>
                           {employee.role || "—"}
                         </span>
                       </td>
