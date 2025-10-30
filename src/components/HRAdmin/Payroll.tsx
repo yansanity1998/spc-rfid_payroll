@@ -11,6 +11,8 @@ export const Payroll = () => {
   const [sortByEmployeeType, setSortByEmployeeType] = useState("");
   const [sortByPeriod, setSortByPeriod] = useState("");
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showPayslipModal, setShowPayslipModal] = useState(false);
+  const [payslipData, setPayslipData] = useState<any>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [penaltyData, setPenaltyData] = useState<any>({});
   const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
@@ -46,6 +48,7 @@ export const Payroll = () => {
       id,
       name,
       role,
+      profile_picture,
       payrolls (
         id,
         period,
@@ -484,6 +487,147 @@ export const Payroll = () => {
     }
   };
 
+  // Open payslip modal for preview/printing
+  const openPayslip = (pr: any) => {
+    setPayslipData(pr);
+    setShowPayslipModal(true);
+  };
+
+  // Print payslip by opening a new window with a clean layout and invoking print
+  const printPayslip = (data: any) => {
+    try {
+      const gross = data.gross || 0;
+      const deductions = data.deductions || 0;
+      const loan = data.loan_deduction || 0;
+      const net = data.net || (gross - deductions - loan);
+
+      const html = `
+        <!doctype html>
+        <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Payslip - ${data.name}</title>
+          <meta name="viewport" content="width=device-width,initial-scale=1" />
+          <style>
+            :root{--red1:#ef4444;--red2:#b91c1c;--muted:#6b7280;--card:#ffffff}
+            html,body{height:100%;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+            *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+            body { font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; margin:0; padding:24px; background:#f3f4f6; color:#0f172a }
+            .container{max-width:820px;margin:0 auto}
+            .payslip{background:linear-gradient(180deg,rgba(255,255,255,0.85),rgba(255,255,255,0.95));border-radius:14px;overflow:hidden;box-shadow:0 8px 24px rgba(15,23,42,0.08);border:2px solid #e6eef8}
+            /* Use both gradient and solid fallback for reliable printing */
+            .payslip-header{background:linear-gradient(90deg,var(--red1),var(--red2));background-color:var(--red2);color:white;padding:20px 24px;display:flex;align-items:center;justify-content:space-between}
+            .brand{display:flex;align-items:center;gap:12px}
+            .logo{width:44px;height:44px;border-radius:9px;background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center}
+            .brand h1{font-size:18px;margin:0}
+            .meta{font-size:13px;text-align:right;opacity:0.95}
+            .content{padding:20px 24px}
+            .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+            .card{background:var(--card);border-radius:10px;padding:12px;border:2px solid #e6eef8}
+            .muted{color:var(--muted);font-size:12px}
+            .value{font-weight:700;color:#0f172a;margin-top:6px}
+            .summary{display:flex;gap:12px;align-items:stretch;margin-top:12px}
+            /* solid fallback color plus gradient for screens */
+            .summary .big{flex:1;border-radius:10px;padding:14px;background:linear-gradient(90deg,#10b981,#059669);background-color:#059669;color:white;text-align:center}
+            .line{height:2px;background:#dfe6ef;margin:16px 0;border-radius:2px}
+            .note{font-size:12px;color:var(--muted)}
+            .footer{padding:14px 24px;background:#fff;border-top:2px solid #f3f4f6;text-align:center;font-size:12px;color:var(--muted)}
+            @media print{body{background:white;padding:0} .container{max-width:100%} .payslip{box-shadow:none;border-radius:0} .no-print{display:none!important} 
+              /* Make sure backgrounds/colors render as expected when printing */
+              .payslip-header, .summary .big { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="payslip">
+              <div class="payslip-header">
+                <div class="brand">
+                  <div class="logo">
+                    <img src="/assets/images/spclogo 1.png" alt="SPC Logo" style="width:36px;height:36px;object-fit:contain;border-radius:6px" />
+                  </div>
+                  <div>
+                    <h1>SPC Payroll</h1>
+                    <div class="muted">Payslip</div>
+                  </div>
+                </div>
+                <div class="meta">
+                  <div>Employee #: ${data.userId}</div>
+                  <div>${new Date().toLocaleDateString()}</div>
+                </div>
+              </div>
+
+              <div class="content">
+                <div class="grid">
+                  <div class="card">
+                    <div class="muted">Employee</div>
+                    <div class="value">${data.name || '--'}</div>
+                    <div class="muted" style="margin-top:6px">${data.role || '--'}</div>
+                    <div class="line"></div>
+                    <div class="muted">Status</div>
+                    <div class="value">${data.status || '--'}</div>
+                  </div>
+
+                  <div class="card">
+                    <div class="muted">Period</div>
+                    <div class="value">${data.period || '--'}</div>
+                    <div class="line"></div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+                      <div style="flex:1;min-width:140px;background:#fafafa;padding:10px;border-radius:8px;border:2px solid #e6eef8;">
+                        <div class="muted">Gross Pay</div>
+                        <div class="value">₱${gross.toLocaleString()}</div>
+                      </div>
+                      <div style="flex:1;min-width:140px;background:#fafafa;padding:10px;border-radius:8px;border:2px solid #e6eef8;">
+                        <div class="muted">Deductions</div>
+                        <div class="value">₱${deductions.toLocaleString()}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                  <div class="summary">
+                  <div class="big">
+                    <div class="muted">Net Pay</div>
+                    <div style="font-size:20px;font-weight:800;margin-top:8px">₱${net.toLocaleString()}</div>
+                  </div>
+                  <div style="min-width:200px;background:#fff;padding:12px;border-radius:10px;border:2px solid #e6eef8;display:flex;flex-direction:column;justify-content:center;">
+                    <div class="muted">Loan Deduction</div>
+                    <div class="value">₱${loan.toLocaleString()}</div>
+                  </div>
+                </div>
+
+                <div class="line"></div>
+                <div class="note">This payslip contains employee information and payroll summary only. For full breakdowns, view payroll history in the system.</div>
+              </div>
+
+              <div class="footer no-print">Generated by SPC Payroll • ${new Date().toLocaleDateString()}</div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const w = window.open('', '_blank', 'toolbar=0,location=0,menubar=0');
+      if (!w) {
+        alert('Unable to open print window. Please allow popups.');
+        return;
+      }
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      // Delay slightly to ensure styles load
+      setTimeout(() => {
+        w.focus();
+        w.print();
+        // Optionally close after printing
+        // w.close();
+      }, 300);
+    } catch (err) {
+      console.error('Error printing payslip', err);
+      alert('Failed to print payslip');
+    }
+  };
+
   // Only show users who have actual payroll records
   const payrolls = users
     .filter((user) => user.payrolls?.length > 0) // Filter out users without payroll records
@@ -493,6 +637,7 @@ export const Payroll = () => {
         userId: user.id,
         name: user.name,
         role: user.role,
+        profile_picture: user.profile_picture || null,
       }))
     )
     .flat();
@@ -937,6 +1082,15 @@ export const Payroll = () => {
                                 </svg>
                                 History
                               </button>
+                              <button
+                                onClick={() => openPayslip(pr)}
+                                className="px-2 py-1 bg-indigo-600 text-white rounded text-xs font-medium transition-all duration-200 hover:bg-indigo-700 flex items-center gap-1"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-6a2 2 0 012-2h2a2 2 0 012 2v6m-6 4h6a2 2 0 002-2v-3H7v3a2 2 0 002 2z" />
+                                </svg>
+                                Pay Slip
+                              </button>
                             </>
                           )}
                           {editing === pr.id && (
@@ -1077,6 +1231,81 @@ export const Payroll = () => {
             {/* Items per page info */}
             <div className="text-sm text-gray-500">
               {itemsPerPage} per page
+            </div>
+          </div>
+        )}
+
+        {/* Payslip Preview Modal (minimal, modern, printable) */}
+        {showPayslipModal && payslipData && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-800">Payslip Preview</h2>
+                    <p className="text-sm text-gray-500">A modern payslip aligned with the system style. Print a clean copy.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setShowPayslipModal(false); setPayslipData(null); }}
+                      className="px-3 py-2 bg-gray-100 rounded-lg text-sm text-gray-700 hover:bg-gray-200"
+                    >
+                      Close
+                    </button>
+                    <button
+                      onClick={() => printPayslip(payslipData)}
+                      className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg text-sm font-medium shadow hover:from-red-700"
+                    >
+                      Print Payslip
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-4 border-2 border-gray-200 rounded-lg bg-white">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-lg overflow-hidden">
+                        {payslipData?.profile_picture ? (
+                          <img src={payslipData.profile_picture} alt={payslipData.name || 'Employee'} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center text-white">
+                            <img src="/assets/images/spclogo.png" alt="SPC Logo" className="w-8 h-8 object-contain" />
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">Employee</div>
+                        <div className="font-semibold text-gray-800">{payslipData.name}</div>
+                        <div className="text-xs text-gray-500">{payslipData.role}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm text-gray-500">Employee #</div>
+                      <div className="font-semibold text-gray-800">#{payslipData.userId}</div>
+                      <div className="text-xs text-gray-500">Period: {payslipData.period || '--'}</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div className="bg-gray-50 p-3 rounded-lg border-2 border-gray-200 text-center">
+                      <div className="text-xs text-gray-500">Gross Pay</div>
+                      <div className="font-bold text-green-600">₱{(payslipData.gross || 0).toLocaleString()}</div>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg border-2 border-gray-200 text-center">
+                      <div className="text-xs text-gray-500">Deductions</div>
+                      <div className="font-bold text-red-600">₱{(payslipData.deductions || 0).toLocaleString()}</div>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg border-2 border-gray-200 text-center">
+                      <div className="text-xs text-gray-500">Loan Deduction</div>
+                      <div className="font-bold text-blue-600">₱{(payslipData.loan_deduction || 0).toLocaleString()}</div>
+                    </div>
+                    <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-3 rounded-lg text-white text-center">
+                      <div className="text-xs opacity-90">Net Pay</div>
+                      <div className="font-bold text-xl">₱{(payslipData.net || ((payslipData.gross || 0) - (payslipData.deductions || 0) - (payslipData.loan_deduction || 0))).toLocaleString()}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
