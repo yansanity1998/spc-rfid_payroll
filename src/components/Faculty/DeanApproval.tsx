@@ -111,9 +111,12 @@ export const DeanApproval = () => {
         if (!userError && userData) {
           console.log(`[DeanApproval] User data for request ${request.id}:`, userData);
           
-          // Check if this is a faculty member who needs dean approval
-          if (userData.role === 'Faculty' && 
-              ['Program Head', 'Full Time', 'Part Time'].includes(userData.positions)) {
+          // Check if this is a faculty member or SA who needs dean approval
+          const needsDeanApproval = 
+            (userData.role === 'Faculty' && ['Program Head', 'Full Time', 'Part Time'].includes(userData.positions)) ||
+            userData.role === 'SA';
+          
+          if (needsDeanApproval) {
             
             // Check if request is pending
             if (request.status === 'Pending' || request.status === 'Pending Dean Approval') {
@@ -146,7 +149,7 @@ export const DeanApproval = () => {
               console.log(`[DeanApproval] Request ${request.id} status is '${request.status}', not pending`);
             }
           } else {
-            console.log(`[DeanApproval] User ${userData.name} (${userData.role}, ${userData.positions}) does not need dean approval`);
+            console.log(`[DeanApproval] User ${userData.name} (${userData.role}, ${userData.positions}) does not need dean approval (not Faculty with specific position or SA)`);
           }
         } else {
           console.error(`[DeanApproval] Error fetching user for request ${request.id}:`, userError);
@@ -285,7 +288,7 @@ export const DeanApproval = () => {
                 </div>
                 <div>
                   <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Dean Approval Center</h1>
-                  <p className="text-gray-600">Review and approve gate pass, leave, and loan requests from faculty members</p>
+                  <p className="text-gray-600">Review and approve gate pass, leave, and loan requests from faculty and SA</p>
                 </div>
               </div>
             </div>
