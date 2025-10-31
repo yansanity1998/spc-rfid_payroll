@@ -1,7 +1,34 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import supabase from "../../utils/supabase";
-// Note: Settings component will be imported when needed
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Pie, Line, Bar } from 'react-chartjs-2';
+
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 const FacDashboard = () => {
   const navigate = useNavigate();
@@ -275,6 +302,71 @@ const FacDashboard = () => {
     };
   }, [attendance]);
 
+  // Pie Chart Data - Attendance Distribution
+  const pieChartData = useMemo(() => ({
+    labels: ['Present', 'Late', 'Absent'],
+    datasets: [{
+      data: [stats.presentDays, stats.lateDays, stats.absentDays],
+      backgroundColor: [
+        'rgba(34, 197, 94, 0.8)',   // Green for Present
+        'rgba(234, 179, 8, 0.8)',    // Yellow for Late
+        'rgba(239, 68, 68, 0.8)'     // Red for Absent
+      ],
+      borderColor: [
+        'rgba(34, 197, 94, 1)',
+        'rgba(234, 179, 8, 1)',
+        'rgba(239, 68, 68, 1)'
+      ],
+      borderWidth: 2
+    }]
+  }), [stats]);
+
+  // Line Chart Data - Attendance Trend
+  const lineChartData = useMemo(() => {
+    const sortedData = [...attendance].sort((a, b) => 
+      new Date(a.att_date || a.created_at).getTime() - new Date(b.att_date || b.created_at).getTime()
+    );
+    
+    return {
+      labels: sortedData.map(d => new Date(d.att_date || d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+      datasets: [{
+        label: 'Attendance Trend',
+        data: sortedData.map(d => {
+          const status = d.status || d.attendance;
+          if (status === 'Present' || status === 'Completed') return 100;
+          if (status === 'Late') return 75;
+          return 0;
+        }),
+        borderColor: 'rgba(220, 38, 38, 1)',
+        backgroundColor: 'rgba(220, 38, 38, 0.1)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
+        pointHoverRadius: 6
+      }]
+    };
+  }, [attendance]);
+
+  // Bar Chart Data - Status Comparison
+  const barChartData = useMemo(() => ({
+    labels: ['Present', 'Late', 'Absent'],
+    datasets: [{
+      label: 'Days Count',
+      data: [stats.presentDays, stats.lateDays, stats.absentDays],
+      backgroundColor: [
+        'rgba(34, 197, 94, 0.8)',
+        'rgba(234, 179, 8, 0.8)',
+        'rgba(239, 68, 68, 0.8)'
+      ],
+      borderColor: [
+        'rgba(34, 197, 94, 1)',
+        'rgba(234, 179, 8, 1)',
+        'rgba(239, 68, 68, 1)'
+      ],
+      borderWidth: 2
+    }]
+  }), [stats]);
+
   if (loading) {
     return (
       <div className="min-h-screen w-full lg:ml-70 py-5 roboto px-3 sm:px-5 bg-red-200">
@@ -371,106 +463,111 @@ const FacDashboard = () => {
             </div>
           </div>
 
-          {/* Stats Cards - Dynamic and Real-time */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-            {/* Attendance Rate */}
-            <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-              <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
-              <div className="relative z-10 flex items-center justify-between">
-                <div className="text-white">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h2 className="text-lg font-semibold">Attendance Rate</h2>
-                  </div>
-                  <p className="text-3xl font-bold">{stats.attendanceRate}%</p>
-                  <p className="text-blue-100 text-sm mt-1">Overall performance</p>
+          {/* Quick Stats Summary */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-xl shadow-lg text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs opacity-90">Attendance Rate</p>
+                  <p className="text-2xl font-bold">{stats.attendanceRate}%</p>
                 </div>
+                <svg className="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
               </div>
-              <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
+            </div>
+            <div className="bg-gradient-to-br from-green-500 to-green-600 p-4 rounded-xl shadow-lg text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs opacity-90">Total Hours</p>
+                  <p className="text-2xl font-bold">{stats.totalHours.toFixed(1)}</p>
+                </div>
+                <svg className="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 rounded-xl shadow-lg text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs opacity-90">Present</p>
+                  <p className="text-2xl font-bold">{stats.presentDays}</p>
+                </div>
+                <svg className="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 p-4 rounded-xl shadow-lg text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs opacity-90">Late</p>
+                  <p className="text-2xl font-bold">{stats.lateDays}</p>
+                </div>
+                <svg className="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-red-500 to-red-600 p-4 rounded-xl shadow-lg text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs opacity-90">Absent</p>
+                  <p className="text-2xl font-bold">{stats.absentDays}</p>
+                </div>
+                <svg className="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Interactive Charts Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Pie Chart - Attendance Distribution */}
+            <div className="bg-white border border-gray-200 shadow-xl rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-700 rounded-xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-bold text-gray-800">Attendance Distribution</h2>
+              </div>
+              <div className="h-64 flex items-center justify-center">
+                <Pie data={pieChartData} options={{ maintainAspectRatio: false, responsive: true }} />
+              </div>
             </div>
 
-            {/* Total Hours */}
-            <div className="group relative overflow-hidden bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-              <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
-              <div className="relative z-10 flex items-center justify-between">
-                <div className="text-white">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h2 className="text-lg font-semibold">Total Hours</h2>
-                  </div>
-                  <p className="text-3xl font-bold">{stats.totalHours.toFixed(1)}</p>
-                  <p className="text-green-100 text-sm mt-1">Hours worked</p>
+            {/* Bar Chart - Status Comparison */}
+            <div className="bg-white border border-gray-200 shadow-xl rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
                 </div>
+                <h2 className="text-lg font-bold text-gray-800">Status Comparison</h2>
               </div>
-              <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
+              <div className="h-64">
+                <Bar data={barChartData} options={{ maintainAspectRatio: false, responsive: true, scales: { y: { beginAtZero: true } } }} />
+              </div>
             </div>
+          </div>
 
-            {/* Present Days */}
-            <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-              <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
-              <div className="relative z-10 flex items-center justify-between">
-                <div className="text-white">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <h2 className="text-lg font-semibold">Present Days</h2>
-                  </div>
-                  <p className="text-3xl font-bold">{stats.presentDays}</p>
-                  <p className="text-emerald-100 text-sm mt-1">Days attended</p>
-                </div>
+          {/* Line Chart - Attendance Trend (Full Width) */}
+          <div className="bg-white border border-gray-200 shadow-xl rounded-2xl p-6 mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                </svg>
               </div>
-              <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
+              <h2 className="text-lg font-bold text-gray-800">Attendance Trend</h2>
             </div>
-
-            {/* Late Days */}
-            <div className="group relative overflow-hidden bg-gradient-to-br from-yellow-500 to-yellow-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-              <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
-              <div className="relative z-10 flex items-center justify-between">
-                <div className="text-white">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h2 className="text-lg font-semibold">Late Days</h2>
-                  </div>
-                  <p className="text-3xl font-bold">{stats.lateDays}</p>
-                  <p className="text-yellow-100 text-sm mt-1">Days late</p>
-                </div>
-              </div>
-              <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
-            </div>
-
-            {/* Absent Days */}
-            <div className="group relative overflow-hidden bg-gradient-to-br from-red-500 to-red-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-              <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
-              <div className="relative z-10 flex items-center justify-between">
-                <div className="text-white">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </div>
-                    <h2 className="text-lg font-semibold">Absent Days</h2>
-                  </div>
-                  <p className="text-3xl font-bold">{stats.absentDays}</p>
-                  <p className="text-red-100 text-sm mt-1">Days missed</p>
-                </div>
-              </div>
-              <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
+            <div className="h-72">
+              <Line data={lineChartData} options={{ maintainAspectRatio: false, responsive: true, scales: { y: { beginAtZero: true, max: 100 } } }} />
             </div>
           </div>
 

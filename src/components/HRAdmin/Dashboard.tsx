@@ -1,6 +1,34 @@
 // src/pages/Hero.tsx
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import supabase from "../../utils/supabase";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Pie, Doughnut } from 'react-chartjs-2';
+
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 const Dashboard = () => {
   const [employees, setEmployees] = useState<any[]>([]);
@@ -320,6 +348,72 @@ const Dashboard = () => {
   const tableFirst = tableLast - tableRow;
   const tablePage = employees.slice(tableFirst, tableLast);
 
+  // Pie Chart Data - Employee Distribution by Role
+  const employeeRoleData = useMemo(() => {
+    const roleCounts: { [key: string]: number } = {};
+    employees.forEach(emp => {
+      const role = emp.role || 'Unknown';
+      roleCounts[role] = (roleCounts[role] || 0) + 1;
+    });
+
+    const roles = Object.keys(roleCounts);
+    const counts = Object.values(roleCounts);
+
+    return {
+      labels: roles,
+      datasets: [{
+        data: counts,
+        backgroundColor: roles.map(role => {
+          const colors: { [key: string]: string } = {
+            'Administrator': 'rgba(147, 51, 234, 0.8)',
+            'HR Personnel': 'rgba(59, 130, 246, 0.8)',
+            'Accounting': 'rgba(34, 197, 94, 0.8)',
+            'Faculty': 'rgba(239, 68, 68, 0.8)',
+            'Staff': 'rgba(249, 115, 22, 0.8)',
+            'SA': 'rgba(234, 179, 8, 0.8)',
+            'Guard': 'rgba(20, 184, 166, 0.8)'
+          };
+          return colors[role] || 'rgba(107, 114, 128, 0.8)';
+        }),
+        borderColor: roles.map(role => {
+          const colors: { [key: string]: string } = {
+            'Administrator': 'rgba(147, 51, 234, 1)',
+            'HR Personnel': 'rgba(59, 130, 246, 1)',
+            'Accounting': 'rgba(34, 197, 94, 1)',
+            'Faculty': 'rgba(239, 68, 68, 1)',
+            'Staff': 'rgba(249, 115, 22, 1)',
+            'SA': 'rgba(234, 179, 8, 1)',
+            'Guard': 'rgba(20, 184, 166, 1)'
+          };
+          return colors[role] || 'rgba(107, 114, 128, 1)';
+        }),
+        borderWidth: 2
+      }]
+    };
+  }, [employees]);
+
+  // Doughnut Chart Data - Payroll Status
+  const payrollStatusData = useMemo(() => {
+    const pending = payrollRecords.filter(pr => pr.status === 'Pending').length;
+    const finalized = payrollRecords.filter(pr => pr.status === 'Finalized' || pr.status === 'Paid').length;
+
+    return {
+      labels: ['Pending', 'Finalized/Paid'],
+      datasets: [{
+        data: [pending, finalized],
+        backgroundColor: [
+          'rgba(234, 179, 8, 0.8)',
+          'rgba(34, 197, 94, 0.8)'
+        ],
+        borderColor: [
+          'rgba(234, 179, 8, 1)',
+          'rgba(34, 197, 94, 1)'
+        ],
+        borderWidth: 2
+      }]
+    };
+  }, [payrollRecords]);
+
   return (
     <div className="min-h-screen w-full lg:ml-70 py-5 roboto px-3 sm:px-5 bg-red-200">
       <main className="flex flex-col w-full max-w-7xl mx-auto p-4 sm:p-6 bg-white border border-gray-200 shadow-2xl rounded-2xl">
@@ -405,6 +499,69 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
+            </div>
+          </div>
+
+          {/* Interactive Charts Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            {/* Pie Chart - Employee Distribution by Role */}
+            <div className="bg-white border border-gray-200 shadow-xl rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-bold text-gray-800">Employee Distribution</h2>
+              </div>
+              <div className="h-64 flex items-center justify-center">
+                <Pie data={employeeRoleData} options={{ 
+                  maintainAspectRatio: false, 
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      position: 'bottom',
+                      labels: {
+                        boxWidth: 12,
+                        padding: 10,
+                        font: {
+                          size: 11
+                        }
+                      }
+                    }
+                  }
+                }} />
+              </div>
+            </div>
+
+            {/* Doughnut Chart - Payroll Status */}
+            <div className="bg-white border border-gray-200 shadow-xl rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-bold text-gray-800">Payroll Status</h2>
+              </div>
+              <div className="h-64 flex items-center justify-center">
+                <Doughnut data={payrollStatusData} options={{ 
+                  maintainAspectRatio: false, 
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      position: 'bottom',
+                      labels: {
+                        boxWidth: 12,
+                        padding: 10,
+                        font: {
+                          size: 11
+                        }
+                      }
+                    }
+                  }
+                }} />
+              </div>
             </div>
           </div>
         </section>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import supabase from "../../utils/supabase";
 import { toast } from 'react-hot-toast';
+import Swal from 'sweetalert2';
 
 export const FacRequest = () => {
   const [allRequests, setAllRequests] = useState<any[]>([]);
@@ -160,17 +161,28 @@ export const FacRequest = () => {
           .insert([requestData]);
 
         if (!error) {
-          if (needsDeanApproval) {
-            toast.success("Gate Pass request submitted for Dean approval!");
-          } else {
-            toast.success("Gate Pass request submitted successfully!");
-          }
           setActiveForm(null);
           setGatePassForm({ purpose: "", destination: "", time_out: "", time_in: "" });
           fetchRequests();
+          
+          await Swal.fire({
+            title: 'Success!',
+            text: needsDeanApproval 
+              ? 'Gate Pass request submitted for Dean approval!' 
+              : 'Gate Pass request submitted successfully!',
+            icon: 'success',
+            confirmButtonColor: '#dc2626',
+            confirmButtonText: 'OK'
+          });
         } else {
           console.error('[FacRequest] Error submitting request:', error);
-          toast.error("Error submitting request: " + error.message);
+          await Swal.fire({
+            title: 'Error!',
+            text: `Failed to submit request: ${error.message}`,
+            icon: 'error',
+            confirmButtonColor: '#dc2626',
+            confirmButtonText: 'OK'
+          });
         }
       }
     } catch (error) {
@@ -218,17 +230,28 @@ export const FacRequest = () => {
           .insert([requestData]);
 
         if (!error) {
-          if (needsDeanApproval) {
-            toast.success("Loan request submitted for Dean approval!");
-          } else {
-            toast.success("Loan request submitted successfully!");
-          }
           setActiveForm(null);
           setLoanForm({ amount: "", reason: "", date_needed: "", repayment_terms: "", period_deduction: "", total_periods: "" });
           fetchRequests();
+          
+          await Swal.fire({
+            title: 'Success!',
+            text: needsDeanApproval 
+              ? 'Loan request submitted for Dean approval!' 
+              : 'Loan request submitted successfully!',
+            icon: 'success',
+            confirmButtonColor: '#dc2626',
+            confirmButtonText: 'OK'
+          });
         } else {
           console.error('[FacRequest] Error submitting loan request:', error);
-          toast.error("Error submitting request: " + error.message);
+          await Swal.fire({
+            title: 'Error!',
+            text: `Failed to submit request: ${error.message}`,
+            icon: 'error',
+            confirmButtonColor: '#dc2626',
+            confirmButtonText: 'OK'
+          });
         }
       }
     } catch (error) {
@@ -281,22 +304,84 @@ export const FacRequest = () => {
           .insert([requestData]);
 
         if (!error) {
-          if (needsDeanApproval) {
-            toast.success("Leave request submitted for Dean approval!");
-          } else {
-            toast.success("Leave request submitted successfully!");
-          }
           setActiveForm(null);
           setLeaveForm({ leave_type: "", start_date: "", end_date: "", reason: "", substitute_teacher: "", contact_number: "" });
           fetchRequests();
+          
+          await Swal.fire({
+            title: 'Success!',
+            text: needsDeanApproval 
+              ? 'Leave request submitted for Dean approval!' 
+              : 'Leave request submitted successfully!',
+            icon: 'success',
+            confirmButtonColor: '#dc2626',
+            confirmButtonText: 'OK'
+          });
         } else {
           console.error('[FacRequest] Error submitting leave request:', error);
-          toast.error("Error submitting request: " + error.message);
+          await Swal.fire({
+            title: 'Error!',
+            text: `Failed to submit request: ${error.message}`,
+            icon: 'error',
+            confirmButtonColor: '#dc2626',
+            confirmButtonText: 'OK'
+          });
         }
       }
     } catch (error) {
       console.error("Error submitting leave request:", error);
       toast.error("Error submitting request");
+    }
+  };
+
+  const deleteRequest = async (requestId: number, requestType: string) => {
+    const result = await Swal.fire({
+      title: 'Delete Request?',
+      html: `Are you sure you want to delete this <strong>${requestType}</strong> request?<br/><br/>This action cannot be undone.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const { error } = await supabase
+          .from("requests")
+          .delete()
+          .eq("id", requestId);
+
+        if (error) {
+          console.error('[FacRequest] Error deleting request:', error);
+          await Swal.fire({
+            title: 'Error!',
+            text: `Failed to delete request: ${error.message}`,
+            icon: 'error',
+            confirmButtonColor: '#dc2626',
+            confirmButtonText: 'OK'
+          });
+        } else {
+          await Swal.fire({
+            title: 'Deleted!',
+            text: 'Request has been deleted successfully.',
+            icon: 'success',
+            confirmButtonColor: '#dc2626',
+            confirmButtonText: 'OK'
+          });
+          fetchRequests();
+        }
+      } catch (error) {
+        console.error('[FacRequest] Error deleting request:', error);
+        await Swal.fire({
+          title: 'Error!',
+          text: 'An error occurred while deleting the request.',
+          icon: 'error',
+          confirmButtonColor: '#dc2626',
+          confirmButtonText: 'OK'
+        });
+      }
     }
   };
 
@@ -350,15 +435,15 @@ export const FacRequest = () => {
               {/* Gate Pass Card */}
               <div 
                 onClick={() => setActiveForm('gatepass')}
-                className="group cursor-pointer bg-gradient-to-br from-blue-500 to-blue-600 p-8 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 transform"
+                className="group cursor-pointer bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 transform"
               >
                 <div className="text-white text-center">
-                  <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                   </div>
-                  <h3 className="text-xl font-bold mb-2">Gate Pass</h3>
+                  <h3 className="text-lg font-bold mb-1.5">Gate Pass</h3>
                   <p className="text-blue-100 text-sm">Request permission to leave campus</p>
                 </div>
               </div>
@@ -366,15 +451,15 @@ export const FacRequest = () => {
               {/* Loan Card */}
               <div 
                 onClick={() => setActiveForm('loan')}
-                className="group cursor-pointer bg-gradient-to-br from-green-500 to-green-600 p-8 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 transform"
+                className="group cursor-pointer bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 transform"
               >
                 <div className="text-white text-center">
-                  <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                     </svg>
                   </div>
-                  <h3 className="text-xl font-bold mb-2">Loan Request</h3>
+                  <h3 className="text-lg font-bold mb-1.5">Loan Request</h3>
                   <p className="text-green-100 text-sm">Apply for financial assistance</p>
                 </div>
               </div>
@@ -382,15 +467,15 @@ export const FacRequest = () => {
               {/* Leave Card */}
               <div 
                 onClick={() => setActiveForm('leave')}
-                className="group cursor-pointer bg-gradient-to-br from-purple-500 to-purple-600 p-8 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 transform"
+                className="group cursor-pointer bg-gradient-to-br from-purple-500 to-purple-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 transform"
               >
                 <div className="text-white text-center">
-                  <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 0h6m-6 0l-2 2m8-2l2 2m-2-2v12a2 2 0 01-2 2H10a2 2 0 01-2-2V9m8 0V9a2 2 0 00-2-2H10a2 2 0 00-2 2v0" />
                     </svg>
                   </div>
-                  <h3 className="text-xl font-bold mb-2">Leave Request</h3>
+                  <h3 className="text-lg font-bold mb-1.5">Leave Request</h3>
                   <p className="text-purple-100 text-sm">Apply for time off</p>
                 </div>
               </div>
@@ -741,61 +826,61 @@ export const FacRequest = () => {
 
           {/* Statistics Cards */}
           {!activeForm && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* Pending Card */}
-              <div className="group relative overflow-hidden bg-gradient-to-br from-yellow-500 to-yellow-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+              <div className="group relative overflow-hidden bg-gradient-to-br from-yellow-500 to-yellow-600 p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
                 <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
                 <div className="relative z-10">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
                     <div className="text-white">
-                      <h2 className="text-lg font-semibold">Pending</h2>
-                      <p className="text-yellow-100 text-sm">Awaiting approval</p>
+                      <h2 className="text-base font-semibold">Pending</h2>
+                      <p className="text-yellow-100 text-xs">Awaiting approval</p>
                     </div>
                   </div>
-                  <p className="text-3xl font-bold text-white">{pendingRequests}</p>
+                  <p className="text-2xl font-bold text-white">{pendingRequests}</p>
                 </div>
               </div>
 
               {/* Approved Card */}
-              <div className="group relative overflow-hidden bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+              <div className="group relative overflow-hidden bg-gradient-to-br from-green-500 to-green-600 p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
                 <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
                 <div className="relative z-10">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
                     <div className="text-white">
-                      <h2 className="text-lg font-semibold">Approved</h2>
-                      <p className="text-green-100 text-sm">Successfully approved</p>
+                      <h2 className="text-base font-semibold">Approved</h2>
+                      <p className="text-green-100 text-xs">Successfully approved</p>
                     </div>
                   </div>
-                  <p className="text-3xl font-bold text-white">{approvedRequests}</p>
+                  <p className="text-2xl font-bold text-white">{approvedRequests}</p>
                 </div>
               </div>
 
               {/* Rejected Card */}
-              <div className="group relative overflow-hidden bg-gradient-to-br from-red-500 to-red-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+              <div className="group relative overflow-hidden bg-gradient-to-br from-red-500 to-red-600 p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
                 <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
                 <div className="relative z-10">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </div>
                     <div className="text-white">
-                      <h2 className="text-lg font-semibold">Rejected</h2>
-                      <p className="text-red-100 text-sm">Not approved</p>
+                      <h2 className="text-base font-semibold">Rejected</h2>
+                      <p className="text-red-100 text-xs">Not approved</p>
                     </div>
                   </div>
-                  <p className="text-3xl font-bold text-white">{rejectedRequests}</p>
+                  <p className="text-2xl font-bold text-white">{rejectedRequests}</p>
                 </div>
               </div>
             </div>
@@ -889,13 +974,13 @@ export const FacRequest = () => {
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full border-collapse text-sm">
-                  <thead className="bg-gradient-to-r from-red-600 to-red-700 text-white sticky top-0 z-10">
+                  <thead className="bg-red-600 text-white sticky top-0 z-10">
                     <tr>
                       <th className="px-3 sm:px-4 py-3 text-left border-b font-medium">Type</th>
                       <th className="px-3 sm:px-4 py-3 text-left border-b font-medium">Details</th>
                       <th className="px-3 sm:px-4 py-3 text-left border-b font-medium">Status</th>
                       <th className="px-3 sm:px-4 py-3 text-left border-b font-medium">Submitted</th>
-                      <th className="px-3 sm:px-4 py-3 text-center border-b font-medium">Action</th>
+                      <th className="px-3 sm:px-4 py-3 text-center border-b font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -934,15 +1019,23 @@ export const FacRequest = () => {
                             {new Date(request.created_at).toLocaleDateString()}
                           </td>
                           <td className="px-3 sm:px-4 py-4 border-b border-gray-200 text-center">
-                            <button
-                              onClick={() => {
-                                setSelectedRequest(request);
-                                setShowDetailsModal(true);
-                              }}
-                              className="px-3 py-1.5 bg-gradient-to-r from-red-600 to-red-700 text-white text-xs font-medium rounded-lg hover:shadow-lg transition-all duration-200 hover:scale-105"
-                            >
-                              View Details
-                            </button>
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedRequest(request);
+                                  setShowDetailsModal(true);
+                                }}
+                                className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-xs font-medium rounded-lg hover:shadow-lg transition-all duration-200 hover:scale-105"
+                              >
+                                View
+                              </button>
+                              <button
+                                onClick={() => deleteRequest(request.id, request.request_type)}
+                                className="px-3 py-1.5 bg-gradient-to-r from-red-600 to-red-700 text-white text-xs font-medium rounded-lg hover:shadow-lg transition-all duration-200 hover:scale-105"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))

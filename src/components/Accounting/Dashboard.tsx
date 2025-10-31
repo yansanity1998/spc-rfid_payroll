@@ -1,6 +1,34 @@
 // src/components/Accounting/Dashboard.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import supabase from "../../utils/supabase";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Pie, Bar, Doughnut } from 'react-chartjs-2';
+
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 const AccDashboard = () => {
   const [employees, setEmployees] = useState<any[]>([]);
@@ -96,6 +124,87 @@ const AccDashboard = () => {
   const totalNetPay = payrollRecords.reduce((sum, pr) => sum + (pr.net || 0), 0);
   const pendingPayrolls = payrollRecords.filter(pr => pr.status === "Pending").length;
   const finalizedPayrolls = payrollRecords.filter(pr => pr.status === "Finalized").length;
+
+  // Pie Chart Data - Payroll Status Distribution
+  const statusPieData = useMemo(() => ({
+    labels: ['Pending', 'Finalized'],
+    datasets: [{
+      data: [pendingPayrolls, finalizedPayrolls],
+      backgroundColor: [
+        'rgba(234, 179, 8, 0.8)',    // Yellow for Pending
+        'rgba(16, 185, 129, 0.8)'    // Green for Finalized
+      ],
+      borderColor: [
+        'rgba(234, 179, 8, 1)',
+        'rgba(16, 185, 129, 1)'
+      ],
+      borderWidth: 2
+    }]
+  }), [pendingPayrolls, finalizedPayrolls]);
+
+  // Doughnut Chart Data - Financial Breakdown
+  const financialDoughnutData = useMemo(() => ({
+    labels: ['Gross Pay', 'Deductions', 'Net Pay'],
+    datasets: [{
+      data: [totalGrossPay, totalDeductions, totalNetPay],
+      backgroundColor: [
+        'rgba(34, 197, 94, 0.8)',    // Green for Gross
+        'rgba(239, 68, 68, 0.8)',    // Red for Deductions
+        'rgba(147, 51, 234, 0.8)'    // Purple for Net
+      ],
+      borderColor: [
+        'rgba(34, 197, 94, 1)',
+        'rgba(239, 68, 68, 1)',
+        'rgba(147, 51, 234, 1)'
+      ],
+      borderWidth: 2
+    }]
+  }), [totalGrossPay, totalDeductions, totalNetPay]);
+
+  // Bar Chart Data - Payroll by Role
+  const rolePayrollData = useMemo(() => {
+    const roleStats: { [key: string]: number } = {};
+    payrollRecords.forEach(pr => {
+      const role = pr.role || 'Unknown';
+      roleStats[role] = (roleStats[role] || 0) + (pr.net || 0);
+    });
+
+    const roles = Object.keys(roleStats);
+    const amounts = Object.values(roleStats);
+
+    return {
+      labels: roles,
+      datasets: [{
+        label: 'Total Net Pay by Role',
+        data: amounts,
+        backgroundColor: roles.map(role => {
+          const colors: { [key: string]: string } = {
+            'Administrator': 'rgba(147, 51, 234, 0.8)',
+            'HR Personnel': 'rgba(59, 130, 246, 0.8)',
+            'Accounting': 'rgba(34, 197, 94, 0.8)',
+            'Faculty': 'rgba(239, 68, 68, 0.8)',
+            'Staff': 'rgba(249, 115, 22, 0.8)',
+            'SA': 'rgba(234, 179, 8, 0.8)',
+            'Guard': 'rgba(20, 184, 166, 0.8)'
+          };
+          return colors[role] || 'rgba(107, 114, 128, 0.8)';
+        }),
+        borderColor: roles.map(role => {
+          const colors: { [key: string]: string } = {
+            'Administrator': 'rgba(147, 51, 234, 1)',
+            'HR Personnel': 'rgba(59, 130, 246, 1)',
+            'Accounting': 'rgba(34, 197, 94, 1)',
+            'Faculty': 'rgba(239, 68, 68, 1)',
+            'Staff': 'rgba(249, 115, 22, 1)',
+            'SA': 'rgba(234, 179, 8, 1)',
+            'Guard': 'rgba(20, 184, 166, 1)'
+          };
+          return colors[role] || 'rgba(107, 114, 128, 1)';
+        }),
+        borderWidth: 2
+      }]
+    };
+  }, [payrollRecords]);
 
   return (
     <div className="min-h-screen w-full lg:ml-70 py-5 roboto px-3 sm:px-5 bg-red-200">
@@ -199,46 +308,83 @@ const AccDashboard = () => {
             </div>
           </div>
 
-          {/* Payroll Status Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-6">
-            {/* Pending Payrolls */}
-            <div className="group relative overflow-hidden bg-gradient-to-br from-yellow-500 to-yellow-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-              <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
-              <div className="relative z-10 flex items-center justify-between">
-                <div className="text-white">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h2 className="text-lg font-semibold">Pending Payrolls</h2>
-                  </div>
-                  <p className="text-3xl font-bold">{pendingPayrolls}</p>
-                  <p className="text-yellow-100 text-sm mt-1">Awaiting processing</p>
+          {/* Interactive Charts Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+            {/* Pie Chart - Payroll Status */}
+            <div className="bg-white border border-gray-200 shadow-xl rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-bold text-gray-800">Payroll Status</h2>
+              </div>
+              <div className="h-64 flex items-center justify-center">
+                <Pie data={statusPieData} options={{ maintainAspectRatio: false, responsive: true }} />
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2 text-center">
+                <div className="bg-yellow-50 p-2 rounded-lg">
+                  <p className="text-xl font-bold text-yellow-600">{pendingPayrolls}</p>
+                  <p className="text-xs text-yellow-700">Pending</p>
+                </div>
+                <div className="bg-green-50 p-2 rounded-lg">
+                  <p className="text-xl font-bold text-green-600">{finalizedPayrolls}</p>
+                  <p className="text-xs text-green-700">Finalized</p>
                 </div>
               </div>
-              <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
             </div>
 
-            {/* Finalized Payrolls */}
-            <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-              <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
-              <div className="relative z-10 flex items-center justify-between">
-                <div className="text-white">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <h2 className="text-lg font-semibold">Finalized Payrolls</h2>
-                  </div>
-                  <p className="text-3xl font-bold">{finalizedPayrolls}</p>
-                  <p className="text-emerald-100 text-sm mt-1">Completed payrolls</p>
+            {/* Doughnut Chart - Financial Breakdown */}
+            <div className="bg-white border border-gray-200 shadow-xl rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
+                <h2 className="text-lg font-bold text-gray-800">Financial Overview</h2>
               </div>
-              <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
+              <div className="h-64 flex items-center justify-center">
+                <Doughnut data={financialDoughnutData} options={{ maintainAspectRatio: false, responsive: true }} />
+              </div>
+            </div>
+
+            {/* Bar Chart - Payroll by Role */}
+            <div className="bg-white border border-gray-200 shadow-xl rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-bold text-gray-800">Pay by Role</h2>
+              </div>
+              <div className="h-64">
+                <Bar data={rolePayrollData} options={{ 
+                  maintainAspectRatio: false, 
+                  responsive: true,
+                  scales: { 
+                    y: { 
+                      beginAtZero: true,
+                      ticks: {
+                        callback: function(value) {
+                          return '₱' + value.toLocaleString();
+                        }
+                      }
+                    } 
+                  },
+                  plugins: {
+                    tooltip: {
+                      callbacks: {
+                        label: function(context) {
+                          return context.dataset.label + ': ₱' + context.parsed.y.toLocaleString();
+                        }
+                      }
+                    }
+                  }
+                }} />
+              </div>
             </div>
           </div>
         </section>
