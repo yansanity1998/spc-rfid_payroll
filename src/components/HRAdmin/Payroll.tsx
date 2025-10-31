@@ -500,6 +500,13 @@ export const Payroll = () => {
       const deductions = data.deductions || 0;
       const loan = data.loan_deduction || 0;
       const net = data.net || (gross - deductions - loan);
+      
+      // Format current date
+      const currentDate = new Date().toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
 
       const html = `
         <!doctype html>
@@ -509,98 +516,300 @@ export const Payroll = () => {
           <title>Payslip - ${data.name}</title>
           <meta name="viewport" content="width=device-width,initial-scale=1" />
           <style>
-            :root{--red1:#ef4444;--red2:#b91c1c;--muted:#6b7280;--card:#ffffff}
-            html,body{height:100%;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-            *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-            body { font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; margin:0; padding:24px; background:#f3f4f6; color:#0f172a }
-            .container{max-width:820px;margin:0 auto}
-            .payslip{background:linear-gradient(180deg,rgba(255,255,255,0.85),rgba(255,255,255,0.95));border-radius:14px;overflow:hidden;box-shadow:0 8px 24px rgba(15,23,42,0.08);border:2px solid #e6eef8}
-            /* Use both gradient and solid fallback for reliable printing */
-            .payslip-header{background:linear-gradient(90deg,var(--red1),var(--red2));background-color:var(--red2);color:white;padding:20px 24px;display:flex;align-items:center;justify-content:space-between}
-            .brand{display:flex;align-items:center;gap:12px}
-            .logo{width:44px;height:44px;border-radius:9px;background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center}
-            .brand h1{font-size:18px;margin:0}
-            .meta{font-size:13px;text-align:right;opacity:0.95}
-            .content{padding:20px 24px}
-            .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
-            .card{background:var(--card);border-radius:10px;padding:12px;border:2px solid #e6eef8}
-            .muted{color:var(--muted);font-size:12px}
-            .value{font-weight:700;color:#0f172a;margin-top:6px}
-            .summary{display:flex;gap:12px;align-items:stretch;margin-top:12px}
-            /* solid fallback color plus gradient for screens */
-            .summary .big{flex:1;border-radius:10px;padding:14px;background:linear-gradient(90deg,#10b981,#059669);background-color:#059669;color:white;text-align:center}
-            .line{height:2px;background:#dfe6ef;margin:16px 0;border-radius:2px}
-            .note{font-size:12px;color:var(--muted)}
-            .footer{padding:14px 24px;background:#fff;border-top:2px solid #f3f4f6;text-align:center;font-size:12px;color:var(--muted)}
-            @media print{body{background:white;padding:0} .container{max-width:100%} .payslip{box-shadow:none;border-radius:0} .no-print{display:none!important} 
-              /* Make sure backgrounds/colors render as expected when printing */
-              .payslip-header, .summary .big { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+            @page {
+              size: A4 landscape;
+              margin: 10mm;
+            }
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            body {
+              font-family: 'Arial', sans-serif;
+              background: white;
+              padding: 0;
+              font-size: 9pt;
+              line-height: 1.3;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+            }
+            .payslip-container {
+              max-width: 240mm;
+              width: 90%;
+              margin: 0 auto;
+              background: white;
+              border: 2px solid #000;
+              padding: 0;
+            }
+            .header {
+              text-align: center;
+              padding: 15px 20px;
+              border-bottom: 2px solid #000;
+            }
+            .header h1 {
+              font-size: 13pt;
+              font-weight: bold;
+              margin-bottom: 3px;
+              text-transform: uppercase;
+            }
+            .header .subtitle {
+              font-size: 8pt;
+              margin-bottom: 6px;
+            }
+            .header .period {
+              font-size: 9pt;
+              font-weight: bold;
+              margin-top: 6px;
+            }
+            .section {
+              padding: 10px 15px;
+              border-bottom: 2px solid #000;
+            }
+            .section:last-child {
+              border-bottom: none;
+            }
+            .section-title {
+              font-weight: bold;
+              font-size: 9pt;
+              margin-bottom: 6px;
+              text-transform: uppercase;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 120px 1fr;
+              gap: 4px;
+              font-size: 8pt;
+            }
+            .info-label {
+              font-weight: normal;
+            }
+            .info-value {
+              font-weight: normal;
+            }
+            .two-column {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+            }
+            .column-section {
+              display: flex;
+              flex-direction: column;
+            }
+            .amount-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 3px 0;
+              font-size: 8pt;
+            }
+            .amount-label {
+              font-weight: normal;
+            }
+            .amount-value {
+              font-weight: normal;
+              text-align: right;
+              min-width: 70px;
+            }
+            .total-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 6px 0;
+              margin-top: 6px;
+              border-top: 2px solid #000;
+              font-weight: bold;
+              font-size: 9pt;
+            }
+            .net-pay-section {
+              background: #f5f5f5;
+              padding: 10px 15px;
+              text-align: center;
+            }
+            .net-pay-label {
+              font-size: 9pt;
+              font-weight: bold;
+              margin-bottom: 4px;
+            }
+            .net-pay-amount {
+              font-size: 13pt;
+              font-weight: bold;
+            }
+            .footer {
+              padding: 10px 15px;
+              font-size: 8pt;
+              text-align: center;
+              border-top: 2px solid #000;
+            }
+            .signature-section {
+              display: flex;
+              justify-content: space-between;
+              margin-top: 30px;
+              padding: 0 20px;
+            }
+            .signature-box {
+              text-align: center;
+              width: 200px;
+            }
+            .signature-line {
+              border-top: 1px solid #000;
+              margin-bottom: 5px;
+              padding-top: 40px;
+            }
+            @media print {
+              body {
+                padding: 0;
+              }
+              .no-print {
+                display: none !important;
+              }
             }
           </style>
         </head>
         <body>
-          <div class="container">
-            <div class="payslip">
-              <div class="payslip-header">
-                <div class="brand">
-                  <div class="logo">
-                    <img src="/assets/images/spclogo 1.png" alt="SPC Logo" style="width:36px;height:36px;object-fit:contain;border-radius:6px" />
+          <div class="payslip-container">
+            <!-- Header -->
+            <div class="header">
+              <h1>ST. PETERS COLLEGE-PAYSLIP</h1>
+              <div class="subtitle">Period: AUGUST 11 - AUGUST 25,2025</div>
+              <div class="period">${data.period || 'N/A'}</div>
+            </div>
+
+            <!-- Employee Information -->
+            <div class="section">
+              <div class="section-title">INCOME:</div>
+              <div class="info-grid">
+                <div class="info-label">Department:</div>
+                <div class="info-value">${data.role || 'N/A'}</div>
+                
+                <div class="info-label">Employee Name:</div>
+                <div class="info-value">${data.name || 'N/A'}</div>
+                
+                <div class="info-label">ID #:</div>
+                <div class="info-value">${data.userId || 'N/A'}</div>
+              </div>
+            </div>
+
+            <!-- Income and Deductions -->
+            <div class="section">
+              <div class="two-column">
+                <!-- Income Column -->
+                <div class="column-section">
+                  <div class="amount-row">
+                    <div class="amount-label">Basic Rate:</div>
+                    <div class="amount-value">${gross.toFixed(2)}</div>
                   </div>
-                  <div>
-                    <h1>SPC Payroll</h1>
-                    <div class="muted">Payslip</div>
+                  <div class="amount-row">
+                    <div class="amount-label">No. of Days/Hrs Worked:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Basic Pay:</div>
+                    <div class="amount-value">${gross.toFixed(2)}</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Accumulated Overtimes:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Extra Load Amount:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">13th Month:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Other Income:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="total-row">
+                    <div>GROSS PAY:</div>
+                    <div>${gross.toFixed(2)}</div>
+                  </div>
+                  <div class="total-row">
+                    <div>ADD: OTHER BENEFITS:</div>
+                    <div>--</div>
+                  </div>
+                  <div class="total-row">
+                    <div>TOTAL PAY:</div>
+                    <div>${gross.toFixed(2)}</div>
                   </div>
                 </div>
-                <div class="meta">
-                  <div>Employee #: ${data.userId}</div>
-                  <div>${new Date().toLocaleDateString()}</div>
+
+                <!-- Deductions Column -->
+                <div class="column-section">
+                  <div class="section-title">DEDUCTIONS:</div>
+                  <div class="amount-row">
+                    <div class="amount-label">SSS Employee Share:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">PHILHEALTH Payable:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">HDMF/EE Payable:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Groceries/Canteen:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">HDMF Loan:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Booklet/Loan:</div>
+                    <div class="amount-value">${loan.toFixed(2)}</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">SSS Loan:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">COOP:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Cash Advances:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Uniform/Misc:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Other Deductions:</div>
+                    <div class="amount-value">${deductions.toFixed(2)}</div>
+                  </div>
+                  <div class="total-row">
+                    <div>TOTAL DEDUCTIONS:</div>
+                    <div>${(deductions + loan).toFixed(2)}</div>
+                  </div>
                 </div>
               </div>
+            </div>
 
-              <div class="content">
-                <div class="grid">
-                  <div class="card">
-                    <div class="muted">Employee</div>
-                    <div class="value">${data.name || '--'}</div>
-                    <div class="muted" style="margin-top:6px">${data.role || '--'}</div>
-                    <div class="line"></div>
-                    <div class="muted">Status</div>
-                    <div class="value">${data.status || '--'}</div>
-                  </div>
+            <!-- Net Pay -->
+            <div class="net-pay-section">
+              <div class="net-pay-label">PAYROLL NET PAY:</div>
+              <div class="net-pay-amount">${net.toFixed(2)}</div>
+            </div>
 
-                  <div class="card">
-                    <div class="muted">Period</div>
-                    <div class="value">${data.period || '--'}</div>
-                    <div class="line"></div>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-                      <div style="flex:1;min-width:140px;background:#fafafa;padding:10px;border-radius:8px;border:2px solid #e6eef8;">
-                        <div class="muted">Gross Pay</div>
-                        <div class="value">₱${gross.toLocaleString()}</div>
-                      </div>
-                      <div style="flex:1;min-width:140px;background:#fafafa;padding:10px;border-radius:8px;border:2px solid #e6eef8;">
-                        <div class="muted">Deductions</div>
-                        <div class="value">₱${deductions.toLocaleString()}</div>
-                      </div>
-                    </div>
-                  </div>
+            <!-- Footer -->
+            <div class="footer">
+              <div>Date: ${currentDate}</div>
+              <div style="margin-top: 10px;">Received by:</div>
+              <div class="signature-section">
+                <div class="signature-box">
+                  <div class="signature-line"></div>
+                  <div>Employee Signature</div>
                 </div>
-
-                  <div class="summary">
-                  <div class="big">
-                    <div class="muted">Net Pay</div>
-                    <div style="font-size:20px;font-weight:800;margin-top:8px">₱${net.toLocaleString()}</div>
-                  </div>
-                  <div style="min-width:200px;background:#fff;padding:12px;border-radius:10px;border:2px solid #e6eef8;display:flex;flex-direction:column;justify-content:center;">
-                    <div class="muted">Loan Deduction</div>
-                    <div class="value">₱${loan.toLocaleString()}</div>
-                  </div>
-                </div>
-
-                <div class="line"></div>
-                <div class="note">This payslip contains employee information and payroll summary only. For full breakdowns, view payroll history in the system.</div>
               </div>
-
-              <div class="footer no-print">Generated by SPC Payroll • ${new Date().toLocaleDateString()}</div>
             </div>
           </div>
         </body>

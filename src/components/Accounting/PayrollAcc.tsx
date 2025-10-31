@@ -1,6 +1,7 @@
 // src/pages/Accounting/PayrollAcc.tsx
 import { useEffect, useState } from "react";
 import supabase from "../../utils/supabase";
+import Swal from 'sweetalert2';
 
 export const PayrollAcc = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -19,6 +20,10 @@ export const PayrollAcc = () => {
   const [loans, setLoans] = useState<{[key: number]: any}>({});
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkRole, setBulkRole] = useState("");
+  const [bulkPeriod, setBulkPeriod] = useState("");
+  const [bulkProcessing, setBulkProcessing] = useState(false);
 
   // Color coding system for employee types
   const getEmployeeTypeColor = (role: string) => {
@@ -519,6 +524,7 @@ export const PayrollAcc = () => {
       id,
       name,
       role,
+      status,
       payrolls (
         id,
         period,
@@ -698,17 +704,115 @@ export const PayrollAcc = () => {
       .eq("id", id);
 
     if (error) {
-      alert(error.message);
+      await Swal.fire({
+        title: 'Error!',
+        text: error.message,
+        icon: 'error',
+        confirmButtonColor: '#dc2626',
+        confirmButtonText: 'OK',
+        customClass: {
+          popup: 'rounded-2xl',
+          title: 'text-xl font-bold',
+          confirmButton: 'px-6 py-3 rounded-xl font-semibold shadow-lg'
+        }
+      });
     } else {
+      await Swal.fire({
+        title: 'Updated!',
+        text: 'Payroll record updated successfully',
+        icon: 'success',
+        confirmButtonColor: '#16a34a',
+        confirmButtonText: 'OK',
+        timer: 2000,
+        customClass: {
+          popup: 'rounded-2xl',
+          title: 'text-xl font-bold',
+          confirmButton: 'px-6 py-3 rounded-xl font-semibold shadow-lg'
+        }
+      });
       setEditing(null);
       setEditData({});
       fetchUsersWithPayrolls();
     }
   };
 
+  const deletePayroll = async (id: number, employeeName: string, period: string) => {
+    const result = await Swal.fire({
+      title: 'Delete Payroll Record?',
+      html: `Are you sure you want to delete the payroll record for<br/><strong>${employeeName}</strong> (${period})?<br/><br/>This action cannot be undone.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      customClass: {
+        popup: 'rounded-2xl',
+        title: 'text-xl font-bold',
+        confirmButton: 'px-6 py-3 rounded-xl font-semibold shadow-lg',
+        cancelButton: 'px-6 py-3 rounded-xl font-semibold shadow-lg'
+      }
+    });
+
+    if (!result.isConfirmed) {
+      return;
+    }
+
+    console.log('🗑️ [PayrollAcc] Deleting payroll record:', id);
+
+    const { error } = await supabase
+      .from("payrolls")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error('❌ [PayrollAcc] Error deleting payroll:', error);
+      await Swal.fire({
+        title: 'Error!',
+        text: `Failed to delete payroll record: ${error.message}`,
+        icon: 'error',
+        confirmButtonColor: '#dc2626',
+        confirmButtonText: 'OK',
+        customClass: {
+          popup: 'rounded-2xl',
+          title: 'text-xl font-bold',
+          confirmButton: 'px-6 py-3 rounded-xl font-semibold shadow-lg'
+        }
+      });
+    } else {
+      console.log('✅ [PayrollAcc] Payroll record deleted successfully');
+      await Swal.fire({
+        title: 'Deleted!',
+        text: 'Payroll record has been deleted successfully.',
+        icon: 'success',
+        confirmButtonColor: '#16a34a',
+        confirmButtonText: 'OK',
+        timer: 2000,
+        customClass: {
+          popup: 'rounded-2xl',
+          title: 'text-xl font-bold',
+          confirmButton: 'px-6 py-3 rounded-xl font-semibold shadow-lg'
+        }
+      });
+      fetchUsersWithPayrolls();
+    }
+  };
+
   const handleSave = async () => {
     if (!formData.user_id) {
-      alert("Please select an employee");
+      await Swal.fire({
+        title: 'Missing Information',
+        text: 'Please select an employee',
+        icon: 'warning',
+        confirmButtonColor: '#dc2626',
+        confirmButtonText: 'OK',
+        customClass: {
+          popup: 'rounded-2xl',
+          title: 'text-xl font-bold',
+          confirmButton: 'px-6 py-3 rounded-xl font-semibold shadow-lg'
+        }
+      });
       return;
     }
 
@@ -721,6 +825,20 @@ export const PayrollAcc = () => {
       status: formData.status,
     });
 
+    await Swal.fire({
+      title: 'Success!',
+      text: 'Payroll record added successfully',
+      icon: 'success',
+      confirmButtonColor: '#16a34a',
+      confirmButtonText: 'OK',
+      timer: 2000,
+      customClass: {
+        popup: 'rounded-2xl',
+        title: 'text-xl font-bold',
+        confirmButton: 'px-6 py-3 rounded-xl font-semibold shadow-lg'
+      }
+    });
+
     setShowForm(false);
     setFormData({
       user_id: "",
@@ -731,6 +849,133 @@ export const PayrollAcc = () => {
       net: 0,
       status: "Pending",
     });
+  };
+
+  // Bulk add payroll for multiple users
+  const handleBulkAdd = async () => {
+    if (!bulkPeriod) {
+      await Swal.fire({
+        title: 'Missing Information',
+        text: 'Please select a period',
+        icon: 'warning',
+        confirmButtonColor: '#dc2626',
+        confirmButtonText: 'OK',
+        customClass: {
+          popup: 'rounded-2xl',
+          title: 'text-xl font-bold',
+          confirmButton: 'px-6 py-3 rounded-xl font-semibold shadow-lg'
+        }
+      });
+      return;
+    }
+
+    setBulkProcessing(true);
+    
+    try {
+      // Filter users by role if specified
+      // Only include active users (or all users if status field doesn't exist)
+      let targetUsers = users.filter(user => !user.status || user.status === 'Active');
+      
+      if (bulkRole) {
+        targetUsers = targetUsers.filter(user => user.role === bulkRole);
+      }
+
+      console.log(`📊 [PayrollAcc] Total users: ${users.length}, Active users: ${targetUsers.length}, Role filter: ${bulkRole || 'None'}`);
+
+      if (targetUsers.length === 0) {
+        await Swal.fire({
+          title: 'No Users Found',
+          text: 'No users found for the selected criteria',
+          icon: 'info',
+          confirmButtonColor: '#dc2626',
+          confirmButtonText: 'OK',
+          customClass: {
+            popup: 'rounded-2xl',
+            title: 'text-xl font-bold',
+            confirmButton: 'px-6 py-3 rounded-xl font-semibold shadow-lg'
+          }
+        });
+        setBulkProcessing(false);
+        return;
+      }
+
+      console.log(`🔄 [PayrollAcc] Bulk adding payroll for ${targetUsers.length} users (${bulkRole || 'All roles'})`);
+
+      // Process each user
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const user of targetUsers) {
+        try {
+          // Get default gross pay based on role
+          const defaultGross = getDefaultGrossPay(user.role);
+          
+          // Calculate penalties and fetch loans
+          const [penaltyResult, loanResult] = await Promise.all([
+            calculatePenalties(user.id, bulkPeriod),
+            fetchUserLoans(user.id)
+          ]);
+
+          const totalDeductions = penaltyResult.totalPenalty;
+          const loanDeduction = loanResult.totalLoanDeduction;
+          const netPay = defaultGross - totalDeductions - loanDeduction;
+
+          // Add payroll record
+          await addPayroll(user.id, {
+            period: bulkPeriod,
+            gross: defaultGross,
+            deductions: totalDeductions,
+            loan_deduction: loanDeduction,
+            net: netPay,
+            status: "Pending",
+          });
+
+          successCount++;
+          console.log(`✅ [PayrollAcc] Added payroll for ${user.name} (${user.role}): Gross ₱${defaultGross}, Net ₱${netPay}`);
+        } catch (error) {
+          errorCount++;
+          console.error(`❌ [PayrollAcc] Error adding payroll for ${user.name}:`, error);
+        }
+      }
+
+      await Swal.fire({
+        title: 'Bulk Payroll Completed!',
+        html: `<div class="text-left">
+          <p class="mb-2"><strong class="text-green-600">✅ Success:</strong> ${successCount} records</p>
+          <p><strong class="text-red-600">❌ Errors:</strong> ${errorCount} records</p>
+        </div>`,
+        icon: errorCount > 0 ? 'warning' : 'success',
+        confirmButtonColor: '#16a34a',
+        confirmButtonText: 'OK',
+        customClass: {
+          popup: 'rounded-2xl',
+          title: 'text-xl font-bold',
+          confirmButton: 'px-6 py-3 rounded-xl font-semibold shadow-lg'
+        }
+      });
+      
+      // Close modal and reset
+      setShowBulkModal(false);
+      setBulkRole("");
+      setBulkPeriod("");
+      fetchUsersWithPayrolls();
+    } catch (error) {
+      console.error('❌ [PayrollAcc] Bulk add error:', error);
+      await Swal.fire({
+        title: 'Error!',
+        text: 'An error occurred during bulk payroll processing',
+        icon: 'error',
+        confirmButtonColor: '#dc2626',
+        confirmButtonText: 'OK',
+        customClass: {
+          popup: 'rounded-2xl',
+          title: 'text-xl font-bold',
+          confirmButton: 'px-6 py-3 rounded-xl font-semibold shadow-lg'
+        }
+      });
+    } finally {
+      setBulkProcessing(false);
+    }
   };
 
   // Only show users who have actual payroll records
@@ -876,6 +1121,16 @@ export const PayrollAcc = () => {
                 Add Payroll
                 <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </button>
+              <button
+                onClick={() => setShowBulkModal(true)}
+                className="group relative overflow-hidden bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                Bulk Add Payroll
+                <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              </button>
             </div>
           </div>
         </section>
@@ -968,8 +1223,10 @@ export const PayrollAcc = () => {
                         <span className="font-medium text-gray-700 text-sm">{pr.userId}</span>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-gray-800 text-sm">{pr.name || 'No Name'}</span>
+                        <div className="flex flex-col max-w-[200px]">
+                          <span className="font-semibold text-gray-800 text-sm truncate" title={pr.name || 'No Name'}>
+                            {pr.name || 'No Name'}
+                          </span>
                         </div>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
@@ -1054,7 +1311,7 @@ export const PayrollAcc = () => {
                         </span>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex gap-1.5">
                           {editing !== pr.id && pr.status !== "No Payroll" && (
                             <button
                               onClick={() => {
@@ -1066,23 +1323,23 @@ export const PayrollAcc = () => {
                                   loan_deduction: pr.loan_deduction || 0
                                 });
                               }}
-                              className="px-2.5 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-1"
+                              className="p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                              title="Edit"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                               </svg>
-                              Edit
                             </button>
                           )}
                           {editing === pr.id && (
                             <button
                               onClick={() => updatePayroll(pr.id)}
-                              className="px-2.5 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-1"
+                              className="p-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                              title="Save"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
-                              Save
                             </button>
                           )}
                           {pr.status !== "No Payroll" && (
@@ -1135,12 +1392,23 @@ export const PayrollAcc = () => {
                                 setAttendanceHistory(attendanceData.data || []);
                                 setShowHistoryModal(true);
                               }}
-                              className="px-2.5 py-1.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-md hover:from-purple-700 hover:to-purple-800 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-1"
+                              className="p-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-md hover:from-purple-700 hover:to-purple-800 transition-all duration-200 shadow-sm hover:shadow-md"
+                              title="View History"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                               </svg>
-                              View History
+                            </button>
+                          )}
+                          {pr.status !== "No Payroll" && editing !== pr.id && (
+                            <button
+                              onClick={() => deletePayroll(pr.id, pr.name, pr.period)}
+                              className="p-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                              title="Delete"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
                             </button>
                           )}
                         </div>
@@ -1738,6 +2006,144 @@ export const PayrollAcc = () => {
                     Close
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Add Payroll Modal */}
+        {showBulkModal && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50 p-4">
+            <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-gray-200">
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 rounded-t-2xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                    <h2 className="text-xl font-bold text-white">Bulk Add Payroll</h2>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowBulkModal(false);
+                      setBulkRole("");
+                      setBulkPeriod("");
+                    }}
+                    className="text-white hover:text-green-100 transition-colors"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-blue-900 mb-1">Bulk Payroll Information</h4>
+                      <p className="text-sm text-blue-700">
+                        This will automatically create payroll records for all active users (or filtered by role).
+                        Penalties and loan deductions will be calculated automatically.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Role Filter */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Filter by Role (Optional)
+                  </label>
+                  <select
+                    value={bulkRole}
+                    onChange={(e) => setBulkRole(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
+                  >
+                    <option value="">All Roles (All Active Users)</option>
+                    <option value="Faculty">Faculty Only</option>
+                    <option value="Staff">Staff Only</option>
+                    <option value="SA">SA Only</option>
+                    <option value="Guard">Guard Only</option>
+                    <option value="HR Personnel">HR Personnel Only</option>
+                    <option value="Accounting">Accounting Only</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {bulkRole ? `Only ${bulkRole} users will be processed` : 'All active users will be processed'}
+                  </p>
+                </div>
+
+                {/* Period */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Payroll Period <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="month"
+                    value={bulkPeriod}
+                    onChange={(e) => setBulkPeriod(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
+                    required
+                  />
+                </div>
+
+                {/* User Count Preview */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700">Users to Process:</span>
+                    <span className="text-lg font-bold text-green-600">
+                      {users.filter(u => (!u.status || u.status === 'Active') && (!bulkRole || u.role === bulkRole)).length}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {bulkRole ? `Filtering: ${bulkRole} only` : 'All active users'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="bg-gray-50 px-6 py-4 rounded-b-2xl flex gap-3 justify-end border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setShowBulkModal(false);
+                    setBulkRole("");
+                    setBulkPeriod("");
+                  }}
+                  className="px-6 py-3 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-all duration-200 font-medium"
+                  disabled={bulkProcessing}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkAdd}
+                  disabled={bulkProcessing || !bulkPeriod}
+                  className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200 font-medium shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {bulkProcessing ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Create Payroll Records
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>

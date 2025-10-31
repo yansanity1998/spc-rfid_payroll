@@ -148,6 +148,350 @@ export const SAPayroll = () => {
     });
   };
 
+  // Print payslip function (same as HRAdmin Payroll.tsx)
+  const printPayslip = (data: PayrollRecord) => {
+    try {
+      const gross = data.gross || 0;
+      const deductions = data.deductions || 0;
+      const loan = data.loan_deduction || 0;
+      const net = data.net || (gross - deductions - loan);
+      
+      // Format current date
+      const currentDate = new Date().toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+
+      const html = `
+        <!doctype html>
+        <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Payslip - ${currentUser?.name || 'Employee'}</title>
+          <meta name="viewport" content="width=device-width,initial-scale=1" />
+          <style>
+            @page {
+              size: A4 landscape;
+              margin: 10mm;
+            }
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            body {
+              font-family: 'Arial', sans-serif;
+              background: white;
+              padding: 0;
+              font-size: 9pt;
+              line-height: 1.3;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+            }
+            .payslip-container {
+              max-width: 240mm;
+              width: 90%;
+              margin: 0 auto;
+              background: white;
+              border: 2px solid #000;
+              padding: 0;
+            }
+            .header {
+              text-align: center;
+              padding: 15px 20px;
+              border-bottom: 2px solid #000;
+            }
+            .header h1 {
+              font-size: 13pt;
+              font-weight: bold;
+              margin-bottom: 3px;
+              text-transform: uppercase;
+            }
+            .header .subtitle {
+              font-size: 8pt;
+              margin-bottom: 6px;
+            }
+            .header .period {
+              font-size: 9pt;
+              font-weight: bold;
+              margin-top: 6px;
+            }
+            .section {
+              padding: 10px 15px;
+              border-bottom: 2px solid #000;
+            }
+            .section:last-child {
+              border-bottom: none;
+            }
+            .section-title {
+              font-weight: bold;
+              font-size: 9pt;
+              margin-bottom: 6px;
+              text-transform: uppercase;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 120px 1fr;
+              gap: 4px;
+              font-size: 8pt;
+            }
+            .info-label {
+              font-weight: normal;
+            }
+            .info-value {
+              font-weight: normal;
+            }
+            .two-column {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+            }
+            .column-section {
+              display: flex;
+              flex-direction: column;
+            }
+            .amount-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 3px 0;
+              font-size: 8pt;
+            }
+            .amount-label {
+              font-weight: normal;
+            }
+            .amount-value {
+              font-weight: normal;
+              text-align: right;
+              min-width: 70px;
+            }
+            .total-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 6px 0;
+              margin-top: 6px;
+              border-top: 2px solid #000;
+              font-weight: bold;
+              font-size: 9pt;
+            }
+            .net-pay-section {
+              background: #f5f5f5;
+              padding: 10px 15px;
+              text-align: center;
+            }
+            .net-pay-label {
+              font-size: 9pt;
+              font-weight: bold;
+              margin-bottom: 4px;
+            }
+            .net-pay-amount {
+              font-size: 13pt;
+              font-weight: bold;
+            }
+            .footer {
+              padding: 10px 15px;
+              font-size: 8pt;
+              text-align: center;
+              border-top: 2px solid #000;
+            }
+            .signature-section {
+              display: flex;
+              justify-content: space-between;
+              margin-top: 30px;
+              padding: 0 20px;
+            }
+            .signature-box {
+              text-align: center;
+              width: 200px;
+            }
+            .signature-line {
+              border-top: 1px solid #000;
+              margin-bottom: 5px;
+              padding-top: 40px;
+            }
+            @media print {
+              body {
+                padding: 0;
+              }
+              .no-print {
+                display: none !important;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="payslip-container">
+            <!-- Header -->
+            <div class="header">
+              <h1>ST. PETERS COLLEGE-PAYSLIP</h1>
+              <div class="subtitle">Period: AUGUST 11 - AUGUST 25,2025</div>
+              <div class="period">${data.period || 'N/A'}</div>
+            </div>
+
+            <!-- Employee Information -->
+            <div class="section">
+              <div class="section-title">INCOME:</div>
+              <div class="info-grid">
+                <div class="info-label">Department:</div>
+                <div class="info-value">${currentUser?.role || 'N/A'}</div>
+                
+                <div class="info-label">Employee Name:</div>
+                <div class="info-value">${currentUser?.name || 'N/A'}</div>
+                
+                <div class="info-label">ID #:</div>
+                <div class="info-value">${data.user_id || 'N/A'}</div>
+              </div>
+            </div>
+
+            <!-- Income and Deductions -->
+            <div class="section">
+              <div class="two-column">
+                <!-- Income Column -->
+                <div class="column-section">
+                  <div class="amount-row">
+                    <div class="amount-label">Basic Rate:</div>
+                    <div class="amount-value">${gross.toFixed(2)}</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">No. of Days/Hrs Worked:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Basic Pay:</div>
+                    <div class="amount-value">${gross.toFixed(2)}</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Accumulated Overtimes:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Extra Load Amount:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">13th Month:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Other Income:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="total-row">
+                    <div>GROSS PAY:</div>
+                    <div>${gross.toFixed(2)}</div>
+                  </div>
+                  <div class="total-row">
+                    <div>ADD: OTHER BENEFITS:</div>
+                    <div>--</div>
+                  </div>
+                  <div class="total-row">
+                    <div>TOTAL PAY:</div>
+                    <div>${gross.toFixed(2)}</div>
+                  </div>
+                </div>
+
+                <!-- Deductions Column -->
+                <div class="column-section">
+                  <div class="section-title">DEDUCTIONS:</div>
+                  <div class="amount-row">
+                    <div class="amount-label">SSS Employee Share:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">PHILHEALTH Payable:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">HDMF/EE Payable:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Groceries/Canteen:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">HDMF Loan:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Booklet/Loan:</div>
+                    <div class="amount-value">${loan.toFixed(2)}</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">SSS Loan:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">COOP:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Cash Advances:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Uniform/Misc:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Other Deductions:</div>
+                    <div class="amount-value">${deductions.toFixed(2)}</div>
+                  </div>
+                  <div class="total-row">
+                    <div>TOTAL DEDUCTIONS:</div>
+                    <div>${(deductions + loan).toFixed(2)}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Net Pay -->
+            <div class="net-pay-section">
+              <div class="net-pay-label">PAYROLL NET PAY:</div>
+              <div class="net-pay-amount">${net.toFixed(2)}</div>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+              <div>Date: ${currentDate}</div>
+              <div style="margin-top: 10px;">Received by:</div>
+              <div class="signature-section">
+                <div class="signature-box">
+                  <div class="signature-line"></div>
+                  <div>Employee Signature</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const w = window.open('', '_blank', 'toolbar=0,location=0,menubar=0');
+      if (!w) {
+        alert('Unable to open print window. Please allow popups.');
+        return;
+      }
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      // Delay slightly to ensure styles load
+      setTimeout(() => {
+        w.focus();
+        w.print();
+        // Optionally close after printing
+        // w.close();
+      }, 300);
+    } catch (err) {
+      console.error('Error printing payslip', err);
+      alert('Failed to print payslip');
+    }
+  };
+
   // Get unique periods and statuses for filters
   const uniquePeriods = [...new Set(payrollRecords.map(record => record.period))];
   const uniqueStatuses = [...new Set(payrollRecords.map(record => record.status))];
@@ -373,16 +717,27 @@ export const SAPayroll = () => {
                         <div className="text-sm text-gray-600">{formatDate(record.created_at)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => handleViewDetails(record)}
-                          className="inline-flex items-center px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded-md hover:bg-yellow-700 transition-colors duration-200 shadow-sm hover:shadow-md"
-                        >
-                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                          View Details
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleViewDetails(record)}
+                            className="inline-flex items-center px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded-md hover:bg-yellow-700 transition-colors duration-200 shadow-sm hover:shadow-md"
+                          >
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            View Details
+                          </button>
+                          <button
+                            onClick={() => printPayslip(record)}
+                            className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors duration-200 shadow-sm hover:shadow-md"
+                          >
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                            Print Payslip
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
