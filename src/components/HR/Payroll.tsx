@@ -764,7 +764,7 @@ export const Payroll = () => {
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Loan Deduction</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Net Pay</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Status</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Actions</th>
+                  <th className="px-3 py-2.5 text-center border-b text-sm font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -865,7 +865,7 @@ export const Payroll = () => {
                         </span>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
-                        <div className="flex flex-nowrap gap-1">
+                        <div className="flex flex-nowrap gap-1 justify-center">
                           {pr.status === "Pending" && editing !== pr.id && (
                             <>
                               <button
