@@ -1,30 +1,14 @@
 import { useEffect, useState, useMemo } from "react";
 import supabase from "../../utils/supabase";
-import { Bar } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from "chart.js";
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-);
 
 const PersonalAttendance = () => {
   const [attendance, setAttendance] = useState<any[]>([]);
+  const [workHoursAttendance, setWorkHoursAttendance] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [workHoursSearch, setWorkHoursSearch] = useState("");
+  const [workHoursStatusFilter, setWorkHoursStatusFilter] = useState("");
 
   // Helper function to format time in Philippine timezone
   const formatPhilippineTime = (dateString: string) => {
@@ -275,6 +259,43 @@ const PersonalAttendance = () => {
         console.log("Faculty Attendance: Combined attendance data with absent records:", sortedData);
         setAttendance(sortedData);
 
+        // Fetch work hours attendance from regular attendance table
+        const { data: workHoursData, error: workHoursError } = await supabase
+          .from("attendance")
+          .select("*")
+          .eq("user_id", facultyData.id)
+          .order("att_date", { ascending: false });
+
+        if (workHoursError) {
+          console.error("Faculty Attendance: Error fetching work hours:", workHoursError);
+        } else {
+          const processedWorkHours = (workHoursData || []).map((row: any) => {
+            let hoursWorked = 0;
+            if (row.time_in && row.time_out) {
+              const timeIn = new Date(row.time_in);
+              const timeOut = new Date(row.time_out);
+              const diffMs = timeOut.getTime() - timeIn.getTime();
+              hoursWorked = diffMs / (1000 * 60 * 60);
+            }
+            
+            let status = "Absent";
+            if (row.time_in && row.time_out) {
+              status = "Completed";
+            } else if (row.time_in) {
+              status = "Present";
+            }
+            
+            return {
+              ...row,
+              hours_worked: hoursWorked,
+              status: status,
+              session: row.notes?.includes("Morning") ? "Morning" : 
+                      row.notes?.includes("Afternoon") ? "Afternoon" : "N/A"
+            };
+          });
+          setWorkHoursAttendance(processedWorkHours);
+        }
+
       } catch (error) {
         console.error("Error fetching class attendance:", error);
         setAttendance([]);
@@ -347,89 +368,50 @@ const PersonalAttendance = () => {
     };
   }, [filteredAttendance]);
 
-  // --- Weekly work hours (based on filtered data) - Optimized with useMemo ---
-  const { chartData, chartOptions } = useMemo(() => {
-    const weeklyData: { [key: string]: number } = {};
-    filteredAttendance.forEach((record: any) => {
-      if (!record.att_date) return;
-
-      const d = new Date(record.att_date);
-      const year = d.getFullYear();
-
-      // Week number calculation
-      const firstDay = new Date(year, 0, 1);
-      const pastDays = Math.floor(
-        (d.getTime() - firstDay.getTime()) / (24 * 60 * 60 * 1000)
-      );
-      const weekNum = Math.ceil((pastDays + firstDay.getDay() + 1) / 7);
-
-      const label = `Week ${weekNum} - ${year}`;
-      // Use the calculated hours_worked from our processing
-      weeklyData[label] = (weeklyData[label] || 0) + (record.hours_worked || 0);
-    });
-
-    const chartData = {
-      labels: Object.keys(weeklyData),
-      datasets: [
-        {
-          label: "Total Hours Worked (per week)",
-          data: Object.values(weeklyData),
-          backgroundColor: "rgba(220, 38, 38, 0.7)",
-          borderColor: "rgba(220, 38, 38, 1)",
-          borderWidth: 2,
-          borderRadius: 8,
-          borderSkipped: false,
-        },
-      ],
-    };
-
-    const chartOptions = {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'top' as const,
-          labels: {
-            font: {
-              size: 14,
-              weight: 'bold' as const
-            },
-            color: '#374151'
-          }
-        },
-        title: {
-          display: false,
-        },
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          grid: {
-            color: '#f3f4f6'
-          },
-          ticks: {
-            color: '#6b7280',
-            font: {
-              size: 12
-            }
-          }
-        },
-        x: {
-          grid: {
-            color: '#f3f4f6'
-          },
-          ticks: {
-            color: '#6b7280',
-            font: {
-              size: 12
-            }
-          }
-        }
+  // Filter work hours attendance
+  const filteredWorkHours = useMemo(() => {
+    if (!workHoursAttendance || workHoursAttendance.length === 0) return [];
+    
+    return workHoursAttendance.filter((record) => {
+      const searchLower = workHoursSearch.toLowerCase().trim();
+      const matchesStatus = !workHoursStatusFilter || record.status === workHoursStatusFilter;
+      
+      if (!searchLower) {
+        return matchesStatus;
       }
-    };
+      
+      const matchesSearch = 
+        (record.att_date && record.att_date.toLowerCase().includes(searchLower)) ||
+        (record.status && record.status.toLowerCase().includes(searchLower)) ||
+        (record.session && record.session.toLowerCase().includes(searchLower)) ||
+        (record.notes && record.notes.toLowerCase().includes(searchLower));
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [workHoursAttendance, workHoursSearch, workHoursStatusFilter]);
 
-    return { chartData, chartOptions };
-  }, [filteredAttendance]);
+  // Work hours statistics
+  const workHoursStats = useMemo(() => {
+    const totalDays = filteredWorkHours.length;
+    const presentDays = filteredWorkHours.filter((record: any) => 
+      record.status === "Present" || record.status === "Completed"
+    ).length;
+    const absentDays = filteredWorkHours.filter((record: any) => 
+      record.status === "Absent"
+    ).length;
+    const totalHours = filteredWorkHours.reduce((sum: number, record: any) => 
+      sum + (record.hours_worked || 0), 0
+    );
+    const attendanceRate = totalDays > 0 ? ((presentDays / totalDays) * 100).toFixed(1) : "0";
+    
+    return {
+      totalDays,
+      presentDays,
+      absentDays,
+      totalHours,
+      attendanceRate
+    };
+  }, [filteredWorkHours]);
 
   if (loading) {
     return (
@@ -722,19 +704,236 @@ const PersonalAttendance = () => {
             </div>
           </div>
 
-          {/* Chart Section - Moved below the table */}
-          <div className="bg-gray-50 border border-gray-200 shadow-xl rounded-2xl overflow-hidden">
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-700 rounded-xl flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          {/* Work Hours Attendance Section */}
+          <div className="mt-12 pt-8 border-t-4 border-red-300">
+            <div className="mb-8">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-gray-800">Weekly Work Hours</h2>
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Work Hours Attendance</h1>
+                  <p className="text-gray-600">Track your daily work hours and regular attendance</p>
+                </div>
               </div>
-              <div className="bg-white p-4 rounded-xl" style={{ height: '400px' }}>
-                <Bar data={chartData} options={chartOptions} />
+            </div>
+
+            {/* Work Hours Statistics Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <div className="group relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+                <div className="relative z-10 flex items-center justify-between">
+                  <div className="text-white">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <h2 className="text-lg font-semibold">Attendance Rate</h2>
+                    </div>
+                    <p className="text-3xl font-bold">{workHoursStats.attendanceRate}%</p>
+                    <p className="text-purple-100 text-sm mt-1">Overall performance</p>
+                  </div>
+                </div>
+                <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
+              </div>
+
+              <div className="group relative overflow-hidden bg-gradient-to-br from-cyan-500 to-cyan-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+                <div className="relative z-10 flex items-center justify-between">
+                  <div className="text-white">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <h2 className="text-lg font-semibold">Total Hours</h2>
+                    </div>
+                    <p className="text-3xl font-bold">{workHoursStats.totalHours.toFixed(1)}</p>
+                    <p className="text-cyan-100 text-sm mt-1">Hours worked</p>
+                  </div>
+                </div>
+                <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
+              </div>
+
+              <div className="group relative overflow-hidden bg-gradient-to-br from-teal-500 to-teal-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+                <div className="relative z-10 flex items-center justify-between">
+                  <div className="text-white">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <h2 className="text-lg font-semibold">Present Days</h2>
+                    </div>
+                    <p className="text-3xl font-bold">{workHoursStats.presentDays}</p>
+                    <p className="text-teal-100 text-sm mt-1">Days attended</p>
+                  </div>
+                </div>
+                <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
+              </div>
+
+              <div className="group relative overflow-hidden bg-gradient-to-br from-rose-500 to-rose-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+                <div className="relative z-10 flex items-center justify-between">
+                  <div className="text-white">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                      <h2 className="text-lg font-semibold">Absent Days</h2>
+                    </div>
+                    <p className="text-3xl font-bold">{workHoursStats.absentDays}</p>
+                    <p className="text-rose-100 text-sm mt-1">Days missed</p>
+                  </div>
+                </div>
+                <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
+              </div>
+            </div>
+
+            {/* Work Hours Search and Filter */}
+            <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between mb-6">
+              <div className="flex flex-col sm:flex-row gap-2 flex-1">
+                <div className="relative flex-1 max-w-md">
+                  <input
+                    type="text"
+                    value={workHoursSearch}
+                    onChange={(e) => setWorkHoursSearch(e.target.value)}
+                    placeholder="Search by date, status, or session..."
+                    className="w-full pl-10 pr-10 py-2.5 bg-white border-2 border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 shadow-sm"
+                  />
+                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  {workHoursSearch && (
+                    <button
+                      onClick={() => setWorkHoursSearch("")}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                
+                <div className="relative">
+                  <select
+                    value={workHoursStatusFilter}
+                    onChange={(e) => setWorkHoursStatusFilter(e.target.value)}
+                    className="appearance-none bg-white border-2 border-gray-300 rounded-xl px-4 py-2.5 pr-10 text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 shadow-sm text-sm"
+                  >
+                    <option value="">All Status</option>
+                    <option value="Present">Present</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Absent">Absent</option>
+                  </select>
+                  <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Work Hours Table */}
+            <div className="bg-gray-50 border border-gray-200 shadow-xl rounded-2xl overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-800">Work Hours Records</h2>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-collapse text-sm">
+                  <thead className="bg-gradient-to-r from-purple-600 to-purple-700 text-white sticky top-0 z-10">
+                    <tr>
+                      <th className="px-3 sm:px-4 py-3 text-left border-b font-medium">Date</th>
+                      <th className="px-3 sm:px-4 py-3 text-left border-b font-medium">Session</th>
+                      <th className="px-3 sm:px-4 py-3 text-left border-b font-medium">Time In</th>
+                      <th className="px-3 sm:px-4 py-3 text-left border-b font-medium">Time Out</th>
+                      <th className="px-3 sm:px-4 py-3 text-left border-b font-medium">Hours Worked</th>
+                      <th className="px-3 sm:px-4 py-3 text-left border-b font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredWorkHours.length > 0 ? (
+                      filteredWorkHours.map((log: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-white/80 transition-all duration-200">
+                          <td className="px-3 sm:px-4 py-4 border-b border-gray-200">
+                            <span className="font-semibold text-gray-800">{log.att_date || '-'}</span>
+                          </td>
+                          <td className="px-3 sm:px-4 py-4 border-b border-gray-200">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${
+                              log.session === "Morning" 
+                                ? "bg-amber-100 text-amber-800"
+                                : log.session === "Afternoon"
+                                ? "bg-indigo-100 text-indigo-800"
+                                : "bg-gray-100 text-gray-800"
+                            }`}>
+                              {log.session}
+                            </span>
+                          </td>
+                          <td className="px-3 sm:px-4 py-4 border-b border-gray-200 text-gray-600">
+                            <span className="font-medium text-green-600">
+                              {log.time_in ? formatPhilippineTime(log.time_in) : 'N/A'}
+                            </span>
+                          </td>
+                          <td className="px-3 sm:px-4 py-4 border-b border-gray-200 text-gray-600">
+                            <span className="font-medium text-blue-600">
+                              {log.time_out ? formatPhilippineTime(log.time_out) : 'N/A'}
+                            </span>
+                          </td>
+                          <td className="px-3 sm:px-4 py-4 border-b border-gray-200">
+                            <span className="font-semibold text-gray-700">
+                              {log.hours_worked ? `${log.hours_worked.toFixed(1)}h` : "-"}
+                            </span>
+                          </td>
+                          <td className="px-3 sm:px-4 py-4 border-b border-gray-200">
+                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                              log.status === "Completed"
+                                ? "bg-green-100 text-green-800"
+                                : log.status === "Present"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-red-100 text-red-800"
+                            }`}>
+                              {log.status === "Completed" ? "✅ Completed" : 
+                               log.status === "Present" ? "🟢 Present" :
+                               "❌ Absent"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="text-center py-12">
+                          <div className="flex flex-col items-center gap-4">
+                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                            <div className="text-center">
+                              <h3 className="text-lg font-semibold text-gray-800 mb-1">No Work Hours Records Found</h3>
+                              <p className="text-gray-500">No work hours attendance records match your current search criteria.</p>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
