@@ -192,6 +192,49 @@ const FacSchedule: React.FC = () => {
             </div>
           </div>
 
+          {/* Work Hours Card (styled like SA schedule card but adapted for Faculty) */}
+          <div className="bg-gradient-to-br from-red-50 to-white rounded-xl shadow-sm border-2 border-red-200 p-6 mb-6">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-red-600 to-red-700 rounded-xl flex items-center justify-center shadow-lg">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+
+              <div className="flex-1">
+                <h2 className="text-lg font-bold text-gray-900 mb-3">Work Hours</h2>
+                <div className="bg-white rounded-lg p-4 border border-red-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="font-semibold text-gray-900">Standard Faculty Schedule</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-red-600">{formatPhilippineTime('08:00:00')} - {formatPhilippineTime('17:00:00')}</p>
+                  <p className="text-sm text-gray-600 mt-1">Contact HR for exceptions or alternate schedules</p>
+                </div>
+
+                {/* Additional Info */}
+                <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-100">
+                  <div className="flex items-start gap-2">
+                    <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="text-sm text-gray-700">
+                      <p className="font-medium mb-1">Notes:</p>
+                      <ul className="list-disc list-inside space-y-1 text-gray-600">
+                        <li>Default hours apply unless a schedule is assigned by HR.</li>
+                        <li>Overtime and penalties are determined per department policy.</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Schedule Content */}
           {schedules.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12">

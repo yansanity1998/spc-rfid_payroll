@@ -32,6 +32,7 @@ serve(async (req) => {
       hiredDate, 
       semester, 
       schoolYear,
+      positions,
       status,
       password
     } = requestBody;
@@ -120,6 +121,7 @@ serve(async (req) => {
       email: processField(email),
       role: processField(role),
       department: processField(department),
+      positions: processField(positions),
       hiredDate: processField(hiredDate),
       semester: processField(semester, 'number'),
       schoolYear: processField(schoolYear, 'number'),

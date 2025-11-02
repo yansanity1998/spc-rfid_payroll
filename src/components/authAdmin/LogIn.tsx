@@ -62,6 +62,19 @@ export const LogIn = () => {
       // If there's exactly one Staff role, assume it's the current user
       if (allStaffRoles.length === 1) {
         console.log("Only one Staff role found - assuming current user is Staff");
+        
+        // Check user status in users table before allowing login
+        const { data: userStatus, error: statusError } = await supabase
+          .from("users")
+          .select("status")
+          .eq("auth_id", userId)
+          .single();
+          
+        if (!statusError && userStatus && userStatus.status !== "Active") {
+          toast.error("Your account has been deactivated. Please contact an administrator.");
+          return;
+        }
+        
         userRole = "Staff";
         debugMsg += `Single Staff role found in roles table, assuming current user\n`;
         localStorage.setItem("user", JSON.stringify(data.session));
@@ -75,6 +88,19 @@ export const LogIn = () => {
       const matchingRole = allStaffRoles.find(role => role.id === userId);
       if (matchingRole) {
         console.log("Found matching Staff role by ID");
+        
+        // Check user status in users table before allowing login
+        const { data: userStatus, error: statusError } = await supabase
+          .from("users")
+          .select("status")
+          .eq("auth_id", userId)
+          .single();
+          
+        if (!statusError && userStatus && userStatus.status !== "Active") {
+          toast.error("Your account has been deactivated. Please contact an administrator.");
+          return;
+        }
+        
         userRole = "Staff";
         debugMsg += `Staff role found in roles table by ID match: ${userId}\n`;
         localStorage.setItem("user", JSON.stringify(data.session));
@@ -101,6 +127,19 @@ export const LogIn = () => {
       // If there's exactly one SA role, assume it's the current user
       if (allSARoles.length === 1) {
         console.log("Only one SA role found - assuming current user is SA");
+        
+        // Check user status in users table before allowing login
+        const { data: userStatus, error: statusError } = await supabase
+          .from("users")
+          .select("status")
+          .eq("auth_id", userId)
+          .single();
+          
+        if (!statusError && userStatus && userStatus.status !== "Active") {
+          toast.error("Your account has been deactivated. Please contact an administrator.");
+          return;
+        }
+        
         userRole = "SA";
         debugMsg += `Single SA role found in roles table, assuming current user\n`;
         localStorage.setItem("user", JSON.stringify(data.session));
@@ -114,6 +153,19 @@ export const LogIn = () => {
       const matchingRole = allSARoles.find(role => role.id === userId);
       if (matchingRole) {
         console.log("Found matching SA role by ID");
+        
+        // Check user status in users table before allowing login
+        const { data: userStatus, error: statusError } = await supabase
+          .from("users")
+          .select("status")
+          .eq("auth_id", userId)
+          .single();
+          
+        if (!statusError && userStatus && userStatus.status !== "Active") {
+          toast.error("Your account has been deactivated. Please contact an administrator.");
+          return;
+        }
+        
         userRole = "SA";
         debugMsg += `SA role found in roles table by ID match: ${userId}\n`;
         localStorage.setItem("user", JSON.stringify(data.session));
@@ -285,6 +337,19 @@ export const LogIn = () => {
         // If there's exactly one Guard role, assume it's the current user
         if (allGuardRoles.length === 1) {
           console.log("Only one Guard role found - assuming current user is Guard");
+          
+          // Check user status in users table before allowing login
+          const { data: userStatus, error: statusError } = await supabase
+            .from("users")
+            .select("status")
+            .eq("auth_id", userId)
+            .single();
+            
+          if (!statusError && userStatus && userStatus.status !== "Active") {
+            toast.error("Your account has been deactivated. Please contact an administrator.");
+            return;
+          }
+          
           userRole = "Guard";
           debugMsg += `Single Guard role found in roles table, assuming current user\n`;
           localStorage.setItem("user", JSON.stringify(data.session));
@@ -298,6 +363,19 @@ export const LogIn = () => {
         const matchingRole = allGuardRoles.find(role => role.id === userId);
         if (matchingRole) {
           console.log("Found matching Guard role by ID");
+          
+          // Check user status in users table before allowing login
+          const { data: userStatus, error: statusError } = await supabase
+            .from("users")
+            .select("status")
+            .eq("auth_id", userId)
+            .single();
+            
+          if (!statusError && userStatus && userStatus.status !== "Active") {
+            toast.error("Your account has been deactivated. Please contact an administrator.");
+            return;
+          }
+          
           userRole = "Guard";
           debugMsg += `Guard role found in roles table by ID match: ${userId}\n`;
           localStorage.setItem("user", JSON.stringify(data.session));

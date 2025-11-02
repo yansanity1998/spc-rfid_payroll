@@ -312,22 +312,40 @@ export const Requests = () => {
 
           {/* Modern Controls */}
           <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
-            <div className="flex flex-col sm:flex-row gap-2 flex-1">
-              {/* Search Bar */}
-              <div className="relative flex-1 max-w-md">
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search requests..."
-                  className="w-full pl-10 pr-4 py-2.5 bg-white border-2 border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 shadow-sm"
-                />
-                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
+            {/* Search Bar */}
+            <div className="relative flex-1 max-w-md">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search requests..."
+                className="w-full pl-10 pr-4 py-2.5 bg-white border-2 border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 shadow-sm"
+              />
+              <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
             </div>
 
+            {/* Filter Dropdown */}
+            <div className="relative w-full lg:w-auto lg:min-w-[240px]">
+              <select
+                value={activeFilter}
+                onChange={(e) => setActiveFilter(e.target.value)}
+                className="w-full px-4 py-2.5 bg-white border-2 border-gray-300 rounded-xl text-gray-700 font-medium focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 shadow-sm cursor-pointer appearance-none"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236B7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 0.75rem center',
+                  backgroundSize: '1.25rem'
+                }}
+              >
+                <option value="All">All Requests</option>
+                <option value="Pending Dean Approval">Pending Dean Approval</option>
+                <option value="Dean Approved">Dean Approved</option>
+                <option value="Fully Approved">Fully Approved</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            </div>
           </div>
         </section>
 
@@ -464,33 +482,8 @@ export const Requests = () => {
           </div>
         </div>
 
-        {/* Modern Filter Tabs */}
-        <div className="flex flex-wrap gap-2 mt-6 mb-4">
-          {["All", "Pending Dean Approval", "Dean Approved", "Fully Approved", "Rejected"].map((filter) => (
-            <button
-              key={filter}
-              onClick={() => setActiveFilter(filter)}
-              className={`px-4 py-2 rounded-xl font-medium transition-all duration-200 ${
-                activeFilter === filter
-                  ? filter === "All"
-                    ? "bg-gray-800 text-white shadow-lg"
-                    : filter === "Pending Dean Approval"
-                    ? "bg-orange-500 text-white shadow-lg"
-                    : filter === "Dean Approved"
-                    ? "bg-blue-500 text-white shadow-lg"
-                    : filter === "Fully Approved"
-                    ? "bg-green-500 text-white shadow-lg"
-                    : "bg-red-500 text-white shadow-lg"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {filter}
-            </button>
-          ))}
-        </div>
-
         {/* Modern Requests Table */}
-        <div className="bg-gray-50 border border-gray-200 shadow-xl rounded-2xl overflow-hidden">
+        <div className="bg-gray-50 border border-gray-200 shadow-xl rounded-2xl overflow-hidden mt-8">
           <div className="p-4">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-700 rounded-xl flex items-center justify-center">

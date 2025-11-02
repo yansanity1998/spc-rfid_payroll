@@ -36,6 +36,7 @@ const FacDashboard = () => {
   const [attendance, setAttendance] = useState<any[]>([]);
   const [todayStatus, setTodayStatus] = useState<string>("Unknown");
   const [schedules, setSchedules] = useState<any[]>([]);
+  const [clearanceData, setClearanceData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -55,6 +56,10 @@ const FacDashboard = () => {
 
   const handleProfileSettings = () => {
     alert('Profile Settings: You can update your personal information through the navigation bar profile picture. Click on your profile picture in the top navigation to access settings.');
+  };
+
+  const handleViewClearance = () => {
+    navigate('/Faculty/clearance');
   };
 
 
@@ -239,6 +244,21 @@ const FacDashboard = () => {
       // Set schedules data
       if (!schedulesError && userSchedules) {
         setSchedules(userSchedules);
+      }
+
+      // Fetch clearance data
+      const { data: clearance, error: clearanceError } = await supabase
+        .from("clearances")
+        .select("*")
+        .eq("user_id", facultyData.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (clearanceError && clearanceError.code !== 'PGRST116') {
+        console.error("Dashboard: Error fetching clearance:", clearanceError);
+      } else {
+        setClearanceData(clearance || null);
       }
 
     } catch (error) {
@@ -583,7 +603,7 @@ const FacDashboard = () => {
                 <h2 className="text-xl font-bold text-gray-800">Quick Actions</h2>
               </div>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* View Attendance */}
                 <div 
                   onClick={handleViewAttendance}
@@ -601,6 +621,33 @@ const FacDashboard = () => {
                     </div>
                   </div>
                   <p className="text-gray-600 text-sm">Check your class attendance records and work hours</p>
+                </div>
+
+                {/* View Clearance */}
+                <div 
+                  onClick={handleViewClearance}
+                  className="group bg-white p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer border border-gray-200 hover:border-emerald-300"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
+                      <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-800 group-hover:text-emerald-600 transition-colors">My Clearance</h3>
+                      <p className={`text-xs font-medium ${
+                        clearanceData?.clearance_status?.toLowerCase() === 'cleared' 
+                          ? 'text-green-600' 
+                          : clearanceData?.clearance_status?.toLowerCase() === 'on-hold' || clearanceData?.clearance_status?.toLowerCase() === 'on hold'
+                            ? 'text-orange-600'
+                            : 'text-yellow-600'
+                      }`}>
+                        {clearanceData?.clearance_status || 'Pending'}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-gray-600 text-sm">View your clearance status and details</p>
                 </div>
 
                 {/* Submit Request */}

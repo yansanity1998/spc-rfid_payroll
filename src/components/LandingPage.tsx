@@ -38,11 +38,17 @@ const ModernLoginForm = ({ onClose }: { onClose: () => void }) => {
     let userRole: string | null = null;
     const { data: userProfile, error: userError } = await supabase
       .from("users")
-      .select("role")
+      .select("role, status")
       .eq("auth_id", userId)
       .single();
 
     if (!userError && userProfile?.role) {
+      // Check if user account is active
+      if (userProfile.status !== "Active") {
+        toast.error("Your account has been deactivated. Please contact an administrator.");
+        setLoading(false);
+        return;
+      }
       userRole = userProfile.role;
     } else {
       const { data: roleProfile, error: roleError } = await supabase
@@ -52,6 +58,18 @@ const ModernLoginForm = ({ onClose }: { onClose: () => void }) => {
         .single();
 
       if (!roleError && roleProfile?.role) {
+        // Check user status in users table before allowing login
+        const { data: userStatus, error: statusError } = await supabase
+          .from("users")
+          .select("status")
+          .eq("auth_id", userId)
+          .single();
+          
+        if (!statusError && userStatus && userStatus.status !== "Active") {
+          toast.error("Your account has been deactivated. Please contact an administrator.");
+          setLoading(false);
+          return;
+        }
         userRole = roleProfile.role;
       }
     }

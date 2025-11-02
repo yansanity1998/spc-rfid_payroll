@@ -44,6 +44,7 @@ export const FacNav = () => {
     { key: "attendance", label: "Attendance", link: "/Faculty/attendance" },
     { key: "schedule", label: "Schedule", link: "/Faculty/schedule" },
     { key: "payroll", label: "Payroll", link: "/Faculty/payroll" },
+    { key: "clearance", label: "Clearance", link: "/Faculty/clearance" },
     { key: "request", label: "Request", link: "/Faculty/request" },
     ...(userPosition === 'Dean' ? [{ key: "dean-approval", label: "Dean Approval", link: "/Faculty/dean-approval" }] : []),
   ];
@@ -86,6 +87,13 @@ export const FacNav = () => {
         return (
           <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      case "clearance":
+        return (
+          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c1.657 0 3-1.567 3-3.5S13.657 4 12 4s-3 1.567-3 3.5S10.343 11 12 11z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 20a7 7 0 0114 0v1H5v-1z" />
           </svg>
         );
       default:

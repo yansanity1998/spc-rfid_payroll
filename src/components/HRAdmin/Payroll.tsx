@@ -18,7 +18,8 @@ export const Payroll = () => {
   const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
   const [loans, setLoans] = useState<{[key: number]: any}>({});
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  // Fixed items per page: limit the table to 10 rows
+  const itemsPerPage = 10;
 
   // Color coding system for employee types
   const getEmployeeTypeColor = (role: string) => {
@@ -1000,12 +1001,12 @@ export const Payroll = () => {
             {/* Refresh Button */}
             <button
               onClick={fetchPayrolls}
-              className="group relative overflow-hidden bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2"
+              aria-label="Refresh"
+              className="group relative overflow-hidden bg-gradient-to-r from-red-600 to-red-700 text-white w-12 h-12 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center justify-center"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Refresh Data
               <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </button>
           </div>
@@ -1231,12 +1232,13 @@ export const Payroll = () => {
                                     deductions: pr.deductions
                                   });
                                 }}
-                                className="px-2 py-1 bg-blue-600 text-white rounded text-xs font-medium transition-all duration-200 hover:bg-blue-700 flex items-center gap-1"
+                                aria-label="Edit"
+                                title="Edit"
+                                className="w-8 h-8 bg-blue-600 text-white rounded transition-all duration-200 hover:bg-blue-700 flex items-center justify-center"
                               >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
-                                Edit
                               </button>
                               <button
                                 onClick={async () => {
@@ -1284,54 +1286,59 @@ export const Payroll = () => {
                                   setAttendanceHistory(attendanceData.data || []);
                                   setShowHistoryModal(true);
                                 }}
-                                className="px-2 py-1 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded text-xs font-medium transition-all duration-200 hover:from-purple-700 hover:to-purple-800 flex items-center gap-1"
+                                aria-label="History"
+                                title="History"
+                                className="w-8 h-8 bg-purple-600 text-white rounded transition-all duration-200 hover:bg-purple-700 flex items-center justify-center"
                               >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 00-2-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
-                                History
                               </button>
                               <button
                                 onClick={() => openPayslip(pr)}
-                                className="px-2 py-1 bg-indigo-600 text-white rounded text-xs font-medium transition-all duration-200 hover:bg-indigo-700 flex items-center gap-1"
+                                aria-label="Payslip"
+                                title="Payslip"
+                                className="w-8 h-8 bg-teal-600 text-white rounded transition-all duration-200 hover:bg-teal-700 flex items-center justify-center"
                               >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-6a2 2 0 012-2h2a2 2 0 012 2v6m-6 4h6a2 2 0 002-2v-3H7v3a2 2 0 002 2z" />
                                 </svg>
-                                Pay Slip
                               </button>
                             </>
                           )}
                           {editing === pr.id && (
                             <button
                               onClick={() => savePayroll(pr.id)}
-                              className="px-2 py-1 bg-green-600 text-white rounded text-xs font-medium transition-all duration-200 hover:bg-green-700 flex items-center gap-1"
+                              aria-label="Save"
+                              title="Save"
+                              className="w-8 h-8 bg-green-600 text-white rounded transition-all duration-200 hover:bg-green-700 flex items-center justify-center"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
-                              Save
                             </button>
                           )}
                           {pr.status === "Pending" ? (
                             <button
                               onClick={() => finalizePayroll(pr.id)}
-                              className="px-2 py-1 bg-green-700 text-white rounded text-xs font-medium transition-all duration-200 hover:bg-green-800 flex items-center gap-1"
+                              aria-label="Finalize"
+                              title="Finalize"
+                              className="w-8 h-8 bg-green-700 text-white rounded transition-all duration-200 hover:bg-green-800 flex items-center justify-center"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
-                              Finalize
                             </button>
                           ) : pr.status === "Finalized" ? (
                             <button
                               onClick={() => unfinalizePayroll(pr.id)}
-                              className="px-2 py-1 bg-yellow-600 text-white rounded text-xs font-medium transition-all duration-200 hover:bg-yellow-700 flex items-center gap-1"
+                              aria-label="Unfinalize"
+                              title="Unfinalize"
+                              className="w-8 h-8 bg-yellow-600 text-white rounded transition-all duration-200 hover:bg-yellow-700 flex items-center justify-center"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
-                              Unfinalize
                             </button>
                           ) : null}
                         </div>

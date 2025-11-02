@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import supabase from "../../utils/supabase";
 import toast from "react-hot-toast";
 import jsPDF from "jspdf";
+import Swal from "sweetalert2";
 
 // Custom CSS for animations
 const customStyles = `
@@ -71,9 +72,7 @@ export const UserManagement = () => {
   const [scanningRfid, setScanningRfid] = useState(false);
   const [scannedCard, setScannedCard] = useState("");
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
-  const [showStatusConfirm, setShowStatusConfirm] = useState(false);
-  const [userToModify, setUserToModify] = useState<any>(null);
+  
 
   // Function to generate PDF for user information
   const generateUserPDF = async () => {
@@ -444,7 +443,7 @@ export const UserManagement = () => {
 
   // Prevent body scroll when modal is open
   useEffect(() => {
-    if (showInfoModal || create || edit || scanningRfid || showArchiveConfirm || showStatusConfirm) {
+    if (showInfoModal || create || edit || scanningRfid) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -452,7 +451,7 @@ export const UserManagement = () => {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [showInfoModal, create, edit, scanningRfid, showArchiveConfirm, showStatusConfirm]);
+  }, [showInfoModal, create, edit, scanningRfid]);
 
   // Color coding system for employee types
   const getEmployeeTypeColor = (role: string) => {
@@ -486,6 +485,8 @@ export const UserManagement = () => {
     schoolYear: "",
     hiredDate: "",
     department: "",
+    // allow setting positions when creating Faculty / SA / Staff
+    positions: "",
   });
 
   const [editUser, setEditUser] = useState<any | null>(null);
@@ -499,23 +500,86 @@ export const UserManagement = () => {
 
 
 
-  const handleToggleStatus = async (id: string, currentStatus: string) => {
+  const handleToggleStatus = async (id: string, currentStatus: string, userName: string) => {
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
+    const isDeactivating = currentStatus === "Active";
 
-    const { error } = await supabase
-      .from("users")
-      .update({ status: newStatus })
-      .eq("id", id);
+    const result = await Swal.fire({
+      title: isDeactivating ? 'Deactivate User?' : 'Activate User?',
+      html: `Are you sure you want to <strong>${isDeactivating ? 'deactivate' : 'activate'}</strong> <span style="color: #dc2626; font-weight: bold;">${userName}</span>?${isDeactivating ? '<br><br><span style="color: #ef4444; font-size: 0.9em;">⚠️ This user will not be able to login until reactivated.</span>' : ''}`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: isDeactivating ? '#dc2626' : '#16a34a',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: isDeactivating ? 'Yes, Deactivate' : 'Yes, Activate',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      customClass: {
+        popup: 'rounded-2xl',
+        title: 'text-xl font-bold',
+        htmlContainer: 'text-gray-700',
+        confirmButton: 'rounded-xl px-6 py-2.5 font-semibold shadow-lg',
+        cancelButton: 'rounded-xl px-6 py-2.5 font-semibold'
+      }
+    });
 
-    if (error) {
-      console.error(error.message);
-      toast.error("Failed to update user status");
-    } else {
-      fetchUsers();
+    if (result.isConfirmed) {
+      const { error } = await supabase
+        .from("users")
+        .update({ status: newStatus })
+        .eq("id", id);
+
+      if (error) {
+        console.error(error.message);
+        Swal.fire({
+          title: 'Error!',
+          text: 'Failed to update user status',
+          icon: 'error',
+          confirmButtonColor: '#dc2626',
+          customClass: {
+            popup: 'rounded-2xl',
+            confirmButton: 'rounded-xl px-6 py-2.5 font-semibold'
+          }
+        });
+      } else {
+        Swal.fire({
+          title: 'Success!',
+          html: `<strong>${userName}</strong> has been ${isDeactivating ? 'deactivated' : 'activated'} successfully.`,
+          icon: 'success',
+          confirmButtonColor: '#16a34a',
+          timer: 2000,
+          showConfirmButton: false,
+          customClass: {
+            popup: 'rounded-2xl'
+          }
+        });
+        fetchUsers();
+      }
     }
   };
 
   const handleArchiveUser = async (id: string, userName: string) => {
+    const result = await Swal.fire({
+      title: 'Archive User?',
+      html: `Are you sure you want to <strong>archive</strong> <span style="color: #ef4444; font-weight: bold;">${userName}</span>?<br><br><span style="color: #ef4444; font-size: 0.9em;">This will move them to the archived users list.</span>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#f97316',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, Archive',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      customClass: {
+        popup: 'rounded-2xl',
+        title: 'text-xl font-bold',
+        htmlContainer: 'text-gray-700',
+        confirmButton: 'rounded-xl px-6 py-2.5 font-semibold shadow-lg',
+        cancelButton: 'rounded-xl px-6 py-2.5 font-semibold'
+      }
+    });
+
+    if (!result.isConfirmed) return;
+
     const { error } = await supabase
       .from("users")
       .update({ status: "Archived" })
@@ -523,14 +587,49 @@ export const UserManagement = () => {
 
     if (error) {
       console.error(error.message);
-      toast.error("Failed to archive user");
+      await Swal.fire({
+        title: 'Error!',
+        text: 'Failed to archive user',
+        icon: 'error',
+        confirmButtonColor: '#dc2626',
+        customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-xl px-6 py-2.5 font-semibold' }
+      });
     } else {
-      toast.success(`${userName} has been archived`);
+      await Swal.fire({
+        title: 'Archived!',
+        html: `<strong>${userName}</strong> has been archived.`,
+        icon: 'success',
+        confirmButtonColor: '#f97316',
+        timer: 2000,
+        showConfirmButton: false,
+        customClass: { popup: 'rounded-2xl' }
+      });
       fetchUsers();
     }
   };
 
   const handleUnarchiveUser = async (id: string, userName: string) => {
+    const result = await Swal.fire({
+      title: 'Restore User?',
+      html: `Are you sure you want to <strong>restore</strong> <span style="color: #16a34a; font-weight: bold;">${userName}</span> to active status?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#16a34a',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, Restore',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      customClass: {
+        popup: 'rounded-2xl',
+        title: 'text-xl font-bold',
+        htmlContainer: 'text-gray-700',
+        confirmButton: 'rounded-xl px-6 py-2.5 font-semibold shadow-lg',
+        cancelButton: 'rounded-xl px-6 py-2.5 font-semibold'
+      }
+    });
+
+    if (!result.isConfirmed) return;
+
     const { error } = await supabase
       .from("users")
       .update({ status: "Active" })
@@ -538,9 +637,23 @@ export const UserManagement = () => {
 
     if (error) {
       console.error(error.message);
-      toast.error("Failed to unarchive user");
+      await Swal.fire({
+        title: 'Error!',
+        text: 'Failed to restore user',
+        icon: 'error',
+        confirmButtonColor: '#dc2626',
+        customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-xl px-6 py-2.5 font-semibold' }
+      });
     } else {
-      toast.success(`${userName} has been restored to active`);
+      await Swal.fire({
+        title: 'Restored!',
+        html: `<strong>${userName}</strong> has been restored to active.`,
+        icon: 'success',
+        confirmButtonColor: '#16a34a',
+        timer: 2000,
+        showConfirmButton: false,
+        customClass: { popup: 'rounded-2xl' }
+      });
       fetchUsers();
     }
   };
@@ -583,6 +696,8 @@ export const UserManagement = () => {
     console.log('- Email filled:', !!newUser.email, '"' + newUser.email + '"');
     
     // Show RFID scanner modal
+    // Close the create modal and open the RFID scanner so only one modal is visible
+    showCreate(false);
     setScanningRfid(true);
   };
 
@@ -645,6 +760,8 @@ export const UserManagement = () => {
           newUser.role === "Faculty" || newUser.role === "SA"
             ? newUser.department
             : null,
+        // include positions for roles that may require it (Faculty, SA, Staff)
+        positions: (newUser.role === "Faculty" || newUser.role === "SA" || newUser.role === "Staff") ? (newUser.positions || null) : null,
         status: "Active",
         password: "ChangePassword",
       };
@@ -732,6 +849,7 @@ export const UserManagement = () => {
               schoolYear: newUser.schoolYear || null,
               hiredDate: newUser.hiredDate || null,
               department: newUser.role === "Faculty" || newUser.role === "SA" ? newUser.department : null,
+              positions: (newUser.role === "Faculty" || newUser.role === "SA" || newUser.role === "Staff") ? (newUser.positions || null) : null,
               status: "Active",
               password: "ChangePassword",
               created_at: new Date().toISOString(),
@@ -758,7 +876,17 @@ export const UserManagement = () => {
       
       if (userCreated) {
         console.log(`User created successfully via ${createMethod}!`);
-        toast.success(`User created successfully via ${createMethod}!`);
+        // Show a SweetAlert success popup and close the Create modal
+        await Swal.fire({
+          title: 'User Created!',
+          html: `<strong>${newUser.name}</strong> has been created successfully.<br/><small>Method: ${createMethod}</small>`,
+          icon: 'success',
+          confirmButtonColor: '#16a34a',
+          timer: 2500,
+          showConfirmButton: true,
+        });
+        // close the create modal
+        showCreate(false);
       } else {
         throw new Error('Failed to create user via any method');
       }
@@ -774,6 +902,7 @@ export const UserManagement = () => {
         schoolYear: "",
         hiredDate: "",
         department: "",
+        positions: "",
       });
       
       // Refresh user list
@@ -1001,7 +1130,7 @@ export const UserManagement = () => {
                   className="appearance-none bg-white border-2 border-gray-300 rounded-xl px-4 py-2.5 pr-10 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 cursor-pointer shadow-sm"
                 >
                   <option value="All">All Employee Types</option>
-                  <option value="Administrator">Administrator</option>
+                  {/* Administrator removed from sorting per request */}
                   <option value="HR Personnel">HR Personnel</option>
                   <option value="Accounting">Accounting</option>
                   <option value="Faculty">Faculty</option>
@@ -1208,10 +1337,7 @@ export const UserManagement = () => {
                               </button>
                               {user.status === "Active" ? (
                                 <button
-                                  onClick={() => {
-                                    setUserToModify(user);
-                                    setShowStatusConfirm(true);
-                                  }}
+                                  onClick={() => handleToggleStatus(user.id, user.status, user.name)}
                                   className="p-1.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-md hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-sm hover:shadow-md"
                                   title="Deactivate"
                                 >
@@ -1221,10 +1347,7 @@ export const UserManagement = () => {
                                 </button>
                               ) : (
                                 <button
-                                  onClick={() => {
-                                    setUserToModify(user);
-                                    setShowStatusConfirm(true);
-                                  }}
+                                  onClick={() => handleToggleStatus(user.id, user.status, user.name)}
                                   className="p-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-sm hover:shadow-md"
                                   title="Activate"
                                 >
@@ -1234,10 +1357,7 @@ export const UserManagement = () => {
                                 </button>
                               )}
                               <button
-                                onClick={() => {
-                                  setUserToModify(user);
-                                  setShowArchiveConfirm(true);
-                                }}
+                                onClick={() => handleArchiveUser(user.id, user.name)}
                                 className="p-1.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-md hover:from-orange-600 hover:to-orange-700 transition-all duration-200 shadow-sm hover:shadow-md"
                                 title="Archive"
                               >
@@ -1472,6 +1592,33 @@ export const UserManagement = () => {
                   >
                     <option value="">-- Select Department --</option>
                     <option value="CCS">CCS</option>
+                  </select>
+                </div>
+              )}
+              {/* Positions field for Faculty / SA / Staff during creation */}
+              {(newUser.role === "Faculty" || newUser.role === "SA" || newUser.role === "Staff") && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Position</label>
+                  <select
+                    value={newUser.positions}
+                    onChange={(e) => setNewUser({ ...newUser, positions: e.target.value })}
+                    className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  >
+                    <option value="">-- Select Position (optional) --</option>
+                    {newUser.role === "Faculty" && (
+                      <>
+                        <option value="Dean">Dean</option>
+                        <option value="Program Head">Program Head</option>
+                        <option value="Full Time">Full Time</option>
+                        <option value="Part Time">Part Time</option>
+                      </>
+                    )}
+                    {(newUser.role === "SA" || newUser.role === "Staff") && (
+                      <>
+                        <option value="Full Time">Full Time</option>
+                        <option value="Part Time">Part Time</option>
+                      </>
+                    )}
                   </select>
                 </div>
               )}
@@ -2452,100 +2599,7 @@ export const UserManagement = () => {
         </div>
       )}
 
-      {/* Archive Confirmation Modal */}
-      {showArchiveConfirm && userToModify && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/50 z-50 flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white/90 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl overflow-hidden max-w-md w-full transform transition-all duration-300 scale-100 animate-slideUp">
-            <div className="bg-gradient-to-r from-orange-600 to-orange-700 px-6 py-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/30">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <h2 className="text-xl font-bold text-white">Archive User</h2>
-              </div>
-            </div>
-            
-            <div className="p-6">
-              <p className="text-gray-700 mb-4">
-                Are you sure you want to archive <span className="font-bold text-orange-600">{userToModify.name}</span>? 
-                This action will move them to the archived users list.
-              </p>
-              
-              <div className="flex gap-3 justify-center mt-6">
-                <button
-                  onClick={() => {
-                    setShowArchiveConfirm(false);
-                    setUserToModify(null);
-                  }}
-                  className="px-6 py-2.5 bg-white/70 backdrop-blur-md border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-white/90 transition-all duration-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    handleArchiveUser(userToModify.id, userToModify.name);
-                    setShowArchiveConfirm(false);
-                    setUserToModify(null);
-                  }}
-                  className="px-6 py-2.5 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-                >
-                  Archive User
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Status Change Confirmation Modal */}
-      {showStatusConfirm && userToModify && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/50 z-50 flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white/90 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl overflow-hidden max-w-md w-full transform transition-all duration-300 scale-100 animate-slideUp">
-            <div className={`px-6 py-4 ${userToModify.status === "Active" ? 'bg-gradient-to-r from-red-600 to-red-700' : 'bg-gradient-to-r from-green-600 to-green-700'}`}>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/30">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <h2 className="text-xl font-bold text-white">
-                  {userToModify.status === "Active" ? "Deactivate" : "Activate"} User
-                </h2>
-              </div>
-            </div>
-            
-            <div className="p-6">
-              <p className="text-gray-700 mb-4">
-                Are you sure you want to {userToModify.status === "Active" ? "deactivate" : "activate"} <span className="font-bold text-red-600">{userToModify.name}</span>?
-              </p>
-              
-              <div className="flex gap-3 justify-center mt-6">
-                <button
-                  onClick={() => {
-                    setShowStatusConfirm(false);
-                    setUserToModify(null);
-                  }}
-                  className="px-6 py-2.5 bg-white/70 backdrop-blur-md border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-white/90 transition-all duration-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    handleToggleStatus(userToModify.id, userToModify.status);
-                    setShowStatusConfirm(false);
-                    setUserToModify(null);
-                  }}
-                  className={`px-6 py-2.5 bg-gradient-to-r text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 ${userToModify.status === "Active" ? 'from-red-600 to-red-700' : 'from-green-600 to-green-700'}`}
-                >
-                  {userToModify.status === "Active" ? "Deactivate" : "Activate"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      
     </div>
   );
 };

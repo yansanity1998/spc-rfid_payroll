@@ -520,6 +520,7 @@ export const PayrollAcc = () => {
 
   const fetchUsersWithPayrolls = async () => {
     setLoading(true);
+    // Only fetch users that are currently Active so Inactive/Archived users don't appear in Payroll
     const { data, error } = await supabase.from("users").select(`
       id,
       name,
@@ -534,7 +535,7 @@ export const PayrollAcc = () => {
         net,
         status
       )
-    `);
+    `).eq('status', 'Active');
 
     if (error) {
       console.error("Error fetching users:", error);
@@ -665,18 +666,26 @@ export const PayrollAcc = () => {
   };
 
   const addPayroll = async (userId: number, payrollData: any) => {
-    const { error } = await supabase.from("payrolls").insert([
-      {
-        user_id: userId,
-        ...payrollData,
-      },
-    ]);
+    // Return the inserted payroll record on success, throw on error
+    const { data, error } = await supabase
+      .from("payrolls")
+      .insert([
+        {
+          user_id: userId,
+          ...payrollData,
+        },
+      ])
+      .select();
 
     if (error) {
       console.error("Error adding payroll:", error.message);
-    } else {
-      fetchUsersWithPayrolls();
+      throw error;
     }
+
+    // Refresh users with payrolls and return the inserted row
+    await fetchUsersWithPayrolls();
+    console.log('✅ [PayrollAcc] Payroll inserted:', data);
+    return data && data[0] ? data[0] : null;
   };
 
   const updatePayroll = async (id: number) => {
@@ -816,39 +825,59 @@ export const PayrollAcc = () => {
       return;
     }
 
-    await addPayroll(Number(formData.user_id), {
-      period: formData.period,
-      gross: Number(formData.gross),
-      deductions: Number(formData.deductions),
-      loan_deduction: Number(formData.loan_deduction),
-      net: Number(formData.net),
-      status: formData.status,
-    });
+    try {
+      const inserted = await addPayroll(Number(formData.user_id), {
+        period: formData.period,
+        gross: Number(formData.gross),
+        deductions: Number(formData.deductions),
+        loan_deduction: Number(formData.loan_deduction),
+        net: Number(formData.net),
+        status: formData.status,
+      });
 
-    await Swal.fire({
-      title: 'Success!',
-      text: 'Payroll record added successfully',
-      icon: 'success',
-      confirmButtonColor: '#16a34a',
-      confirmButtonText: 'OK',
-      timer: 2000,
-      customClass: {
-        popup: 'rounded-2xl',
-        title: 'text-xl font-bold',
-        confirmButton: 'px-6 py-3 rounded-xl font-semibold shadow-lg'
+      if (!inserted) {
+        throw new Error('Payroll insert returned no data');
       }
-    });
 
-    setShowForm(false);
-    setFormData({
-      user_id: "",
-      period: "",
-      gross: 0,
-      deductions: 0,
-      loan_deduction: 0,
-      net: 0,
-      status: "Pending",
-    });
+      await Swal.fire({
+        title: 'Success!',
+        text: 'Payroll record added successfully',
+        icon: 'success',
+        confirmButtonColor: '#16a34a',
+        confirmButtonText: 'OK',
+        timer: 2000,
+        customClass: {
+          popup: 'rounded-2xl',
+          title: 'text-xl font-bold',
+          confirmButton: 'px-6 py-3 rounded-xl font-semibold shadow-lg'
+        }
+      });
+
+      setShowForm(false);
+      setFormData({
+        user_id: "",
+        period: "",
+        gross: 0,
+        deductions: 0,
+        loan_deduction: 0,
+        net: 0,
+        status: "Pending",
+      });
+    } catch (err: any) {
+      console.error('❌ [PayrollAcc] Failed to add payroll:', err);
+      await Swal.fire({
+        title: 'Error!',
+        text: `Failed to add payroll: ${err.message || 'Unknown error'}`,
+        icon: 'error',
+        confirmButtonColor: '#dc2626',
+        confirmButtonText: 'OK',
+        customClass: {
+          popup: 'rounded-2xl',
+          title: 'text-xl font-bold',
+          confirmButton: 'px-6 py-3 rounded-xl font-semibold shadow-lg'
+        }
+      });
+    }
   };
 
   // Bulk add payroll for multiple users
@@ -1078,7 +1107,7 @@ export const PayrollAcc = () => {
                     className="appearance-none bg-white border-2 border-gray-300 rounded-xl px-4 py-2.5 pr-10 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 shadow-sm text-sm"
                   >
                     <option value="">All Employee Types</option>
-                    <option value="Administrator">Administrator</option>
+                    {/* Administrator removed from employee-type filter per request */}
                     <option value="HR Personnel">HR Personnel</option>
                     <option value="Accounting">Accounting</option>
                     <option value="Faculty">Faculty</option>
@@ -1559,11 +1588,14 @@ export const PayrollAcc = () => {
                     className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 text-sm"
                   >
                     <option value="">Select Employee</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name} ({u.role})
-                      </option>
-                    ))}
+                    {users
+                      // Exclude Guard role from Add Payroll employee picker per request
+                      .filter((u) => u.role !== 'Guard')
+                      .map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name} ({u.role})
+                        </option>
+                      ))}
                   </select>
                 </div>
                 
@@ -2072,7 +2104,7 @@ export const PayrollAcc = () => {
                     <option value="Faculty">Faculty Only</option>
                     <option value="Staff">Staff Only</option>
                     <option value="SA">SA Only</option>
-                    <option value="Guard">Guard Only</option>
+                    {/* Guard removed from bulk role filter per request */}
                     <option value="HR Personnel">HR Personnel Only</option>
                     <option value="Accounting">Accounting Only</option>
                   </select>

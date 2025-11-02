@@ -6,12 +6,12 @@ import {
   useLocation,
 } from "react-router-dom";
 import { NavBar } from "./components/HRAdmin/NavBar";
-import { LogIn } from "./components/authAdmin/LogIn";
 import { LandingPage } from "./components/LandingPage";
 import { UserManagement } from "./components/HRAdmin/UserManagement";
 import { Attendance } from "./components/HRAdmin/Attendance";
 import { Payroll } from "./components/HRAdmin/Payroll";
 import { Requests } from "./components/HRAdmin/Requests";
+import { Clearance } from "./components/HRAdmin/Clearance";
 import Reports from "./components/HRAdmin/Reports";
 import Dashboard from "./components/HRAdmin/Dashboard";
 import Schedule from "./components/HRAdmin/Schedule";
@@ -23,6 +23,7 @@ import { UserManagement as HRUserManagement } from "./components/HR/UserManageme
 import { Attendance as HRAttendance } from "./components/HR/Attendance";
 import { Payroll as HRPayroll } from "./components/HR/Payroll";
 import { Requests as HRRequests } from "./components/HR/Requests";
+import { Clearance as HRClearance } from "./components/HR/Clearance";
 import HRReports from "./components/HR/Reports";
 import HRSchedule from "./components/HR/Schedule";
 import AccDashboard from "./components/Accounting/Dashboard";
@@ -45,6 +46,7 @@ import FacAttendance from "./components/Faculty/FacAttendance";
 import FacSchedule from "./components/Faculty/FacSchedule";
 import { FacPayroll } from "./components/Faculty/FacPayroll";
 import { FacRequest } from "./components/Faculty/FacRequest";
+import { Clearance as FacClearance } from "./components/Faculty/FacClearance";
 import { DeanApproval } from "./components/Faculty/DeanApproval";
 import SADashboard from "./components/SA/SADashboard";
 import SAAttendance from "./components/SA/SAAttendance";
@@ -78,7 +80,7 @@ function AppContent() {
 
   
   // Check if current route should show full-screen layout (no navigation bars)
-  const isFullScreenRoute = location.pathname === "/" || location.pathname === "/login" || location.pathname === "/scanner" || location.pathname === "/schedule-scanner" || location.pathname === "/diagnose-sa" || location.pathname === "/diagnose-guard" || location.pathname === "/diagnose-staff";
+  const isFullScreenRoute = location.pathname === "/" || location.pathname === "/scanner" || location.pathname === "/schedule-scanner" || location.pathname === "/diagnose-sa" || location.pathname === "/diagnose-guard" || location.pathname === "/diagnose-staff";
 
   return (
     <>
@@ -94,7 +96,6 @@ function AppContent() {
 
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LogIn />} />
           <Route path="/scanner" element={<Scanner />}/>
           <Route path="/schedule-scanner" element={<ScheduleScanner />}/>
 
@@ -105,6 +106,7 @@ function AppContent() {
           <Route path="/hrAdmin/schedule" element={<Schedule />} />
           <Route path="/hrAdmin/payroll" element={<Payroll />} />
           <Route path="/hrAdmin/requests" element={<Requests />} />
+          <Route path="/hrAdmin/clearance" element={<Clearance />} />
           <Route path="/hrAdmin/reports" element={<Reports />} />
 
           {/* HR PERSONNEL */}
@@ -114,6 +116,7 @@ function AppContent() {
           <Route path="/HR/schedule" element={<HRSchedule />} />
           <Route path="/HR/payroll" element={<HRPayroll />} />
           <Route path="/HR/requests" element={<HRRequests />} />
+          <Route path="/HR/clearance" element={<HRClearance />} />
           <Route path="/HR/reports" element={<HRReports />} />
 
           {/* ACCOUNTING */}
@@ -134,6 +137,7 @@ function AppContent() {
           <Route path="/Faculty/attendance" element={<FacAttendance />} />
           <Route path="/Faculty/schedule" element={<FacSchedule />} />
           <Route path="/Faculty/payroll" element={<FacPayroll />} />
+          <Route path="/Faculty/clearance" element={<FacClearance />} />
           <Route path="/Faculty/request" element={<FacRequest />} />
           <Route path="/Faculty/dean-approval" element={<DeanApproval />} />
 
