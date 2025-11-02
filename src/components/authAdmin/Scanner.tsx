@@ -424,7 +424,7 @@ const Scanner = () => {
       }
 
       // Check if user has a valid role for default scheduling
-      const validRoles = ['Faculty', 'SA', 'Accounting', 'Staff'];
+      const validRoles = ['Faculty', 'SA', 'Accounting', 'Staff', 'Administrator', 'HR Personnel'];
       if (!validRoles.includes(user.role)) {
         showModernAlert('error', 'Invalid Role', `Role ${user.role} is not configured for attendance tracking.`, user.name ?? user.id, user.role ?? '', user.profile_picture ?? '', 'error');
         playSound('error');
