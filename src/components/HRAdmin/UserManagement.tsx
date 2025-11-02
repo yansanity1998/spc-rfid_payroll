@@ -606,8 +606,10 @@ export const UserManagement = () => {
   };
 
 
-  const handleConfirmCreate = async () => {
-    if (!scannedCard) {
+  const handleConfirmCreate = async (cardValue?: string) => {
+    const rfidCard = cardValue || scannedCard;
+    
+    if (!rfidCard) {
       toast.error("No RFID card scanned!");
       setScanningRfid(false);
       setScannedCard("");
@@ -616,7 +618,7 @@ export const UserManagement = () => {
 
     console.log("=== FORM STATE DEBUG ===");
     console.log("Full newUser state:", newUser);
-    console.log("Scanned card:", scannedCard);
+    console.log("Scanned card:", rfidCard);
 
     // Check if required fields are filled
     if (!newUser.name || !newUser.email) {
@@ -632,7 +634,7 @@ export const UserManagement = () => {
     try {
       // Prepare payload with essential fields only
       const payload = {
-        rfid_id: Number(scannedCard),
+        rfid_id: Number(rfidCard),
         name: newUser.name,
         email: newUser.email,
         role: newUser.role,
@@ -705,7 +707,7 @@ export const UserManagement = () => {
           const { data: existingUser, error: checkError } = await supabase
             .from('users')
             .select('id')
-            .eq('rfid_id', Number(scannedCard))
+            .eq('rfid_id', Number(rfidCard))
             .single();
             
           if (existingUser) {
@@ -722,7 +724,7 @@ export const UserManagement = () => {
           const { data: insertData, error: insertError } = await supabase
             .from('users')
             .insert({
-              rfid_id: Number(scannedCard),
+              rfid_id: Number(rfidCard),
               name: newUser.name,
               email: newUser.email,
               role: newUser.role,
@@ -1531,7 +1533,7 @@ export const UserManagement = () => {
                   
                   // Add a longer delay to ensure all form state is captured
                   setTimeout(() => {
-                    handleConfirmCreate();
+                    handleConfirmCreate(cardValue);
                   }, 1500);
                 }
               }}
