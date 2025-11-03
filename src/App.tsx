@@ -12,6 +12,7 @@ import { Attendance } from "./components/HRAdmin/Attendance";
 import { Payroll } from "./components/HRAdmin/Payroll";
 import { Requests } from "./components/HRAdmin/Requests";
 import { Clearance } from "./components/HRAdmin/Clearance";
+import { ClearanceDocuments } from "./components/HRAdmin/ClearanceDocuments";
 import Reports from "./components/HRAdmin/Reports";
 import Dashboard from "./components/HRAdmin/Dashboard";
 import Schedule from "./components/HRAdmin/Schedule";
@@ -24,6 +25,7 @@ import { Attendance as HRAttendance } from "./components/HR/Attendance";
 import { Payroll as HRPayroll } from "./components/HR/Payroll";
 import { Requests as HRRequests } from "./components/HR/Requests";
 import { Clearance as HRClearance } from "./components/HR/Clearance";
+import { ClearanceDocuments as HRClearanceDocuments } from "./components/HR/ClearanceDocuments";
 import HRReports from "./components/HR/Reports";
 import HRSchedule from "./components/HR/Schedule";
 import AccDashboard from "./components/Accounting/Dashboard";
@@ -107,6 +109,7 @@ function AppContent() {
           <Route path="/hrAdmin/payroll" element={<Payroll />} />
           <Route path="/hrAdmin/requests" element={<Requests />} />
           <Route path="/hrAdmin/clearance" element={<Clearance />} />
+          <Route path="/hrAdmin/documents" element={<ClearanceDocuments />} />
           <Route path="/hrAdmin/reports" element={<Reports />} />
 
           {/* HR PERSONNEL */}
@@ -117,6 +120,7 @@ function AppContent() {
           <Route path="/HR/payroll" element={<HRPayroll />} />
           <Route path="/HR/requests" element={<HRRequests />} />
           <Route path="/HR/clearance" element={<HRClearance />} />
+          <Route path="/HR/documents" element={<HRClearanceDocuments />} />
           <Route path="/HR/reports" element={<HRReports />} />
 
           {/* ACCOUNTING */}

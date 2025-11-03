@@ -45,7 +45,7 @@ export const Clearance = () => {
       // fetch all users with role 'Faculty' - adjust if your role name differs
       const { data, error } = await supabase
         .from("users")
-        .select("*")
+        .select("id, name, email, role, status, positions, profile_picture")
         .eq("role", "Faculty")
         .order("name", { ascending: true });
 
@@ -413,9 +413,17 @@ export const Clearance = () => {
                   <tr key={u.id} className="hover:bg-red-50 transition-colors duration-150">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center text-white font-semibold">
-                          {u.name?.charAt(0)?.toUpperCase() || 'F'}
-                        </div>
+                        {u.profile_picture ? (
+                          <img 
+                            src={u.profile_picture} 
+                            alt={u.name || 'User'} 
+                            className="w-10 h-10 rounded-full object-cover ring-2 ring-red-200"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center text-white font-semibold">
+                            {u.name?.charAt(0)?.toUpperCase() || 'F'}
+                          </div>
+                        )}
                         <div>
                           <p className="text-sm font-semibold text-gray-800">{u.name}</p>
                           <p className="text-xs text-gray-500">{u.email || '-'}</p>
@@ -429,7 +437,7 @@ export const Clearance = () => {
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                        u.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        u.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                       }`}>
                         {u.status || '-'}
                       </span>
@@ -453,7 +461,13 @@ export const Clearance = () => {
                       <div className="flex items-center justify-center gap-2">
                         <button 
                           onClick={() => openUserEditModal(u)} 
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
+                          disabled={u.status !== 'Active'}
+                          title={u.status !== 'Active' ? 'User must be Active to edit clearance' : 'Edit clearance'}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors shadow-sm ${
+                            u.status !== 'Active' 
+                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                              : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md'
+                          }`}
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -488,9 +502,17 @@ export const Clearance = () => {
               <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-white font-bold text-lg">
-                      {viewUser.name?.charAt(0)?.toUpperCase() || 'F'}
-                    </div>
+                    {viewUser.profile_picture ? (
+                      <img 
+                        src={viewUser.profile_picture} 
+                        alt={viewUser.name || 'User'} 
+                        className="w-12 h-12 rounded-xl object-cover ring-2 ring-white/30"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                        {viewUser.name?.charAt(0)?.toUpperCase() || 'F'}
+                      </div>
+                    )}
                     <div>
                       <h3 className="text-xl font-bold text-white">Clearance Details</h3>
                       <p className="text-red-100 text-sm">{viewUser.name} • {Array.isArray(viewUser.positions) ? viewUser.positions.join(', ') : (viewUser.position || '')}</p>
@@ -570,9 +592,17 @@ export const Clearance = () => {
               <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-white font-bold text-lg">
-                      {selectedUser?.name?.charAt(0)?.toUpperCase() || 'F'}
-                    </div>
+                    {selectedUser?.profile_picture ? (
+                      <img 
+                        src={selectedUser.profile_picture} 
+                        alt={selectedUser.name || 'User'} 
+                        className="w-12 h-12 rounded-xl object-cover ring-2 ring-white/30"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                        {selectedUser?.name?.charAt(0)?.toUpperCase() || 'F'}
+                      </div>
+                    )}
                     <div>
                       <h3 className="text-xl font-bold text-white">Edit Clearance Record</h3>
                       <div className="flex items-center gap-2 mt-1">

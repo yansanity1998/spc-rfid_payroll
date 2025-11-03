@@ -43,6 +43,7 @@ export const NavBar = () => {
     { key: "payroll", label: "Payroll", link: "hrAdmin/payroll" },
     { key: "requests", label: "Requests", link: "hrAdmin/requests" },
     { key: "clearance", label: "Clearance", link: "hrAdmin/clearance" },
+    { key: "documents", label: "Documents", link: "hrAdmin/documents" },
     { key: "reports", label: "Reports", link: "hrAdmin/reports" },
   ];
 
@@ -84,6 +85,12 @@ export const NavBar = () => {
         return (
           <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      case "documents":
+        return (
+          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         );
       case "schedule":
@@ -136,7 +143,7 @@ export const NavBar = () => {
       </div>
 
       {/* Sidebar (desktop) */}
-      <div className="hidden lg:flex w-70 min-h-screen fixed left-0 top-0 pr-2 py-6 flex-col justify-between bg-gradient-to-b from-red-900 via-red-800 to-red-900 shadow-2xl z-30">
+      <div className="hidden lg:flex w-70 min-h-screen fixed left-0 top-0 pr-2 py-4 flex-col justify-between bg-gradient-to-b from-red-900 via-red-800 to-red-900 shadow-2xl z-30">
         <div>
           {/* Modern Profile Section - Picture and Role Only */}
           <div className="flex flex-col items-center justify-center px-4 py-4 mb-4">
@@ -160,15 +167,15 @@ export const NavBar = () => {
               <Link
                 key={item.key}
                 to={item.link}
-                className={`group relative overflow-hidden backdrop-blur-sm border block w-full text-left px-4 py-3 rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-lg font-medium ${
+                className={`group relative overflow-hidden backdrop-blur-sm border block w-full text-left px-3 py-2.5 rounded-lg transition-all duration-300 hover:scale-[1.01] hover:shadow-lg text-sm font-medium ${
                   location.pathname === `/${item.link}`
-                    ? "bg-white/20 border-white/30 text-white shadow-lg scale-[1.02]"
+                    ? "bg-white/20 border-white/30 text-white shadow-lg scale-[1.01]"
                     : "bg-white/5 border-white/10 text-white/90 hover:text-white hover:bg-white/20"
                 }`}
               >
                 <span className="relative z-10 flex items-center gap-3">
                   {getMenuIcon(item.key)}
-                  {item.label}
+                  <span className="truncate">{item.label}</span>
                 </span>
                 <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </Link>
@@ -258,15 +265,15 @@ export const NavBar = () => {
                     key={item.key}
                     to={item.link}
                     onClick={() => setMenuOpen(false)} // close menu after navigation
-                    className={`group relative overflow-hidden backdrop-blur-sm border block w-full text-left px-4 py-3 rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-lg font-medium ${
+                    className={`group relative overflow-hidden backdrop-blur-sm border block w-full text-left px-3 py-2.5 rounded-lg transition-all duration-300 hover:scale-[1.01] hover:shadow-lg text-sm font-medium ${
                       location.pathname === `/${item.link}`
-                        ? "bg-white/20 border-white/30 text-white shadow-lg scale-[1.02]"
+                        ? "bg-white/20 border-white/30 text-white shadow-lg scale-[1.01]"
                         : "bg-white/5 border-white/10 text-white/90 hover:text-white hover:bg-white/20"
                     }`}
                   >
                     <span className="relative z-10 flex items-center gap-3">
                       {getMenuIcon(item.key)}
-                      {item.label}
+                      <span className="truncate">{item.label}</span>
                     </span>
                     <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </Link>
