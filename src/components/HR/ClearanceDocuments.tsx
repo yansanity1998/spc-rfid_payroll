@@ -158,6 +158,50 @@ export const ClearanceDocuments = () => {
     setLoading(false);
   };
 
+  const getCompletionPercentage = (doc: any) => {
+    if (!doc) return 0;
+    
+    // Define all required fields for completion
+    const requiredFields = [
+      doc.philhealth_no,
+      doc.pagibig_no,
+      doc.tin_no,
+      doc.sss_no,
+      doc.degree_earned,
+      doc.tor_status !== 'None' ? doc.tor_status : null,
+      doc.diploma_status !== 'None' ? doc.diploma_status : null,
+      doc.nbi_clearance !== 'NO SUBMISSION' ? doc.nbi_clearance : null,
+      doc.certification_employment !== 'NO SUBMISSION' ? doc.certification_employment : null,
+      doc.medical_certificate !== 'NO SUBMISSION' ? doc.medical_certificate : null,
+      doc.birth_certificate !== 'NO SUBMISSION' ? doc.birth_certificate : null,
+      doc.updated_pis !== 'NO' ? doc.updated_pis : null,
+      doc.seminar_certificates !== 'NO' ? doc.seminar_certificates : null,
+      doc.acknowledgement_form_march14 !== 'NO' ? doc.acknowledgement_form_march14 : null,
+      doc.contract_status !== 'NOT UPDATED' ? doc.contract_status : null,
+      doc.personal_memo !== 'NONE' ? doc.personal_memo : null,
+      doc.narrative_report !== 'NONE' ? doc.narrative_report : null,
+      doc.appointment !== 'NONE' ? doc.appointment : null,
+      doc.letter_of_intent !== 'NONE' ? doc.letter_of_intent : null
+    ];
+
+    // Count completed fields (non-empty, not default "empty" values)
+    const completed = requiredFields.filter(field => {
+      if (!field) return false;
+      if (typeof field === 'string') {
+        const trimmed = field.trim();
+        return trimmed !== '' && 
+               trimmed !== 'NO SUBMISSION' && 
+               trimmed !== 'NONE' && 
+               trimmed !== 'N/A' && 
+               trimmed !== 'NOT UPDATED' &&
+               trimmed !== 'NO';
+      }
+      return true;
+    }).length;
+
+    return Math.round((completed / requiredFields.length) * 100);
+  };
+
   const openEditModal = (user: any) => {
     setSelectedUser(user);
     const doc = user.clearance_doc;
@@ -359,7 +403,7 @@ export const ClearanceDocuments = () => {
           user_id: selectedUser.id,
           employment_status: selectedUser.status || "Active",
           employment_type: selectedUser.positions || "Full Time",
-          date_hired: "",
+          date_hired: formatDateForInput(selectedUser.hiredDate) || "",
           degree_earned: "",
           philhealth_no: "",
           pagibig_no: "",
@@ -445,22 +489,6 @@ export const ClearanceDocuments = () => {
     URL.revokeObjectURL(url);
   };
 
-  const getCompletionPercentage = (doc: any) => {
-    if (!doc) return 0;
-    const fields = [
-      doc.philhealth_no, doc.pagibig_no, doc.tin_no, doc.sss_no,
-      doc.tor_status === 'Yes' ? 'yes' : null,
-      doc.diploma_status === 'Yes' ? 'yes' : null,
-      doc.nbi_clearance !== 'NO SUBMISSION' ? 'yes' : null,
-      doc.birth_certificate === 'YES' ? 'yes' : null,
-      doc.updated_pis === 'YES' ? 'yes' : null,
-      doc.seminar_certificates === 'YES' ? 'yes' : null,
-      doc.acknowledgement_form_march14 === 'YES' ? 'yes' : null
-    ];
-    const completed = fields.filter(f => f).length;
-    return Math.round((completed / fields.length) * 100);
-  };
-
   const filtered = users.filter((u) => {
     if (!search) return true;
     const s = search.toLowerCase();
@@ -499,7 +527,7 @@ export const ClearanceDocuments = () => {
                   <p className="text-2xl font-bold">{stats.total}</p>
                 </div>
                 <svg className="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
             </div>
@@ -710,6 +738,32 @@ export const ClearanceDocuments = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
+                </div>
+              </div>
+
+              {/* Completion Indicator */}
+              <div className="px-6 py-3 bg-white border-b">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700">Completion:</span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-32 bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all ${
+                            getCompletionPercentage(form) === 100 ? 'bg-green-500' : 
+                            getCompletionPercentage(form) >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                          }`}
+                          style={{ width: `${getCompletionPercentage(form)}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-semibold text-gray-600">{getCompletionPercentage(form)}%</span>
+                    </div>
+                  </div>
+                  {getCompletionPercentage(form) === 100 && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      Complete!
+                    </span>
+                  )}
                 </div>
               </div>
               
@@ -1029,34 +1083,34 @@ export const ClearanceDocuments = () => {
               </div>
 
               <div className="px-6 py-4 bg-gray-50 border-t flex-shrink-0">
-  <div className="flex items-center justify-center gap-3 flex-wrap">
-    <button 
-      type="button" 
-      onClick={closeModal} 
-      className="px-5 py-2.5 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-100 transition-colors shadow-sm"
-    >
-      Cancel
-    </button>
-    <button 
-      type="button" 
-      onClick={resetAllFields} 
-      className="px-5 py-2.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors shadow-sm inline-flex items-center gap-2"
-    >
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-      </svg>
-      Reset All
-    </button>
-    <button 
-      type="button" 
-      onClick={saveDocument} 
-      disabled={saving} 
-      className="px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-60 transition-colors shadow-sm"
-    >
-      {saving ? 'Saving...' : 'Save Changes'}
-    </button>
-  </div>
-</div>
+                <div className="flex items-center justify-center gap-3 flex-wrap">
+                  <button 
+                    type="button" 
+                    onClick={closeModal} 
+                    className="px-5 py-2.5 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-100 transition-colors shadow-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={resetAllFields} 
+                    className="px-5 py-2.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors shadow-sm inline-flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Reset All
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={saveDocument} 
+                    disabled={saving} 
+                    className="px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-60 transition-colors shadow-sm"
+                  >
+                    {saving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

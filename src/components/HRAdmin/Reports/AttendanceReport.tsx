@@ -22,6 +22,8 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [entriesPerPage] = useState(10);
 
   // Color coding system for employee types
   const getEmployeeTypeColor = (role: string) => {
@@ -144,6 +146,29 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
     record.user?.role?.toLowerCase().includes(search.toLowerCase()) ||
     record.status?.toLowerCase().includes(search.toLowerCase())
   );
+
+  // Pagination logic
+  const indexOfLastRecord = currentPage * entriesPerPage;
+  const indexOfFirstRecord = indexOfLastRecord - entriesPerPage;
+  const currentRecords = filteredRecords.slice(indexOfFirstRecord, indexOfLastRecord);
+  const totalPages = Math.ceil(filteredRecords.length / entriesPerPage);
+
+  // Change page
+  // const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+
+  // Next page
+  const nextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Previous page
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
 
   // Export to CSV function
   const exportToCSV = () => {
@@ -564,13 +589,20 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
         {/* Modern Attendance Table */}
         <div className="bg-gray-50 border border-gray-200 shadow-xl rounded-2xl mt-6 overflow-hidden">
           <div className="p-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-800">Attendance Data</h2>
+                  <p className="text-sm text-gray-600">
+                    Showing {indexOfFirstRecord + 1}-{Math.min(indexOfLastRecord, filteredRecords.length)} of {filteredRecords.length} records
+                  </p>
+                </div>
               </div>
-              <h2 className="text-xl font-bold text-gray-800">Attendance Data</h2>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -595,8 +627,8 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
                       </div>
                     </td>
                   </tr>
-                ) : filteredRecords.length > 0 ? (
-                  filteredRecords.map((record) => (
+                ) : currentRecords.length > 0 ? (
+                  currentRecords.map((record) => (
                     <tr key={record.id} className="hover:bg-white/80 transition-all duration-200 group">
                       <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
                         {formatPhilippineDate(record.att_date)}
@@ -653,6 +685,40 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
               </tbody>
             </table>
           </div>
+
+          {/* Simplified Pagination Controls */}
+          {/* Simplified Pagination Controls - Centered */}
+          {filteredRecords.length > entriesPerPage && (
+            <div className="px-6 py-4 bg-white border-t border-gray-200 flex items-center justify-center">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={prevPage}
+                  disabled={currentPage === 1}
+                  className="w-10 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                  title="Previous page"
+                >
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                
+                <div className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm">
+                  {currentPage}
+                </div>
+
+                <button
+                  onClick={nextPage}
+                  disabled={currentPage === totalPages}
+                  className="w-10 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                  title="Next page"
+                >
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>
