@@ -94,12 +94,34 @@ export const ClearanceDocuments = () => {
     fetchUsers();
   }, []);
 
+  const formatDateForInput = (date: string | null | undefined): string => {
+    if (!date) return '';
+    // If it's already in YYYY-MM-DD format, return as is
+    if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return date;
+    }
+    // If it's a full ISO datetime string, extract just the date part
+    if (typeof date === 'string' && date.includes('T')) {
+      return date.split('T')[0];
+    }
+    // Try to parse and format the date
+    try {
+      const dateObj = new Date(date);
+      if (!isNaN(dateObj.getTime())) {
+        return dateObj.toISOString().split('T')[0];
+      }
+    } catch (e) {
+      console.error('Error formatting date:', e);
+    }
+    return '';
+  };
+
   const fetchUsers = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from("users")
-        .select("id, name, email, role, status, positions, profile_picture")
+        .select("id, name, email, role, status, positions, profile_picture, hiredDate")
         .in("role", ["Faculty", "Staff"])
         .order("name", { ascending: true });
 
@@ -151,7 +173,7 @@ export const ClearanceDocuments = () => {
       user_id: user.id,
       employment_status: doc?.employment_status || user.status || "Active",
       employment_type: doc?.employment_type || user.positions || "Full Time",
-      date_hired: doc?.date_hired || null,
+      date_hired: formatDateForInput(user.hiredDate || doc?.date_hired) || "",
       degree_earned: doc?.degree_earned || "",
       philhealth_no: doc?.philhealth_no || "",
       pagibig_no: doc?.pagibig_no || "",
@@ -171,16 +193,16 @@ export const ClearanceDocuments = () => {
       appointment: doc?.appointment || "NONE",
       general_remarks: doc?.general_remarks || "",
       contract_status: doc?.contract_status || "NOT UPDATED",
-      date_entered_contract: doc?.date_entered_contract || null,
+      date_entered_contract: formatDateForInput(doc?.date_entered_contract) || "",
       contract_remarks: doc?.contract_remarks || "",
-      date_notarized: doc?.date_notarized || null,
+      date_notarized: formatDateForInput(doc?.date_notarized) || "",
       seminar_certificates: doc?.seminar_certificates || "NO",
       certificates_years: doc?.certificates_years || "",
       narrative_report: doc?.narrative_report || "NONE",
       personal_memo: doc?.personal_memo || "NONE",
-      memo_date: doc?.memo_date || null,
+      memo_date: formatDateForInput(doc?.memo_date) || "",
       memo_subject: doc?.memo_subject || "",
-      memo_date_responded: doc?.memo_date_responded || null,
+      memo_date_responded: formatDateForInput(doc?.memo_date_responded) || "",
       acknowledgement_form_march14: doc?.acknowledgement_form_march14 || "NO",
       lackings: doc?.lackings || ""
     });
@@ -317,6 +339,62 @@ export const ClearanceDocuments = () => {
       console.error('Upload error:', error);
       toast.error('Failed to upload image: ' + error.message);
     }
+  };
+
+  const resetAllFields = () => {
+    if (!selectedUser) return;
+    
+    Swal.fire({
+      title: 'Reset All Fields?',
+      text: 'This will clear all filled fields and reset them to default values. This action cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, Reset All',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setForm({
+          user_id: selectedUser.id,
+          employment_status: selectedUser.status || "Active",
+          employment_type: selectedUser.positions || "Full Time",
+          date_hired: "",
+          degree_earned: "",
+          philhealth_no: "",
+          pagibig_no: "",
+          tin_no: "",
+          sss_no: "",
+          tor_status: "None",
+          diploma_status: "None",
+          nbi_clearance: "NO SUBMISSION",
+          certification_employment: "NO SUBMISSION",
+          medical_certificate: "NO SUBMISSION",
+          birth_certificate: "NO SUBMISSION",
+          marital_status: "Single",
+          marriage_certificate: "N/A",
+          letter_of_intent: "NONE",
+          permit_to_teach: "N/A",
+          updated_pis: "NO",
+          appointment: "NONE",
+          general_remarks: "",
+          contract_status: "NOT UPDATED",
+          date_entered_contract: "",
+          contract_remarks: "",
+          date_notarized: "",
+          seminar_certificates: "NO",
+          certificates_years: "",
+          narrative_report: "NONE",
+          personal_memo: "NONE",
+          memo_date: "",
+          memo_subject: "",
+          memo_date_responded: "",
+          acknowledgement_form_march14: "NO",
+          lackings: ""
+        });
+        toast.success('All fields have been reset to default values');
+      }
+    });
   };
 
   const exportCSV = (user: any) => {
@@ -951,19 +1029,29 @@ export const ClearanceDocuments = () => {
               </div>
 
               <div className="px-6 py-4 bg-gray-50 border-t flex-shrink-0">
-  <div className="flex items-center justify-center gap-4">
+  <div className="flex items-center justify-center gap-3 flex-wrap">
     <button 
       type="button" 
       onClick={closeModal} 
-      className="px-6 py-2.5 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-100 transition-colors"
+      className="px-5 py-2.5 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-100 transition-colors shadow-sm"
     >
       Cancel
     </button>
     <button 
       type="button" 
+      onClick={resetAllFields} 
+      className="px-5 py-2.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors shadow-sm inline-flex items-center gap-2"
+    >
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      Reset All
+    </button>
+    <button 
+      type="button" 
       onClick={saveDocument} 
       disabled={saving} 
-      className="px-6 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-60 transition-colors"
+      className="px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-60 transition-colors shadow-sm"
     >
       {saving ? 'Saving...' : 'Save Changes'}
     </button>
