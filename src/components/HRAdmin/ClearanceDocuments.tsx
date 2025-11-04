@@ -496,11 +496,17 @@ export const ClearanceDocuments = () => {
   });
 
   const stats = {
-    total: users.length,
-    complete: users.filter(u => getCompletionPercentage(u.clearance_doc) === 100).length,
-    incomplete: users.filter(u => getCompletionPercentage(u.clearance_doc) < 100).length,
-    noRecords: users.filter(u => !u.clearance_doc).length
-  };
+  total: users.length,
+  complete: users.filter(u => getCompletionPercentage(u.clearance_doc) === 100).length,
+  incomplete: users.filter(u => {
+    const percentage = getCompletionPercentage(u.clearance_doc);
+    return percentage > 0 && percentage < 100;
+  }).length,
+  noRecords: users.filter(u => {
+    const percentage = getCompletionPercentage(u.clearance_doc);
+    return !u.clearance_doc || percentage === 0;
+  }).length
+};
 
   return (
     <div className="min-h-screen w-full lg:ml-70 py-5 roboto px-3 sm:px-5 bg-red-200">

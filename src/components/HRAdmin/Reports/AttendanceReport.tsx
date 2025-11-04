@@ -688,35 +688,44 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
 
           {/* Simplified Pagination Controls */}
           {/* Simplified Pagination Controls - Centered */}
+          {/* Simplified Pagination Controls - One Horizontal Line */}
           {filteredRecords.length > entriesPerPage && (
-            <div className="px-6 py-4 bg-white border-t border-gray-200 flex items-center justify-center">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={prevPage}
-                  disabled={currentPage === 1}
-                  className="w-10 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-                  title="Previous page"
-                >
-                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                
-                <div className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm">
-                  {currentPage}
-                </div>
-
-                <button
-                  onClick={nextPage}
-                  disabled={currentPage === totalPages}
-                  className="w-10 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-                  title="Next page"
-                >
-                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
+            <div className="px-6 py-4 bg-white border-t border-gray-200 flex items-center">
+              <div className="flex-1 text-sm text-gray-700">
+                Showing <span className="font-medium">{indexOfFirstRecord + 1}</span> to{" "}
+                <span className="font-medium">{Math.min(indexOfLastRecord, filteredRecords.length)}</span> of{" "}
+                <span className="font-medium">{filteredRecords.length}</span> results
               </div>
+              <div className="flex-1 flex justify-center">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={prevPage}
+                    disabled={currentPage === 1}
+                    className="w-10 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                    title="Previous page"
+                  >
+                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  
+                  <div className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm">
+                    {currentPage}
+                  </div>
+
+                  <button
+                    onClick={nextPage}
+                    disabled={currentPage === totalPages}
+                    className="w-10 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                    title="Next page"
+                  >
+                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1"></div>
             </div>
           )}
         </div>
