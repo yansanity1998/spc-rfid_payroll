@@ -443,40 +443,77 @@ export const ClearanceDocuments = () => {
 
   const exportCSV = (user: any) => {
     const doc = user.clearance_doc || {};
-    const rows = [
-      ['Field', 'Value'],
-      ['Name', user.name],
-      ['Employment Status', doc.employment_status || ''],
-      ['Employment Type', doc.employment_type || ''],
-      ['Date Hired', doc.date_hired || ''],
-      ['Degree Earned', doc.degree_earned || ''],
-      ['Philhealth No.', doc.philhealth_no || ''],
-      ['Pag-Ibig No.', doc.pagibig_no || ''],
-      ['TIN No.', doc.tin_no || ''],
-      ['SSS No.', doc.sss_no || ''],
-      ['TOR', doc.tor_status || ''],
-      ['Diploma', doc.diploma_status || ''],
-      ['NBI Clearance', doc.nbi_clearance || ''],
-      ['Cert of Employment', doc.certification_employment || ''],
-      ['Medical Cert', doc.medical_certificate || ''],
-      ['Birth Cert', doc.birth_certificate || ''],
-      ['Marital Status', doc.marital_status || ''],
-      ['Marriage Cert', doc.marriage_certificate || ''],
-      ['Letter of Intent', doc.letter_of_intent || ''],
-      ['Permit to Teach', doc.permit_to_teach || ''],
-      ['Updated PIS', doc.updated_pis || ''],
-      ['Appointment', doc.appointment || ''],
-      ['Contract Status', doc.contract_status || ''],
-      ['Date Entered Contract', doc.date_entered_contract || ''],
-      ['Date Notarized', doc.date_notarized || ''],
-      ['Seminar Certificates', doc.seminar_certificates || ''],
-      ['Certificates Years', doc.certificates_years || ''],
-      ['Narrative Report', doc.narrative_report || ''],
-      ['Personal Memo', doc.personal_memo || ''],
-      ['Acknowledgement Form', doc.acknowledgement_form_march14 || ''],
-      ['Lackings', doc.lackings || '']
+    
+    // Header row with all field names
+    const headers = [
+      'Name',
+      'Employment Status',
+      'Employment Type',
+      'Date Hired',
+      'Degree Earned',
+      'Philhealth No.',
+      'Pag-Ibig No.',
+      'TIN No.',
+      'SSS No.',
+      'TOR',
+      'Diploma',
+      'NBI Clearance',
+      'Cert of Employment',
+      'Medical Cert',
+      'Birth Cert',
+      'Marital Status',
+      'Marriage Cert',
+      'Letter of Intent',
+      'Permit to Teach',
+      'Updated PIS',
+      'Appointment',
+      'Contract Status',
+      'Date Entered Contract',
+      'Date Notarized',
+      'Seminar Certificates',
+      'Certificates Years',
+      'Narrative Report',
+      'Personal Memo',
+      'Acknowledgement Form',
+      'Lackings'
     ];
     
+    // Values row with corresponding data
+    const values = [
+      user.name,
+      doc.employment_status || '',
+      doc.employment_type || '',
+      doc.date_hired || '',
+      doc.degree_earned || '',
+      doc.philhealth_no || '',
+      doc.pagibig_no || '',
+      doc.tin_no || '',
+      doc.sss_no || '',
+      doc.tor_status || '',
+      doc.diploma_status || '',
+      doc.nbi_clearance || '',
+      doc.certification_employment || '',
+      doc.medical_certificate || '',
+      doc.birth_certificate || '',
+      doc.marital_status || '',
+      doc.marriage_certificate || '',
+      doc.letter_of_intent || '',
+      doc.permit_to_teach || '',
+      doc.updated_pis || '',
+      doc.appointment || '',
+      doc.contract_status || '',
+      doc.date_entered_contract || '',
+      doc.date_notarized || '',
+      doc.seminar_certificates || '',
+      doc.certificates_years || '',
+      doc.narrative_report || '',
+      doc.personal_memo || '',
+      doc.acknowledgement_form_march14 || '',
+      doc.lackings || ''
+    ];
+    
+    // Create horizontal CSV with headers in first row and values in second row
+    const rows = [headers, values];
     const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -805,8 +842,8 @@ export const ClearanceDocuments = () => {
                   </div>
 
                   {/* Government IDs */}
-                  <div className="bg-green-50 p-3 rounded-lg">
-                    <h4 className="font-semibold text-green-900 mb-2 text-sm">Government IDs</h4>
+                  <div className="bg-emerald-50 p-3 rounded-lg">
+                    <h4 className="font-semibold text-emerald-900 mb-2 text-sm">Government IDs</h4>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Philhealth No.</label>
@@ -828,8 +865,8 @@ export const ClearanceDocuments = () => {
                   </div>
 
                   {/* Credentials */}
-                  <div className="bg-purple-50 p-3 rounded-lg">
-                    <h4 className="font-semibold text-purple-900 mb-2 text-sm">Credentials</h4>
+                  <div className="bg-violet-50 p-3 rounded-lg">
+                    <h4 className="font-semibold text-violet-900 mb-2 text-sm">Credentials</h4>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">TOR</label>
@@ -851,8 +888,8 @@ export const ClearanceDocuments = () => {
                   </div>
 
                   {/* SPC Requirements */}
-                  <div className="bg-yellow-50 p-3 rounded-lg">
-                    <h4 className="font-semibold text-yellow-900 mb-2 text-sm">SPC Requirements</h4>
+                  <div className="bg-amber-50 p-3 rounded-lg">
+                    <h4 className="font-semibold text-amber-900 mb-2 text-sm">SPC Requirements</h4>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">NBI Clearance</label>
@@ -1081,8 +1118,8 @@ export const ClearanceDocuments = () => {
                   </div>
 
                   {/* Lackings */}
-                  <div className="bg-red-50 p-3 rounded-lg">
-                    <h4 className="font-semibold text-red-900 mb-2 text-sm">Lackings</h4>
+                  <div className="bg-rose-50 p-3 rounded-lg">
+                    <h4 className="font-semibold text-rose-900 mb-2 text-sm">Lackings</h4>
                     <textarea value={form.lackings} onChange={(e) => handleChange('lackings', e.target.value)} rows={3} placeholder="List missing documents..." className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
                   </div>
                 </form>
@@ -1161,8 +1198,8 @@ export const ClearanceDocuments = () => {
                         <div><span className="font-medium">Degree:</span> {selectedUser.clearance_doc.degree_earned || '-'}</div>
                       </div>
                     </div>
-                    <div className="bg-green-50 p-3 rounded-lg">
-                      <h4 className="font-semibold text-green-900 mb-2 text-sm">Government IDs</h4>
+                    <div className="bg-emerald-50 p-3 rounded-lg">
+                      <h4 className="font-semibold text-emerald-900 mb-2 text-sm">Government IDs</h4>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div><span className="font-medium">Philhealth:</span> {selectedUser.clearance_doc.philhealth_no || '-'}</div>
                         <div><span className="font-medium">Pag-Ibig:</span> {selectedUser.clearance_doc.pagibig_no || '-'}</div>
@@ -1170,15 +1207,15 @@ export const ClearanceDocuments = () => {
                         <div><span className="font-medium">SSS:</span> {selectedUser.clearance_doc.sss_no || '-'}</div>
                       </div>
                     </div>
-                    <div className="bg-purple-50 p-3 rounded-lg">
-                      <h4 className="font-semibold text-purple-900 mb-2 text-sm">Credentials</h4>
+                    <div className="bg-violet-50 p-3 rounded-lg">
+                      <h4 className="font-semibold text-violet-900 mb-2 text-sm">Credentials</h4>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div><span className="font-medium">TOR:</span> {selectedUser.clearance_doc.tor_status || '-'}</div>
                         <div><span className="font-medium">Diploma:</span> {selectedUser.clearance_doc.diploma_status || '-'}</div>
                       </div>
                     </div>
-                    <div className="bg-yellow-50 p-4 rounded-lg">
-                      <h4 className="font-semibold text-yellow-900 mb-3 text-base flex items-center gap-2">
+                    <div className="bg-amber-50 p-4 rounded-lg">
+                      <h4 className="font-semibold text-amber-900 mb-3 text-base flex items-center gap-2">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
@@ -1186,14 +1223,14 @@ export const ClearanceDocuments = () => {
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* NBI Clearance */}
-                        <div className="bg-white p-3 rounded-lg border border-yellow-200">
+                        <div className="bg-white p-3 rounded-lg border border-amber-200">
                           <p className="font-medium text-gray-700 mb-2 text-sm">NBI Clearance</p>
                           {selectedUser.clearance_doc?.nbi_clearance && String(selectedUser.clearance_doc.nbi_clearance).startsWith('http') ? (
                             <a href={selectedUser.clearance_doc.nbi_clearance} target="_blank" rel="noopener noreferrer" className="block">
                               <img 
                                 src={selectedUser.clearance_doc.nbi_clearance} 
                                 alt="NBI Clearance" 
-                                className="w-full h-40 object-cover rounded border-2 border-yellow-300 hover:border-yellow-500 transition-colors cursor-pointer"
+                                className="w-full h-40 object-cover rounded border-2 border-amber-300 hover:border-amber-500 transition-colors cursor-pointer"
                                 onError={(e) => {
                                   console.error('Image load error:', selectedUser.clearance_doc.nbi_clearance);
                                   e.currentTarget.style.display = 'none';
@@ -1207,14 +1244,14 @@ export const ClearanceDocuments = () => {
                         </div>
                         
                         {/* Certificate of Employment */}
-                        <div className="bg-white p-3 rounded-lg border border-yellow-200">
+                        <div className="bg-white p-3 rounded-lg border border-amber-200">
                           <p className="font-medium text-gray-700 mb-2 text-sm">Certificate of Employment</p>
                           {selectedUser.clearance_doc?.certification_employment && String(selectedUser.clearance_doc.certification_employment).startsWith('http') ? (
                             <a href={selectedUser.clearance_doc.certification_employment} target="_blank" rel="noopener noreferrer" className="block">
                               <img 
                                 src={selectedUser.clearance_doc.certification_employment} 
                                 alt="Cert of Employment" 
-                                className="w-full h-40 object-cover rounded border-2 border-yellow-300 hover:border-yellow-500 transition-colors cursor-pointer"
+                                className="w-full h-40 object-cover rounded border-2 border-amber-300 hover:border-amber-500 transition-colors cursor-pointer"
                                 onError={(e) => {
                                   console.error('Image load error:', selectedUser.clearance_doc.certification_employment);
                                   e.currentTarget.style.display = 'none';
@@ -1228,14 +1265,14 @@ export const ClearanceDocuments = () => {
                         </div>
                         
                         {/* Medical Certificate */}
-                        <div className="bg-white p-3 rounded-lg border border-yellow-200">
+                        <div className="bg-white p-3 rounded-lg border border-amber-200">
                           <p className="font-medium text-gray-700 mb-2 text-sm">Medical Certificate</p>
                           {selectedUser.clearance_doc?.medical_certificate && String(selectedUser.clearance_doc.medical_certificate).startsWith('http') ? (
                             <a href={selectedUser.clearance_doc.medical_certificate} target="_blank" rel="noopener noreferrer" className="block">
                               <img 
                                 src={selectedUser.clearance_doc.medical_certificate} 
                                 alt="Medical Certificate" 
-                                className="w-full h-40 object-cover rounded border-2 border-yellow-300 hover:border-yellow-500 transition-colors cursor-pointer"
+                                className="w-full h-40 object-cover rounded border-2 border-amber-300 hover:border-amber-500 transition-colors cursor-pointer"
                                 onError={(e) => {
                                   console.error('Image load error:', selectedUser.clearance_doc.medical_certificate);
                                   e.currentTarget.style.display = 'none';
@@ -1249,14 +1286,14 @@ export const ClearanceDocuments = () => {
                         </div>
                         
                         {/* Birth Certificate */}
-                        <div className="bg-white p-3 rounded-lg border border-yellow-200">
+                        <div className="bg-white p-3 rounded-lg border border-amber-200">
                           <p className="font-medium text-gray-700 mb-2 text-sm">Birth Certificate</p>
                           {selectedUser.clearance_doc?.birth_certificate && String(selectedUser.clearance_doc.birth_certificate).startsWith('http') ? (
                             <a href={selectedUser.clearance_doc.birth_certificate} target="_blank" rel="noopener noreferrer" className="block">
                               <img 
                                 src={selectedUser.clearance_doc.birth_certificate} 
                                 alt="Birth Certificate" 
-                                className="w-full h-40 object-cover rounded border-2 border-yellow-300 hover:border-yellow-500 transition-colors cursor-pointer"
+                                className="w-full h-40 object-cover rounded border-2 border-amber-300 hover:border-amber-500 transition-colors cursor-pointer"
                                 onError={(e) => {
                                   console.error('Image load error:', selectedUser.clearance_doc.birth_certificate);
                                   e.currentTarget.style.display = 'none';
@@ -1271,7 +1308,7 @@ export const ClearanceDocuments = () => {
                       </div>
                       
                       {/* Other Requirements */}
-                      <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-yellow-200">
+                      <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-amber-200">
                         <div className="text-sm"><span className="font-medium text-gray-700">Marital Status:</span> <span className="text-gray-600">{selectedUser.clearance_doc.marital_status || '-'}</span></div>
                         <div className="text-sm"><span className="font-medium text-gray-700">Marriage Cert:</span> <span className="text-gray-600">{selectedUser.clearance_doc.marriage_certificate || '-'}</span></div>
                         <div className="text-sm"><span className="font-medium text-gray-700">Letter of Intent:</span> <span className="text-gray-600">{selectedUser.clearance_doc.letter_of_intent || '-'}</span></div>
@@ -1281,15 +1318,15 @@ export const ClearanceDocuments = () => {
                       </div>
                       
                       {selectedUser.clearance_doc.general_remarks && (
-                        <div className="mt-4 p-3 bg-white rounded border border-yellow-200">
+                        <div className="mt-4 p-3 bg-white rounded border border-amber-200">
                           <p className="font-medium text-gray-700 text-sm mb-1">Remarks:</p>
                           <p className="text-sm text-gray-600">{selectedUser.clearance_doc.general_remarks}</p>
                         </div>
                       )}
                     </div>
                     {selectedUser.clearance_doc.lackings && (
-                      <div className="bg-red-50 p-3 rounded-lg">
-                        <h4 className="font-semibold text-red-900 mb-2 text-sm">Lackings</h4>
+                      <div className="bg-rose-50 p-3 rounded-lg">
+                        <h4 className="font-semibold text-rose-900 mb-2 text-sm">Lackings</h4>
                         <p className="text-sm whitespace-pre-wrap">{selectedUser.clearance_doc.lackings}</p>
                       </div>
                     )}
