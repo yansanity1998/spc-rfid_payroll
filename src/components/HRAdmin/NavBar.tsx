@@ -40,6 +40,7 @@ export const NavBar = () => {
     { key: "users", label: "User Management", link: "hrAdmin/userManagement" },
     { key: "attendance", label: "Attendance", link: "hrAdmin/attendance" },
     { key: "schedule", label: "Schedule", link: "hrAdmin/schedule" },
+    { key: "holiday", label: "Holiday", link: "hrAdmin/holiday" },
     { key: "payroll", label: "Payroll", link: "hrAdmin/payroll" },
     { key: "requests", label: "Requests", link: "hrAdmin/requests" },
     { key: "clearance", label: "Clearance", link: "hrAdmin/clearance" },
@@ -97,6 +98,12 @@ export const NavBar = () => {
         return (
           <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        );
+      case "holiday":
+        return (
+          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
           </svg>
         );
       case "reports":
@@ -162,18 +169,18 @@ export const NavBar = () => {
           </div>
           
           {/* Modern Navigation */}
-          <nav className="flex flex-col px-4 space-y-2">
+          <nav className="flex flex-col px-4 space-y-1.5">
             {menu.map((item) => (
               <Link
                 key={item.key}
                 to={item.link}
-                className={`group relative overflow-hidden backdrop-blur-sm border block w-full text-left px-3 py-2.5 rounded-lg transition-all duration-300 hover:scale-[1.01] hover:shadow-lg text-sm font-medium ${
+                className={`group relative overflow-hidden backdrop-blur-sm border block w-full text-left px-2.5 py-2 rounded-lg transition-all duration-300 hover:scale-[1.01] hover:shadow-lg text-xs font-medium ${
                   location.pathname === `/${item.link}`
                     ? "bg-white/20 border-white/30 text-white shadow-lg scale-[1.01]"
                     : "bg-white/5 border-white/10 text-white/90 hover:text-white hover:bg-white/20"
                 }`}
               >
-                <span className="relative z-10 flex items-center gap-3">
+                <span className="relative z-10 flex items-center gap-2.5">
                   {getMenuIcon(item.key)}
                   <span className="truncate">{item.label}</span>
                 </span>
@@ -259,19 +266,19 @@ export const NavBar = () => {
               </div>
               
               {/* Mobile Navigation */}
-              <nav className="flex flex-col px-4 space-y-2">
+              <nav className="flex flex-col px-4 space-y-1.5">
                 {menu.map((item) => (
                   <Link
                     key={item.key}
                     to={item.link}
                     onClick={() => setMenuOpen(false)} // close menu after navigation
-                    className={`group relative overflow-hidden backdrop-blur-sm border block w-full text-left px-3 py-2.5 rounded-lg transition-all duration-300 hover:scale-[1.01] hover:shadow-lg text-sm font-medium ${
+                    className={`group relative overflow-hidden backdrop-blur-sm border block w-full text-left px-2.5 py-2 rounded-lg transition-all duration-300 hover:scale-[1.01] hover:shadow-lg text-xs font-medium ${
                       location.pathname === `/${item.link}`
                         ? "bg-white/20 border-white/30 text-white shadow-lg scale-[1.01]"
                         : "bg-white/5 border-white/10 text-white/90 hover:text-white hover:bg-white/20"
                     }`}
                   >
-                    <span className="relative z-10 flex items-center gap-3">
+                    <span className="relative z-10 flex items-center gap-2.5">
                       {getMenuIcon(item.key)}
                       <span className="truncate">{item.label}</span>
                     </span>

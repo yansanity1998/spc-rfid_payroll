@@ -194,21 +194,33 @@ export const PayrollAcc = () => {
 
       console.log('📅 [PayrollAcc] Date range:', startDate, 'to', endDate);
 
-      // 🚀 OPTIMIZATION: Fetch ALL exemptions for the date range ONCE
-      const { data: exemptionsData, error: exemptionsError } = await supabase
-        .from("schedule_exemptions")
-        .select("*")
-        .eq("user_id", userId)
-        .gte("exemption_date", startDate)
-        .lte("exemption_date", endDate);
+      // 🚀 OPTIMIZATION: Fetch ALL exemptions AND holidays for the date range in parallel
+      const [exemptionsResult, holidaysResult] = await Promise.all([
+        supabase
+          .from("schedule_exemptions")
+          .select("*")
+          .eq("user_id", userId)
+          .gte("exemption_date", startDate)
+          .lte("exemption_date", endDate),
+        supabase
+          .from("holidays")
+          .select("date, title, is_active")
+          .gte("date", startDate)
+          .lte("date", endDate)
+          .eq("is_active", true)
+      ]);
 
-      if (exemptionsError) {
-        console.error('[PayrollAcc] Error fetching exemptions:', exemptionsError);
+      if (exemptionsResult.error) {
+        console.error('[PayrollAcc] Error fetching exemptions:', exemptionsResult.error);
+      }
+      
+      if (holidaysResult.error) {
+        console.error('[PayrollAcc] Error fetching holidays:', holidaysResult.error);
       }
 
       // Create a fast lookup map: date -> exemption info
       const exemptionsMap = new Map<string, any>();
-      (exemptionsData || []).forEach(exemption => {
+      (exemptionsResult.data || []).forEach(exemption => {
         const fullDayExemption = exemption.request_type === 'Leave' || (!exemption.start_time && !exemption.end_time);
         exemptionsMap.set(exemption.exemption_date, {
           isExempted: true,
@@ -219,8 +231,15 @@ export const PayrollAcc = () => {
           endTime: exemption.end_time
         });
       });
+      
+      // Create a fast lookup set for holiday dates
+      const holidayDates = new Set<string>();
+      (holidaysResult.data || []).forEach(holiday => {
+        holidayDates.add(holiday.date);
+        console.log(`🎉 [PayrollAcc] Holiday: ${holiday.date} - ${holiday.title}`);
+      });
 
-      console.log('🛡️ [PayrollAcc] Loaded', exemptionsMap.size, 'exemptions for fast lookup');
+      console.log('🛡️ [PayrollAcc] Loaded', exemptionsMap.size, 'exemptions and', holidayDates.size, 'holidays for fast lookup');
 
       // 🚀 OPTIMIZATION: Fetch all data in parallel for maximum speed
       const [attendanceResult, schedulesResult, classAttendanceResult] = await Promise.all([
@@ -330,6 +349,12 @@ export const PayrollAcc = () => {
       }
 
       for (const record of attendanceData || []) {
+        // 🚀 FAST LOOKUP: Check if date is a holiday first
+        if (holidayDates.has(record.att_date)) {
+          console.log(`🎉 [PayrollAcc] ${record.att_date} is a HOLIDAY - SKIPPING PENALTIES for user ${userId}`);
+          continue;
+        }
+        
         // 🚀 FAST LOOKUP: Check exemption from map instead of database
         const exemptionCheck = exemptionsMap.get(record.att_date) || { isExempted: false };
         if (exemptionCheck.isExempted) {
@@ -358,6 +383,9 @@ export const PayrollAcc = () => {
 
       // Determine full-day absences ONCE per date (avoid double-charging per session)
       for (const [date, dayRecords] of Object.entries(recordsByDate)) {
+        // 🚀 FAST LOOKUP: Check if date is a holiday first
+        if (holidayDates.has(date)) continue;
+        
         // 🚀 FAST LOOKUP: Check exemption from map
         const exemptionCheck = exemptionsMap.get(date) || { isExempted: false };
         if (exemptionCheck.isExempted) continue;

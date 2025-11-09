@@ -272,6 +272,23 @@ export const Attendance = () => {
       const currentMinutes = getManilaMinutesSinceMidnight(nowUtc.toISOString());
       const afternoonEnd = 19 * 60; // 7:00 PM
 
+      // Check if today is a holiday (active holidays only)
+      const { data: holidayCheck, error: holidayError } = await supabase
+        .from("holidays")
+        .select("id, title, is_active")
+        .eq("date", today)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (holidayError) {
+        console.error("[AutoAbsent] Error checking holiday:", holidayError);
+      }
+
+      if (holidayCheck) {
+        console.log(`[AutoAbsent] Today (${today}) is a holiday: "${holidayCheck.title}". Skipping auto-absent logic.`);
+        return; // Exit early - no one should be marked absent on a holiday
+      }
+
       // Get all active users (Faculty, SA, Accounting, Staff)
       const { data: allUsers, error: usersError } = await supabase
         .from("users")
@@ -386,6 +403,22 @@ export const Attendance = () => {
         const attendanceUserIds = Array.from(new Set((data || []).map((row: any) => row.user?.id).filter(Boolean)));
         const attendanceDates = Array.from(new Set((data || []).map((row: any) => row.att_date).filter(Boolean)));
         let exemptionMap = new Map<string, any>();
+        
+        // Fetch holidays for the date range
+        let holidayDates = new Set<string>();
+        if (attendanceDates.length > 0) {
+          const { data: holidays } = await supabase
+            .from('holidays')
+            .select('date, title')
+            .in('date', attendanceDates)
+            .eq('is_active', true);
+          
+          for (const holiday of (holidays || [])) {
+            holidayDates.add(holiday.date);
+            console.log(`[Holiday] ${holiday.date} is a holiday: ${holiday.title}`);
+          }
+        }
+        
         if (attendanceUserIds.length > 0 && attendanceDates.length > 0) {
           const { data: exemptions } = await supabase
             .from('schedule_exemptions')
@@ -408,10 +441,13 @@ export const Attendance = () => {
           }
         }
 
-        // Process attendance records using preloaded exemption map
+        // Process attendance records using preloaded exemption map and holiday dates
         const processedRecords = (data || []).map((row: any) => {
           const key = `${row.user?.id}|${row.att_date}`;
           const exemptionCheck = exemptionMap.get(key) || { isExempted: false, reason: null, type: null };
+          
+          // Check if this date is a holiday
+          const isHoliday = holidayDates.has(row.att_date);
 
           // Note: we no longer need to count per-day records for status
 
@@ -443,8 +479,12 @@ export const Attendance = () => {
             schoolYear: row.user?.schoolYear,
             hiredDate: row.user?.hiredDate,
             exemption: exemptionCheck, // Add exemption info
+            isHoliday: isHoliday, // Add holiday flag
             status: (() => {
-              // Respect exemptions first
+              // Check if date is a holiday first - highest priority
+              if (isHoliday) return "Exempted";
+              
+              // Respect exemptions next
               if (exemptionCheck.isExempted) return "Exempted";
 
               // Explicit absent flag from DB
@@ -723,13 +763,11 @@ export const Attendance = () => {
                   className="appearance-none bg-white border-2 border-gray-300 rounded-xl px-4 py-2.5 pr-10 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 shadow-sm"
                 >
                   <option value="all">All Roles</option>
-                  <option value="Administrator">Administrator</option>
                   <option value="HR Personnel">HR Personnel</option>
                   <option value="Accounting">Accounting</option>
                   <option value="Faculty">Faculty</option>
                   <option value="Staff">Staff</option>
                   <option value="SA">SA</option>
-                  <option value="Guard">Guard</option>
                 </select>
                 <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

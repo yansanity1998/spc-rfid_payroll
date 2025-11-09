@@ -967,7 +967,6 @@ export const Payroll = () => {
                     className="appearance-none bg-white border-2 border-gray-300 rounded-xl px-4 py-2.5 pr-10 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 shadow-sm text-sm"
                   >
                     <option value="">All Employee Types</option>
-                    <option value="Administrator">Administrator</option>
                     <option value="HR Personnel">HR Personnel</option>
                     <option value="Accounting">Accounting</option>
                     <option value="Faculty">Faculty</option>

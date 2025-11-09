@@ -18,6 +18,7 @@ import { ClearanceDocuments } from "./components/HRAdmin/ClearanceDocuments";
 import Reports from "./components/HRAdmin/Reports";
 import Dashboard from "./components/HRAdmin/Dashboard";
 import Schedule from "./components/HRAdmin/Schedule";
+import { Holiday } from "./components/HRAdmin/Holiday";
 
 // HR Personnel Components
 import { NavBar as HRNavBar } from "./components/HR/NavBar";
@@ -123,6 +124,7 @@ function AppContent() {
           <Route path="/hrAdmin/userManagement" element={<ProtectedRoute allowedRoles={["Administrator"]}><UserManagement /></ProtectedRoute>} />
           <Route path="/hrAdmin/attendance" element={<ProtectedRoute allowedRoles={["Administrator"]}><Attendance /></ProtectedRoute>} />
           <Route path="/hrAdmin/schedule" element={<ProtectedRoute allowedRoles={["Administrator"]}><Schedule /></ProtectedRoute>} />
+          <Route path="/hrAdmin/holiday" element={<ProtectedRoute allowedRoles={["Administrator"]}><Holiday /></ProtectedRoute>} />
           <Route path="/hrAdmin/payroll" element={<ProtectedRoute allowedRoles={["Administrator"]}><Payroll /></ProtectedRoute>} />
           <Route path="/hrAdmin/requests" element={<ProtectedRoute allowedRoles={["Administrator"]}><Requests /></ProtectedRoute>} />
           <Route path="/hrAdmin/clearance" element={<ProtectedRoute allowedRoles={["Administrator"]}><Clearance /></ProtectedRoute>} />
