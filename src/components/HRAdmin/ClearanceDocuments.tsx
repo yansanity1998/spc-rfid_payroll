@@ -526,6 +526,111 @@ export const ClearanceDocuments = () => {
     URL.revokeObjectURL(url);
   };
 
+  const exportAllCSV = () => {
+    // Filter only active users
+    const activeUsers = users.filter(u => u.status === 'Active');
+    
+    if (activeUsers.length === 0) {
+      toast.error('No active users to export');
+      return;
+    }
+
+    // Header row with all field names
+    const headers = [
+      'Name',
+      'Email',
+      'Role',
+      'Employment Status',
+      'Employment Type',
+      'Date Hired',
+      'Degree Earned',
+      'Philhealth No.',
+      'Pag-Ibig No.',
+      'TIN No.',
+      'SSS No.',
+      'TOR',
+      'Diploma',
+      'NBI Clearance',
+      'Cert of Employment',
+      'Medical Cert',
+      'Birth Cert',
+      'Marital Status',
+      'Marriage Cert',
+      'Letter of Intent',
+      'Permit to Teach',
+      'Updated PIS',
+      'Appointment',
+      'Contract Status',
+      'Date Entered Contract',
+      'Date Notarized',
+      'Seminar Certificates',
+      'Certificates Years',
+      'Narrative Report',
+      'Personal Memo',
+      'Acknowledgement Form',
+      'Lackings',
+      'Completion %'
+    ];
+
+    // Create rows for all active users
+    const rows = [headers];
+    activeUsers.forEach(user => {
+      const doc = user.clearance_doc || {};
+      const completion = getCompletionPercentage(doc);
+      
+      rows.push([
+        user.name || '',
+        user.email || '',
+        user.role || '',
+        doc.employment_status || '',
+        doc.employment_type || '',
+        doc.date_hired || '',
+        doc.degree_earned || '',
+        doc.philhealth_no || '',
+        doc.pagibig_no || '',
+        doc.tin_no || '',
+        doc.sss_no || '',
+        doc.tor_status || '',
+        doc.diploma_status || '',
+        doc.nbi_clearance || '',
+        doc.certification_employment || '',
+        doc.medical_certificate || '',
+        doc.birth_certificate || '',
+        doc.marital_status || '',
+        doc.marriage_certificate || '',
+        doc.letter_of_intent || '',
+        doc.permit_to_teach || '',
+        doc.updated_pis || '',
+        doc.appointment || '',
+        doc.contract_status || '',
+        doc.date_entered_contract || '',
+        doc.date_notarized || '',
+        doc.seminar_certificates || '',
+        doc.certificates_years || '',
+        doc.narrative_report || '',
+        doc.personal_memo || '',
+        doc.acknowledgement_form_march14 || '',
+        doc.lackings || '',
+        `${completion}%`
+      ]);
+    });
+
+    // Create CSV content
+    const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const timestamp = new Date().toISOString().split('T')[0];
+    a.download = `all_clearance_documents_${timestamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    
+    toast.success(`Exported ${activeUsers.length} user records`);
+  };
+
   const filtered = users.filter((u) => {
     // Only show active users
     if (u.status !== 'Active') return false;
@@ -562,7 +667,7 @@ export const ClearanceDocuments = () => {
               </svg>
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Clearance Documents</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">File Tracker Employee</h1>
               <p className="text-gray-600">Manage comprehensive document requirements</p>
             </div>
           </div>
@@ -614,16 +719,27 @@ export const ClearanceDocuments = () => {
             </div>
           </div>
 
-          <div className="relative">
-            <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name or email"
-              className="w-full border border-gray-300 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
-            />
+          <div className="flex gap-3">
+            <div className="relative flex-1">
+              <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by name or email"
+                className="w-full border border-gray-300 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+              />
+            </div>
+            <button
+              onClick={exportAllCSV}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all shadow-lg hover:shadow-xl font-medium whitespace-nowrap"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export All
+            </button>
           </div>
         </section>
 
