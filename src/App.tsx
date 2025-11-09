@@ -5,6 +5,8 @@ import {
   Routes,
   useLocation,
 } from "react-router-dom";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import { NotFound } from "./components/NotFound";
 import { NavBar } from "./components/HRAdmin/NavBar";
 import { LandingPage } from "./components/LandingPage";
 import { UserManagement } from "./components/HRAdmin/UserManagement";
@@ -34,11 +36,13 @@ import AccAttendance from "./components/Accounting/AccAttendance";
 import { PayrollAcc } from "./components/Accounting/PayrollAcc";
 import { Reports as AccReports } from "./components/Accounting/Reports";
 import AccSchedule from "./components/Accounting/AccSchedule";
+import GovContribution from "./components/Accounting/GovContribution";
 import { NavGuard } from "./components/Guard/NavGuard";
 import GuardDashboard from "./components/Guard/GuardDashboard";
 import GuardReports from "./components/Guard/GuardReports";
 import GuardScanner from "./components/Guard/GuardScanner";
 import { GuardApproval } from "./components/Guard/GuardApproval";
+import GuardGovContribution from "./components/Guard/GuardGovContribution";
 import { DatabaseTest } from "./components/Debug/DatabaseTest";
 import FacDashboard from "./components/Faculty/FacDashboard";
 import { FacNav } from "./components/Faculty/FacNav";
@@ -50,6 +54,7 @@ import { FacPayroll } from "./components/Faculty/FacPayroll";
 import { FacRequest } from "./components/Faculty/FacRequest";
 import { Clearance as FacClearance } from "./components/Faculty/FacClearance";
 import { DeanApproval } from "./components/Faculty/DeanApproval";
+import FacGovContribution from "./components/Faculty/FacGovContribution";
 import SADashboard from "./components/SA/SADashboard";
 import SAAttendance from "./components/SA/SAAttendance";
 import SASchedule from "./components/SA/SASchedule";
@@ -58,6 +63,7 @@ import SAReports from "./components/SA/SAReports";
 import SAEvents from "./components/SA/SAEvents";
 import SARequest from "./components/SA/SARequest";
 import { SANav } from "./components/SA/SANav";
+import SAGovContribution from "./components/SA/SAGovContribution";
 import DiagnoseSARole from "./components/SA/DiagnoseSARole";
 import DiagnoseGuardRole from "./components/Guard/DiagnoseGuardRole";
 import StaffDashboard from "./components/Staff/StaffDashboard";
@@ -67,6 +73,7 @@ import { StaffPayroll } from "./components/Staff/StaffPayroll";
 import StaffReports from "./components/Staff/StaffReports";
 import { StaffNav } from "./components/Staff/StaffNav";
 import DiagnoseStaffRole from "./components/Staff/DiagnoseStaffRole";
+import StaffGovContribution from "./components/Staff/StaffGovContribution";
 
 
 function AppContent() {
@@ -82,7 +89,17 @@ function AppContent() {
 
   
   // Check if current route should show full-screen layout (no navigation bars)
-  const isFullScreenRoute = location.pathname === "/" || location.pathname === "/scanner" || location.pathname === "/schedule-scanner" || location.pathname === "/diagnose-sa" || location.pathname === "/diagnose-guard" || location.pathname === "/diagnose-staff";
+  // Includes landing page, scanners, diagnostic routes, and any unmatched routes (404)
+  const isFullScreenRoute = 
+    location.pathname === "/" || 
+    location.pathname === "/scanner" || 
+    location.pathname === "/schedule-scanner" || 
+    location.pathname === "/diagnose-sa" || 
+    location.pathname === "/diagnose-guard" || 
+    location.pathname === "/diagnose-staff" ||
+    location.pathname === "/database-test" ||
+    // If no navbar is shown, it's a full-screen route (catches 404)
+    (!showNavBarHR && !showNavBarHRPersonnel && !showNavBarACC && !showNavBarGuard && !showNavBarFaculty && !showNavBarSA && !showNavBarStaff && location.pathname !== "/");
 
   return (
     <>
@@ -102,71 +119,78 @@ function AppContent() {
           <Route path="/schedule-scanner" element={<ScheduleScanner />}/>
 
           {/* HR ADMIN */}
-          <Route path="/hrAdmin/dashboard" element={<Dashboard />} />
-          <Route path="/hrAdmin/userManagement" element={<UserManagement />} />
-          <Route path="/hrAdmin/attendance" element={<Attendance />} />
-          <Route path="/hrAdmin/schedule" element={<Schedule />} />
-          <Route path="/hrAdmin/payroll" element={<Payroll />} />
-          <Route path="/hrAdmin/requests" element={<Requests />} />
-          <Route path="/hrAdmin/clearance" element={<Clearance />} />
-          <Route path="/hrAdmin/documents" element={<ClearanceDocuments />} />
-          <Route path="/hrAdmin/reports" element={<Reports />} />
+          <Route path="/hrAdmin/dashboard" element={<ProtectedRoute allowedRoles={["Administrator"]}><Dashboard /></ProtectedRoute>} />
+          <Route path="/hrAdmin/userManagement" element={<ProtectedRoute allowedRoles={["Administrator"]}><UserManagement /></ProtectedRoute>} />
+          <Route path="/hrAdmin/attendance" element={<ProtectedRoute allowedRoles={["Administrator"]}><Attendance /></ProtectedRoute>} />
+          <Route path="/hrAdmin/schedule" element={<ProtectedRoute allowedRoles={["Administrator"]}><Schedule /></ProtectedRoute>} />
+          <Route path="/hrAdmin/payroll" element={<ProtectedRoute allowedRoles={["Administrator"]}><Payroll /></ProtectedRoute>} />
+          <Route path="/hrAdmin/requests" element={<ProtectedRoute allowedRoles={["Administrator"]}><Requests /></ProtectedRoute>} />
+          <Route path="/hrAdmin/clearance" element={<ProtectedRoute allowedRoles={["Administrator"]}><Clearance /></ProtectedRoute>} />
+          <Route path="/hrAdmin/documents" element={<ProtectedRoute allowedRoles={["Administrator"]}><ClearanceDocuments /></ProtectedRoute>} />
+          <Route path="/hrAdmin/reports" element={<ProtectedRoute allowedRoles={["Administrator"]}><Reports /></ProtectedRoute>} />
 
           {/* HR PERSONNEL */}
-          <Route path="/HR/dashboard" element={<HRDashboard />} />
-          <Route path="/HR/userManagement" element={<HRUserManagement />} />
-          <Route path="/HR/attendance" element={<HRAttendance />} />
-          <Route path="/HR/schedule" element={<HRSchedule />} />
-          <Route path="/HR/payroll" element={<HRPayroll />} />
-          <Route path="/HR/requests" element={<HRRequests />} />
-          <Route path="/HR/clearance" element={<HRClearance />} />
-          <Route path="/HR/documents" element={<HRClearanceDocuments />} />
-          <Route path="/HR/reports" element={<HRReports />} />
+          <Route path="/HR/dashboard" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRDashboard /></ProtectedRoute>} />
+          <Route path="/HR/userManagement" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRUserManagement /></ProtectedRoute>} />
+          <Route path="/HR/attendance" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRAttendance /></ProtectedRoute>} />
+          <Route path="/HR/schedule" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRSchedule /></ProtectedRoute>} />
+          <Route path="/HR/payroll" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRPayroll /></ProtectedRoute>} />
+          <Route path="/HR/requests" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRRequests /></ProtectedRoute>} />
+          <Route path="/HR/clearance" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRClearance /></ProtectedRoute>} />
+          <Route path="/HR/documents" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRClearanceDocuments /></ProtectedRoute>} />
+          <Route path="/HR/reports" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRReports /></ProtectedRoute>} />
 
           {/* ACCOUNTING */}
-          <Route path="/accounting/dashboard" element={<AccDashboard />}/>
-          <Route path="/accounting/attendance" element={<AccAttendance />}/>
-          <Route path="/accounting/schedule" element={<AccSchedule />}/>
-          <Route path="/accounting/payroll" element={<PayrollAcc />}/>
-          <Route path="/accounting/reports" element={<AccReports />}/>
+          <Route path="/accounting/dashboard" element={<ProtectedRoute allowedRoles={["Accounting"]}><AccDashboard /></ProtectedRoute>}/>
+          <Route path="/accounting/attendance" element={<ProtectedRoute allowedRoles={["Accounting"]}><AccAttendance /></ProtectedRoute>}/>
+          <Route path="/accounting/schedule" element={<ProtectedRoute allowedRoles={["Accounting"]}><AccSchedule /></ProtectedRoute>}/>
+          <Route path="/accounting/payroll" element={<ProtectedRoute allowedRoles={["Accounting"]}><PayrollAcc /></ProtectedRoute>}/>
+          <Route path="/accounting/contributions" element={<ProtectedRoute allowedRoles={["Accounting"]}><GovContribution /></ProtectedRoute>}/>
+          <Route path="/accounting/reports" element={<ProtectedRoute allowedRoles={["Accounting"]}><AccReports /></ProtectedRoute>}/>
 
           {/* GUARD */}
-          <Route path="/Guard/dashboard" element={<GuardDashboard />}/>
-          <Route path="/Guard/scanner" element={<GuardScanner />}/>
-          <Route path="/Guard/reports" element={<GuardReports />}/>
-          <Route path="/Guard/approvals" element={<GuardApproval />}/>
+          <Route path="/Guard/dashboard" element={<ProtectedRoute allowedRoles={["Guard"]}><GuardDashboard /></ProtectedRoute>}/>
+          <Route path="/Guard/scanner" element={<ProtectedRoute allowedRoles={["Guard"]}><GuardScanner /></ProtectedRoute>}/>
+          <Route path="/Guard/approvals" element={<ProtectedRoute allowedRoles={["Guard"]}><GuardApproval /></ProtectedRoute>}/>
+          <Route path="/Guard/contributions" element={<ProtectedRoute allowedRoles={["Guard"]}><GuardGovContribution /></ProtectedRoute>}/>
+          <Route path="/Guard/reports" element={<ProtectedRoute allowedRoles={["Guard"]}><GuardReports /></ProtectedRoute>}/>
 
           {/* FACULTY */}
-          <Route path="/Faculty/dashboard" element={<FacDashboard />} />
-          <Route path="/Faculty/attendance" element={<FacAttendance />} />
-          <Route path="/Faculty/schedule" element={<FacSchedule />} />
-          <Route path="/Faculty/payroll" element={<FacPayroll />} />
-          <Route path="/Faculty/clearance" element={<FacClearance />} />
-          <Route path="/Faculty/request" element={<FacRequest />} />
-          <Route path="/Faculty/dean-approval" element={<DeanApproval />} />
+          <Route path="/Faculty/dashboard" element={<ProtectedRoute allowedRoles={["Faculty"]}><FacDashboard /></ProtectedRoute>} />
+          <Route path="/Faculty/attendance" element={<ProtectedRoute allowedRoles={["Faculty"]}><FacAttendance /></ProtectedRoute>} />
+          <Route path="/Faculty/schedule" element={<ProtectedRoute allowedRoles={["Faculty"]}><FacSchedule /></ProtectedRoute>} />
+          <Route path="/Faculty/payroll" element={<ProtectedRoute allowedRoles={["Faculty"]}><FacPayroll /></ProtectedRoute>} />
+          <Route path="/Faculty/contributions" element={<ProtectedRoute allowedRoles={["Faculty"]}><FacGovContribution /></ProtectedRoute>} />
+          <Route path="/Faculty/clearance" element={<ProtectedRoute allowedRoles={["Faculty"]}><FacClearance /></ProtectedRoute>} />
+          <Route path="/Faculty/request" element={<ProtectedRoute allowedRoles={["Faculty"]}><FacRequest /></ProtectedRoute>} />
+          <Route path="/Faculty/dean-approval" element={<ProtectedRoute allowedRoles={["Faculty"]}><DeanApproval /></ProtectedRoute>} />
 
           {/* STUDENT AFFAIRS */}
-          <Route path="/SA/dashboard" element={<SADashboard />} />
-          <Route path="/SA/attendance" element={<SAAttendance />} />
-          <Route path="/SA/schedule" element={<SASchedule />} />
-          <Route path="/SA/payroll" element={<SAPayroll />} />
-          <Route path="/SA/events" element={<SAEvents />} />
-          <Route path="/SA/request" element={<SARequest />} />
-          <Route path="/SA/reports" element={<SAReports />} />
+          <Route path="/SA/dashboard" element={<ProtectedRoute allowedRoles={["SA"]}><SADashboard /></ProtectedRoute>} />
+          <Route path="/SA/attendance" element={<ProtectedRoute allowedRoles={["SA"]}><SAAttendance /></ProtectedRoute>} />
+          <Route path="/SA/schedule" element={<ProtectedRoute allowedRoles={["SA"]}><SASchedule /></ProtectedRoute>} />
+          <Route path="/SA/payroll" element={<ProtectedRoute allowedRoles={["SA"]}><SAPayroll /></ProtectedRoute>} />
+          <Route path="/SA/contributions" element={<ProtectedRoute allowedRoles={["SA"]}><SAGovContribution /></ProtectedRoute>} />
+          <Route path="/SA/events" element={<ProtectedRoute allowedRoles={["SA"]}><SAEvents /></ProtectedRoute>} />
+          <Route path="/SA/request" element={<ProtectedRoute allowedRoles={["SA"]}><SARequest /></ProtectedRoute>} />
+          <Route path="/SA/reports" element={<ProtectedRoute allowedRoles={["SA"]}><SAReports /></ProtectedRoute>} />
 
           {/* STAFF */}
-          <Route path="/Staff/dashboard" element={<StaffDashboard />} />
-          <Route path="/Staff/attendance" element={<StaffAttendance />} />
-          <Route path="/Staff/schedule" element={<StaffSchedule />} />
-          <Route path="/Staff/payroll" element={<StaffPayroll />} />
-          <Route path="/Staff/reports" element={<StaffReports />} />
+          <Route path="/Staff/dashboard" element={<ProtectedRoute allowedRoles={["Staff"]}><StaffDashboard /></ProtectedRoute>} />
+          <Route path="/Staff/attendance" element={<ProtectedRoute allowedRoles={["Staff"]}><StaffAttendance /></ProtectedRoute>} />
+          <Route path="/Staff/schedule" element={<ProtectedRoute allowedRoles={["Staff"]}><StaffSchedule /></ProtectedRoute>} />
+          <Route path="/Staff/payroll" element={<ProtectedRoute allowedRoles={["Staff"]}><StaffPayroll /></ProtectedRoute>} />
+          <Route path="/Staff/contributions" element={<ProtectedRoute allowedRoles={["Staff"]}><StaffGovContribution /></ProtectedRoute>} />
+          <Route path="/Staff/reports" element={<ProtectedRoute allowedRoles={["Staff"]}><StaffReports /></ProtectedRoute>} />
 
           {/* DIAGNOSTIC ROUTES */}
           <Route path="/diagnose-sa" element={<DiagnoseSARole />} />
           <Route path="/diagnose-guard" element={<DiagnoseGuardRole />} />
           <Route path="/diagnose-staff" element={<DiagnoseStaffRole />} />
           <Route path="/database-test" element={<DatabaseTest />} />
-  
+
+          {/* 404 NOT FOUND - Catch all unmatched routes */}
+          <Route path="*" element={<NotFound />} />
 
         </Routes>
       </main>

@@ -42,6 +42,7 @@ export const NavAccounting = () => {
     { key: "attendance", label: "Attendance", link: "/accounting/attendance" },
     { key: "schedule", label: "Schedule", link: "/accounting/schedule" },
     { key: "payroll", label: "Payroll", link: "/accounting/payroll" },
+    { key: "contributions", label: "Gov Contributions", link: "/accounting/contributions" },
     { key: "reports", label: "Reports", link: "/accounting/reports" },
   ];
 
