@@ -15,7 +15,6 @@ export const PayrollAcc = () => {
   const [penalties, setPenalties] = useState<{[key: number]: number}>({});
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [penaltyData, setPenaltyData] = useState<any>({});
   const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
   const [loans, setLoans] = useState<{[key: number]: any}>({});
   const [currentPage, setCurrentPage] = useState(1);
@@ -50,12 +49,28 @@ export const PayrollAcc = () => {
   const [formData, setFormData] = useState({
     user_id: "",
     period: "",
+    periodStartDate: "", // New: Store the actual start date for calculations
     gross: 0,
     deductions: 0,
     loan_deduction: 0,
     net: 0,
     status: "Pending",
   });
+
+  // Helper function to format period display (e.g., "Jan 1-15, 2025")
+  const formatPeriodDisplay = (startDate: string): string => {
+    const start = new Date(startDate);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 14); // 15 days total
+    
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const startDay = start.getDate();
+    const endDay = end.getDate();
+    const month = monthNames[start.getMonth()];
+    const year = start.getFullYear();
+    
+    return `${month} ${startDay}-${endDay}, ${year}`;
+  };
 
   // Fetch approved loans for a user
   const fetchUserLoans = async (userId: number): Promise<{
@@ -180,15 +195,17 @@ export const PayrollAcc = () => {
       let endDate: string;
       
       if (period) {
-        // If period is specified, use it to calculate date range
-        const periodDate = new Date(period);
-        startDate = new Date(periodDate.getFullYear(), periodDate.getMonth(), 1).toISOString().split('T')[0];
-        endDate = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).toISOString().split('T')[0];
+        // If period is specified as a start date, calculate 15-day range
+        const periodStartDate = new Date(period);
+        startDate = periodStartDate.toISOString().split('T')[0];
+        const periodEndDate = new Date(periodStartDate);
+        periodEndDate.setDate(periodEndDate.getDate() + 14); // 15 days total (day 1 to day 15)
+        endDate = periodEndDate.toISOString().split('T')[0];
       } else {
         // Default to last 15 days
         endDate = new Date().toISOString().split('T')[0];
         const start = new Date();
-        start.setDate(start.getDate() - 15);
+        start.setDate(start.getDate() - 14); // 15 days total
         startDate = start.toISOString().split('T')[0];
       }
 
@@ -545,7 +562,6 @@ export const PayrollAcc = () => {
     }
   };
 
-
   const fetchUsersWithPayrolls = async () => {
     setLoading(true);
     // Only fetch users that are currently Active so Inactive/Archived users don't appear in Payroll
@@ -626,15 +642,18 @@ export const PayrollAcc = () => {
       let endDate: string;
       
       if (period) {
-        // If period is specified, use it to calculate date range
-        const periodDate = new Date(period);
-        startDate = new Date(periodDate.getFullYear(), periodDate.getMonth(), 1).toISOString().split('T')[0];
-        endDate = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).toISOString().split('T')[0];
+        // If period is specified as a start date, calculate 15-day range
+        const periodStartDate = new Date(period);
+        startDate = periodStartDate.toISOString().split('T')[0];
+        const periodEndDate = new Date(periodStartDate);
+        periodEndDate.setDate(periodEndDate.getDate() + 14); // 15 days total (day 1 to day 15)
+        endDate = periodEndDate.toISOString().split('T')[0];
       } else {
-        // Default to current month
-        const now = new Date();
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+        // Default to last 15 days
+        endDate = new Date().toISOString().split('T')[0];
+        const start = new Date();
+        start.setDate(start.getDate() - 14); // 15 days total
+        startDate = start.toISOString().split('T')[0];
       }
 
       console.log('📅 [PayrollAcc] Overtime date range:', startDate, 'to', endDate);
@@ -674,6 +693,45 @@ export const PayrollAcc = () => {
   ) => {
     const { name, value } = e.target;
     
+    // If period date changes and user is already selected, recalculate
+    if (name === 'periodStartDate' && value && formData.user_id) {
+      const userId = parseInt(formData.user_id);
+      const selectedUser = users.find(u => u.id === userId);
+      const defaultGross = selectedUser ? getDefaultGrossPay(selectedUser.role) : 0;
+      
+      console.log(`📅 [PayrollAcc] Period changed to: ${formatPeriodDisplay(value)} (${value})`);
+      console.log(`🔄 [PayrollAcc] Recalculating penalties, loans, and overtime for user ${userId}...`);
+      
+      // Recalculate with new period
+      Promise.all([
+        calculatePenalties(userId, value),
+        fetchUserLoans(userId),
+        calculateOvertimeBonus(userId, value)
+      ]).then(([penaltyResult, loanResult, overtimeResult]) => {
+        const adjustedGross = defaultGross + overtimeResult.overtimeBonus;
+        
+        setFormData(prev => ({
+          ...prev,
+          periodStartDate: value,
+          period: formatPeriodDisplay(value),
+          gross: adjustedGross,
+          deductions: penaltyResult.totalPenalty,
+          loan_deduction: loanResult.totalLoanDeduction,
+          net: adjustedGross - penaltyResult.totalPenalty - loanResult.totalLoanDeduction
+        }));
+        
+        // Update penalties and loans state
+        const newPenalties = { ...penalties };
+        newPenalties[userId] = penaltyResult.totalPenalty;
+        setPenalties(newPenalties);
+        
+        const newLoans = { ...loans };
+        newLoans[userId] = loanResult;
+        setLoans(newLoans);
+      });
+      return;
+    }
+    
     // If user changes, calculate penalties and fetch loans
     if (name === 'user_id' && value) {
       const userId = parseInt(value);
@@ -685,11 +743,14 @@ export const PayrollAcc = () => {
       console.log(`🔄 [PayrollAcc] User selected: ${value} (${selectedUser?.role}), default gross pay: ₱${defaultGross.toLocaleString()}`);
       console.log(`🔄 [PayrollAcc] Calculating penalties, loans, and overtime bonuses...`);
       
+      // Use periodStartDate if available, otherwise use formData.period
+      const periodForCalculation = formData.periodStartDate || formData.period;
+      
       // Calculate penalties, loans, and overtime bonuses in parallel
       Promise.all([
-        calculatePenalties(userId, formData.period),
+        calculatePenalties(userId, periodForCalculation),
         fetchUserLoans(userId),
-        calculateOvertimeBonus(userId, formData.period)
+        calculateOvertimeBonus(userId, periodForCalculation)
       ]).then(([penaltyResult, loanResult, overtimeResult]) => {
         console.log(`✅ [PayrollAcc] Penalty calculation for user ${value}: ₱${penaltyResult.totalPenalty}`);
         console.log(`💰 [PayrollAcc] Loan deduction for user ${value}: ₱${loanResult.totalLoanDeduction}`);
@@ -946,6 +1007,7 @@ export const PayrollAcc = () => {
       setFormData({
         user_id: "",
         period: "",
+        periodStartDate: "",
         gross: 0,
         deductions: 0,
         loan_deduction: 0,
@@ -974,7 +1036,7 @@ export const PayrollAcc = () => {
     if (!bulkPeriod) {
       await Swal.fire({
         title: 'Missing Information',
-        text: 'Please select a period',
+        text: 'Please select a period start date',
         icon: 'warning',
         confirmButtonColor: '#dc2626',
         confirmButtonText: 'OK',
@@ -990,6 +1052,10 @@ export const PayrollAcc = () => {
     setBulkProcessing(true);
     
     try {
+      // Format period display for database storage
+      const periodDisplay = formatPeriodDisplay(bulkPeriod);
+      console.log(`📅 [PayrollAcc] Bulk period: ${periodDisplay} (Start: ${bulkPeriod})`);
+      
       // Filter users by role if specified
       // Only include active users (or all users if status field doesn't exist)
       let targetUsers = users.filter(user => !user.status || user.status === 'Active');
@@ -1028,7 +1094,7 @@ export const PayrollAcc = () => {
           // Get default gross pay based on role
           const defaultGross = getDefaultGrossPay(user.role);
           
-          // Calculate penalties, loans, and overtime bonuses
+          // Calculate penalties, loans, and overtime bonuses using the START DATE (same as add payroll)
           const [penaltyResult, loanResult, overtimeResult] = await Promise.all([
             calculatePenalties(user.id, bulkPeriod),
             fetchUserLoans(user.id),
@@ -1040,9 +1106,9 @@ export const PayrollAcc = () => {
           const adjustedGross = defaultGross + overtimeResult.overtimeBonus; // Add overtime bonus to gross
           const netPay = adjustedGross - totalDeductions - loanDeduction;
 
-          // Add payroll record
+          // Add payroll record with formatted period display
           await addPayroll(user.id, {
-            period: bulkPeriod,
+            period: periodDisplay,
             gross: adjustedGross, // Use adjusted gross with overtime bonus
             deductions: totalDeductions,
             loan_deduction: loanDeduction,
@@ -1051,7 +1117,7 @@ export const PayrollAcc = () => {
           });
 
           successCount++;
-          console.log(`✅ [PayrollAcc] Added payroll for ${user.name} (${user.role}): Gross ₱${adjustedGross} (Base: ₱${defaultGross} + OT: ₱${overtimeResult.overtimeBonus}), Net ₱${netPay}`);
+          console.log(`✅ [PayrollAcc] Added payroll for ${user.name} (${user.role}): Period ${periodDisplay}, Gross ₱${adjustedGross} (Base: ₱${defaultGross} + OT: ₱${overtimeResult.overtimeBonus}), Deductions ₱${totalDeductions}, Net ₱${netPay}`);
         } catch (error) {
           errorCount++;
           console.error(`❌ [PayrollAcc] Error adding payroll for ${user.name}:`, error);
@@ -1183,8 +1249,8 @@ export const PayrollAcc = () => {
                   placeholder="Search by name, role, or period..."
                   className="w-full pl-10 pr-4 py-2.5 bg-white border-2 border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 shadow-sm"
                 />
-                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
               
@@ -1195,7 +1261,7 @@ export const PayrollAcc = () => {
                   <select
                     value={sortByEmployeeType}
                     onChange={(e) => setSortByEmployeeType(e.target.value)}
-                    className="appearance-none bg-white border-2 border-gray-300 rounded-xl px-4 py-2.5 pr-10 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 shadow-sm text-sm"
+                    className="appearance-none bg-white border-2 border-gray-300 rounded-xl px-4 py-2.5 pr-10 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 text-sm"
                   >
                     <option value="">All Employee Types</option>
                     {/* Administrator removed from employee-type filter per request */}
@@ -1215,7 +1281,7 @@ export const PayrollAcc = () => {
                   <select
                     value={sortByPeriod}
                     onChange={(e) => setSortByPeriod(e.target.value)}
-                    className="appearance-none bg-white border-2 border-gray-300 rounded-xl px-4 py-2.5 pr-10 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 shadow-sm text-sm"
+                    className="appearance-none bg-white border-2 border-gray-300 rounded-xl px-4 py-2.5 pr-10 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 text-sm"
                   >
                     <option value="">All Periods</option>
                     {Array.from(new Set(payrolls.map(pr => pr.period).filter(period => period && period !== "--"))).sort().map(period => (
@@ -1350,7 +1416,7 @@ export const PayrollAcc = () => {
                         </div>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium shadow-sm ${getEmployeeTypeColor(pr.role).split(' ').slice(2).join(' ')}`}>
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getEmployeeTypeColor(pr.role).split(' ').slice(2).join(' ')}`}>
                           {pr.role || 'No Role Assigned'}
                         </span>
                       </td>
@@ -1508,7 +1574,6 @@ export const PayrollAcc = () => {
                                 newLoans[pr.userId] = loanResult;
                                 setLoans(newLoans);
                                 
-                                setPenaltyData(penaltyResult);
                                 setAttendanceHistory(attendanceData.data || []);
                                 setShowHistoryModal(true);
                               }}
@@ -1691,15 +1756,19 @@ export const PayrollAcc = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Period (15 days)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Period Start Date (15 days)</label>
                   <input
-                    type="text"
-                    name="period"
-                    placeholder="Period (e.g. Jan 1-15, 2025 or Jan 16-31, 2025)"
-                    value={formData.period}
+                    type="date"
+                    name="periodStartDate"
+                    value={formData.periodStartDate}
                     onChange={handleChange}
                     className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 text-sm"
                   />
+                  {formData.periodStartDate && (
+                    <p className="text-xs text-gray-600 mt-1">
+                      Period: <span className="font-semibold text-red-600">{formatPeriodDisplay(formData.periodStartDate)}</span>
+                    </p>
+                  )}
                 </div>
                 
                 <div>
@@ -1760,7 +1829,7 @@ export const PayrollAcc = () => {
                             </span>
                           </div>
                           <div className="text-xs text-blue-600">
-                            {loan.periods_paid || 0}/{loan.total_periods || 0} periods paid • {loan.periods_remaining || 0} remaining
+                            {loan.periods_paid || 0}/{loan.total_periods || 0} periods paid • {loan.periods_remaining || 0} periods remaining
                           </div>
                         </div>
                       ))}
@@ -1778,7 +1847,9 @@ export const PayrollAcc = () => {
                     readOnly
                     className="w-full border-2 border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-gray-700 cursor-not-allowed transition-all duration-200 text-sm"
                   />
-                  <p className="text-xs text-gray-500 mt-1">This field is automatically calculated from Gross Pay - (Deductions + Loan Deduction)</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    This field is automatically calculated from Gross Pay - (Deductions + Loan Deduction)
+                  </p>
                   {formData.gross > 0 && (formData.deductions > 0 || formData.loan_deduction > 0) && (
                     <div className="mt-2 p-2 bg-green-50 rounded-lg text-xs">
                       <p className="font-medium text-green-800">Calculation Breakdown:</p>
@@ -1816,9 +1887,9 @@ export const PayrollAcc = () => {
 
         {/* Payroll History Modal */}
         {showHistoryModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full my-8">
-              <div className="p-6">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full my-8 max-h-[90vh] flex flex-col">
+              <div className="p-6 overflow-y-auto">
                 {/* Modal Header */}
                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
                   <div className="flex items-center gap-3">
@@ -1880,7 +1951,7 @@ export const PayrollAcc = () => {
                     </div>
                     <h3 className="text-lg font-bold text-gray-800">Payroll Summary</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                     <div className="bg-white p-4 rounded-lg shadow-sm">
                       <p className="text-xs text-gray-500 mb-1">Period</p>
                       <p className="font-bold text-gray-800">{selectedUser?.period}</p>
@@ -1896,6 +1967,10 @@ export const PayrollAcc = () => {
                     <div className="bg-white p-4 rounded-lg shadow-sm">
                       <p className="text-xs text-gray-500 mb-1">Loan Deduction</p>
                       <p className="font-bold text-blue-600 text-lg">₱{selectedUser?.loan_deduction?.toLocaleString() || 0}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                      <p className="text-xs text-gray-500 mb-1">Overtime Bonus</p>
+                      <p className="font-bold text-purple-600 text-lg">₱{((selectedUser?.gross || 0) - getDefaultGrossPay(selectedUser?.role || ''))?.toLocaleString() || 0}</p>
                     </div>
                     <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 rounded-lg shadow-md">
                       <p className="text-xs text-emerald-100 mb-1">Net Pay</p>
@@ -2021,84 +2096,26 @@ export const PayrollAcc = () => {
                   </div>
                 </div>
 
-                {/* Deductions Breakdown Section */}
-                <div className="bg-gradient-to-br from-red-50 to-orange-100 p-5 rounded-xl mb-6 border border-red-200">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-8 h-8 bg-gradient-to-br from-red-600 to-red-700 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-800">Deductions Breakdown</h3>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                    {/* Late Penalties Card */}
-                    <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 p-4 rounded-xl text-white shadow-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <h4 className="font-semibold text-sm">Late Penalties</h4>
-                      </div>
-                      <p className="text-2xl font-bold mb-1">{penaltyData.breakdown?.lateMinutes || 0} min</p>
-                      <p className="text-yellow-100 text-sm">₱{penaltyData.breakdown?.latePenalty || 0}</p>
-                    </div>
-
-                    {/* Absent Penalties Card */}
-                    <div className="bg-gradient-to-br from-red-500 to-red-600 p-4 rounded-xl text-white shadow-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <h4 className="font-semibold text-sm">Absent Penalties</h4>
-                      </div>
-                      <p className="text-2xl font-bold mb-1">{penaltyData.breakdown?.absentCount || 0} days</p>
-                      <p className="text-red-100 text-sm">₱{penaltyData.breakdown?.absentPenalty || 0}</p>
-                    </div>
-
-                    {/* Loan Deductions Card */}
-                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-xl text-white shadow-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {/* Active Loans Details Section */}
+                {loans[selectedUser?.userId]?.activeLoans?.length > 0 && (
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-5 rounded-xl mb-6 border border-blue-200">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <h4 className="font-semibold text-sm">Loan Deductions</h4>
                       </div>
-                      <p className="text-2xl font-bold mb-1">{loans[selectedUser?.userId]?.activeLoans?.length || 0} loans</p>
-                      <p className="text-blue-100 text-sm">₱{loans[selectedUser?.userId]?.totalLoanDeduction || 0}</p>
+                      <h3 className="text-lg font-bold text-gray-800">Active Loan Details</h3>
                     </div>
-
-                    {/* Total Deductions Card */}
-                    <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-4 rounded-xl text-white shadow-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                        <h4 className="font-semibold text-sm">Total Deductions</h4>
-                      </div>
-                      <p className="text-2xl font-bold mb-1">₱{(penaltyData.totalPenalty || 0) + (loans[selectedUser?.userId]?.totalLoanDeduction || 0)}</p>
-                      <p className="text-purple-100 text-sm">Penalties + Loans</p>
-                    </div>
-                  </div>
-
-                  {/* Active Loans Details */}
-                  {loans[selectedUser?.userId]?.activeLoans?.length > 0 && (
-                    <div className="bg-white border border-blue-200 p-4 rounded-lg shadow-sm">
-                      <p className="text-blue-800 font-semibold mb-3 flex items-center gap-2">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                        Active Loan Details:
-                      </p>
-                      <div className="space-y-2">
+                    <div className="bg-white rounded-lg shadow-sm p-4">
+                      <div className="space-y-3">
                         {loans[selectedUser?.userId].activeLoans.map((loan: any, index: number) => (
-                          <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                            <div className="flex items-center justify-between mb-2">
+                          <div key={index} className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                            <div className="flex items-center justify-between mb-3">
                               <span className="text-sm font-semibold text-blue-800">
                                 Loan #{index + 1}: ₱{loan.amount?.toLocaleString()}
                               </span>
-                              <span className="text-sm font-bold text-blue-900">
+                              <span className="text-sm font-bold text-blue-900 bg-blue-100 px-3 py-1 rounded-full">
                                 ₱{(loan.period_payment || loan.period_deduction)?.toLocaleString()}/period
                               </span>
                             </div>
@@ -2114,8 +2131,8 @@ export const PayrollAcc = () => {
                         ))}
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex gap-3 justify-end pt-4 border-t border-gray-200">
@@ -2204,18 +2221,23 @@ export const PayrollAcc = () => {
                   </p>
                 </div>
 
-                {/* Period */}
+                {/* Period Start Date */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Payroll Period <span className="text-red-500">*</span>
+                    Period Start Date (15 days) <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="month"
+                    type="date"
                     value={bulkPeriod}
                     onChange={(e) => setBulkPeriod(e.target.value)}
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
                     required
                   />
+                  {bulkPeriod && (
+                    <p className="text-xs text-gray-600 mt-2">
+                      Period: <span className="font-semibold text-green-600">{formatPeriodDisplay(bulkPeriod)}</span>
+                    </p>
+                  )}
                 </div>
 
                 {/* User Count Preview */}
