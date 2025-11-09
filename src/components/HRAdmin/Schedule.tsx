@@ -21,6 +21,7 @@ interface Schedule {
   subject?: string;
   room?: string;
   notes?: string;
+  is_overtime?: boolean;
   created_at: string;
   user?: User;
 }
@@ -47,7 +48,8 @@ const Schedule: React.FC = () => {
     end_time: '',
     subject: '',
     room: '',
-    notes: ''
+    notes: '',
+    is_overtime: false
   });
 
   // Show notification and auto-hide after 5 seconds
@@ -176,11 +178,11 @@ const Schedule: React.FC = () => {
       console.log('All users from database:', allUsers);
       console.log('Total users found:', allUsers?.length || 0);
 
-      // Filter for Faculty, SA, and Staff users (case-insensitive) and format the data
+      // Filter for Faculty and Staff users (case-insensitive) and format the data
       const filteredUsers = allUsers?.filter(user => {
         if (!user.role) return false;
         const role = user.role.toString().trim().toLowerCase();
-        const isMatch = role === 'faculty' || role === 'sa' || role === 'staff';
+        const isMatch = role === 'faculty' || role === 'staff';
         console.log(`User ${user.first_name} ${user.last_name} has role: "${user.role}" (${role}) - Match: ${isMatch}`);
         return isMatch;
       }).map(user => ({
@@ -188,7 +190,7 @@ const Schedule: React.FC = () => {
         name: user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown User'
       })) || [];
 
-      console.log('Filtered Faculty/SA/Staff users:', filteredUsers);
+      console.log('Filtered Faculty/Staff users:', filteredUsers);
       console.log('Filtered users count:', filteredUsers.length);
 
       // Sort by name
@@ -197,7 +199,7 @@ const Schedule: React.FC = () => {
       setUsers(filteredUsers);
       
       if (filteredUsers.length === 0) {
-        showNotification('error', 'No Faculty, SA, or Staff users found in the database. Please ensure users have the correct roles assigned.');
+        showNotification('error', 'No Faculty or Staff users found in the database. Please ensure users have the correct roles assigned.');
       }
     } catch (error: any) {
       console.error('Error fetching users:', error);
@@ -331,7 +333,8 @@ const Schedule: React.FC = () => {
         end_time: formData.end_time,
         subject: formData.subject || null,
         room: formData.room || null,
-        notes: formData.notes || null
+        notes: formData.notes || null,
+        is_overtime: formData.is_overtime || false
       };
       
       console.log('Inserting schedule data:', scheduleData);
@@ -356,7 +359,8 @@ const Schedule: React.FC = () => {
         end_time: '',
         subject: '',
         room: '',
-        notes: ''
+        notes: '',
+        is_overtime: false
       });
       // Force refresh schedules for the current user
       await fetchSchedules(formData.user_id);
@@ -439,7 +443,8 @@ const Schedule: React.FC = () => {
           end_time: formData.end_time,
           subject: formData.subject,
           room: formData.room,
-          notes: formData.notes
+          notes: formData.notes,
+          is_overtime: formData.is_overtime
         })
         .eq('id', editingSchedule.id);
 
@@ -454,7 +459,8 @@ const Schedule: React.FC = () => {
         end_time: '',
         subject: '',
         room: '',
-        notes: ''
+        notes: '',
+        is_overtime: false
       });
       fetchSchedules();
     } catch (error) {
@@ -474,7 +480,8 @@ const Schedule: React.FC = () => {
       end_time: schedule.end_time,
       subject: schedule.subject || '',
       room: schedule.room || '',
-      notes: schedule.notes || ''
+      notes: schedule.notes || '',
+      is_overtime: schedule.is_overtime || false
     });
     setShowCreateForm(false);
   };
@@ -488,7 +495,8 @@ const Schedule: React.FC = () => {
       end_time: '',
       subject: '',
       room: '',
-      notes: ''
+      notes: '',
+      is_overtime: false
     });
   };
 
@@ -598,12 +606,12 @@ const Schedule: React.FC = () => {
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Schedule Management</h1>
-              <p className="text-gray-600 text-sm">Create and manage schedules for Faculty, SA, and Staff users</p>
+              <p className="text-gray-600 text-sm">Create and manage schedules for Faculty and Staff users</p>
             </div>
           </div>
           
           {/* Statistics Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mt-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-6">
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-xl shadow-lg text-white">
               <div className="flex items-center justify-between">
                 <div>
@@ -646,19 +654,6 @@ const Schedule: React.FC = () => {
               </div>
             </div>
             
-            <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 p-4 rounded-xl shadow-lg text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-yellow-100 text-xs sm:text-sm">SA</p>
-                  <p className="text-2xl font-bold">{users.filter(u => u.role?.toLowerCase() === 'sa').length}</p>
-                </div>
-                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-              </div>
-            </div>
             
             <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-4 rounded-xl shadow-lg text-white">
               <div className="flex items-center justify-between">
@@ -687,7 +682,7 @@ const Schedule: React.FC = () => {
             </div>
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Select User</h2>
-              <p className="text-sm text-gray-600">Choose a Faculty, SA, or Staff user to manage their schedule</p>
+              <p className="text-sm text-gray-600">Choose a Faculty or Staff user to manage their schedule</p>
             </div>
           </div>
 
@@ -913,7 +908,8 @@ const Schedule: React.FC = () => {
                       end_time: '',
                       subject: '',
                       room: '',
-                      notes: ''
+                      notes: '',
+                      is_overtime: false
                     });
                   }}
                   className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2"
@@ -1022,6 +1018,25 @@ const Schedule: React.FC = () => {
                       placeholder="Additional notes..."
                     />
                   </div>
+                  
+                  <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg border border-orange-200">
+                    <input
+                      type="checkbox"
+                      id="is_overtime"
+                      checked={formData.is_overtime}
+                      onChange={(e) => setFormData({ ...formData, is_overtime: e.target.checked })}
+                      className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-2 focus:ring-orange-500"
+                    />
+                    <label htmlFor="is_overtime" className="flex-1 cursor-pointer">
+                      <div className="flex items-center gap-2">
+                        <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-sm font-semibold text-gray-900">Overtime Schedule (7PM-9PM)</span>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1 ml-7">Adds ₱200 bonus to gross pay in payroll</p>
+                    </label>
+                  </div>
                 </div>
               </form>
 
@@ -1091,7 +1106,8 @@ const Schedule: React.FC = () => {
                         end_time: '',
                         subject: '',
                         room: '',
-                        notes: ''
+                        notes: '',
+                        is_overtime: false
                       });
                     }}
                     className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:shadow-lg transition-all duration-200 font-semibold"
@@ -1167,6 +1183,21 @@ const Schedule: React.FC = () => {
                               <span className="text-sm font-medium text-gray-700">Notes</span>
                             </div>
                             <p className="text-gray-600 text-sm leading-relaxed">{schedule.notes}</p>
+                          </div>
+                        )}
+
+                        {/* Overtime Badge */}
+                        {schedule.is_overtime && (
+                          <div className="mb-4">
+                            <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-orange-100 to-yellow-100 rounded-lg border-2 border-orange-300">
+                              <svg className="w-5 h-5 text-orange-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <div>
+                                <p className="text-sm font-bold text-orange-900">Overtime Schedule</p>
+                                <p className="text-xs text-orange-700">+₱200 bonus to gross pay</p>
+                              </div>
+                            </div>
                           </div>
                         )}
 

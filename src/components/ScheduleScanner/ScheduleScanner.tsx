@@ -252,7 +252,7 @@ const ScheduleScanner: React.FC = () => {
       const filteredUsers = allUsers?.filter(user => {
         if (!user.role) return false;
         const role = user.role.toString().trim().toLowerCase();
-        return role === 'faculty' || role === 'sa';
+        return role === 'faculty' || role === 'staff';
       }).map(user => ({
         ...user,
         name: user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown User'

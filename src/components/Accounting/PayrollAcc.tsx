@@ -612,6 +612,62 @@ export const PayrollAcc = () => {
     }
   };
 
+  // Calculate overtime bonus based on overtime schedules (7pm-9pm)
+  const calculateOvertimeBonus = async (userId: number, period?: string): Promise<{
+    overtimeBonus: number;
+    overtimeScheduleCount: number;
+    overtimeSchedules: any[];
+  }> => {
+    try {
+      console.log('⏰ [PayrollAcc] Calculating overtime bonus for user:', userId, 'period:', period);
+
+      // Calculate date range for overtime calculation
+      let startDate: string;
+      let endDate: string;
+      
+      if (period) {
+        // If period is specified, use it to calculate date range
+        const periodDate = new Date(period);
+        startDate = new Date(periodDate.getFullYear(), periodDate.getMonth(), 1).toISOString().split('T')[0];
+        endDate = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).toISOString().split('T')[0];
+      } else {
+        // Default to current month
+        const now = new Date();
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+      }
+
+      console.log('📅 [PayrollAcc] Overtime date range:', startDate, 'to', endDate);
+
+      // Fetch user's schedules marked as overtime
+      const { data: overtimeSchedules, error } = await supabase
+        .from('schedules')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_overtime', true);
+
+      if (error) {
+        console.error('❌ [PayrollAcc] Error fetching overtime schedules:', error);
+        return { overtimeBonus: 0, overtimeScheduleCount: 0, overtimeSchedules: [] };
+      }
+
+      const overtimeCount = overtimeSchedules?.length || 0;
+      const overtimeBonus = overtimeCount * 200; // ₱200 per overtime schedule
+
+      console.log('⏰ [PayrollAcc] Found', overtimeCount, 'overtime schedules');
+      console.log('💰 [PayrollAcc] Total overtime bonus: ₱' + overtimeBonus);
+
+      return {
+        overtimeBonus,
+        overtimeScheduleCount: overtimeCount,
+        overtimeSchedules: overtimeSchedules || []
+      };
+    } catch (error) {
+      console.error('❌ [PayrollAcc] Error calculating overtime bonus:', error);
+      return { overtimeBonus: 0, overtimeScheduleCount: 0, overtimeSchedules: [] };
+    }
+  };
+
   // Input change with automatic net pay calculation
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -627,15 +683,17 @@ export const PayrollAcc = () => {
       const defaultGross = selectedUser ? getDefaultGrossPay(selectedUser.role) : 0;
       
       console.log(`🔄 [PayrollAcc] User selected: ${value} (${selectedUser?.role}), default gross pay: ₱${defaultGross.toLocaleString()}`);
-      console.log(`🔄 [PayrollAcc] Calculating penalties and fetching loans...`);
+      console.log(`🔄 [PayrollAcc] Calculating penalties, loans, and overtime bonuses...`);
       
-      // Calculate penalties and fetch loans in parallel
+      // Calculate penalties, loans, and overtime bonuses in parallel
       Promise.all([
         calculatePenalties(userId, formData.period),
-        fetchUserLoans(userId)
-      ]).then(([penaltyResult, loanResult]) => {
+        fetchUserLoans(userId),
+        calculateOvertimeBonus(userId, formData.period)
+      ]).then(([penaltyResult, loanResult, overtimeResult]) => {
         console.log(`✅ [PayrollAcc] Penalty calculation for user ${value}: ₱${penaltyResult.totalPenalty}`);
         console.log(`💰 [PayrollAcc] Loan deduction for user ${value}: ₱${loanResult.totalLoanDeduction}`);
+        console.log(`⏰ [PayrollAcc] Overtime bonus for user ${value}: ₱${overtimeResult.overtimeBonus} (${overtimeResult.overtimeScheduleCount} schedules)`);
         console.log(`📋 [PayrollAcc] Breakdown - Late: ${penaltyResult.breakdown.lateMinutes} minutes (₱${penaltyResult.breakdown.latePenalty || 0}), Absent: ${penaltyResult.breakdown.absentCount} classes (₱${penaltyResult.breakdown.absentPenalty || 0})`);
         
         // Update penalties and loans state
@@ -647,18 +705,21 @@ export const PayrollAcc = () => {
         newLoans[userId] = loanResult;
         setLoans(newLoans);
         
-        // Update form data with default gross pay, calculated penalties and loans
+        // Calculate adjusted gross pay with overtime bonus
+        const adjustedGross = defaultGross + overtimeResult.overtimeBonus;
+        
+        // Update form data with adjusted gross pay (including overtime bonus), calculated penalties and loans
         setFormData(prev => ({
           ...prev,
           user_id: value,
-          gross: defaultGross, // Set default gross pay based on role
+          gross: adjustedGross, // Set gross pay = default + overtime bonus
           deductions: penaltyResult.totalPenalty, // Only penalties in deductions
           loan_deduction: loanResult.totalLoanDeduction, // Loans separate
-          net: defaultGross - penaltyResult.totalPenalty - loanResult.totalLoanDeduction // Net = Gross - Deductions - Loan Deductions
+          net: adjustedGross - penaltyResult.totalPenalty - loanResult.totalLoanDeduction // Net = Adjusted Gross - Deductions - Loan Deductions
         }));
       }).catch((error) => {
-        console.error('❌ [PayrollAcc] Error calculating penalties/loans:', error);
-        // Set form data with default gross pay but without penalties/loans on error
+        console.error('❌ [PayrollAcc] Error calculating penalties/loans/overtime:', error);
+        // Set form data with default gross pay but without penalties/loans/overtime on error
         setFormData(prev => ({
           ...prev,
           user_id: value,
@@ -967,20 +1028,22 @@ export const PayrollAcc = () => {
           // Get default gross pay based on role
           const defaultGross = getDefaultGrossPay(user.role);
           
-          // Calculate penalties and fetch loans
-          const [penaltyResult, loanResult] = await Promise.all([
+          // Calculate penalties, loans, and overtime bonuses
+          const [penaltyResult, loanResult, overtimeResult] = await Promise.all([
             calculatePenalties(user.id, bulkPeriod),
-            fetchUserLoans(user.id)
+            fetchUserLoans(user.id),
+            calculateOvertimeBonus(user.id, bulkPeriod)
           ]);
 
           const totalDeductions = penaltyResult.totalPenalty;
           const loanDeduction = loanResult.totalLoanDeduction;
-          const netPay = defaultGross - totalDeductions - loanDeduction;
+          const adjustedGross = defaultGross + overtimeResult.overtimeBonus; // Add overtime bonus to gross
+          const netPay = adjustedGross - totalDeductions - loanDeduction;
 
           // Add payroll record
           await addPayroll(user.id, {
             period: bulkPeriod,
-            gross: defaultGross,
+            gross: adjustedGross, // Use adjusted gross with overtime bonus
             deductions: totalDeductions,
             loan_deduction: loanDeduction,
             net: netPay,
@@ -988,7 +1051,7 @@ export const PayrollAcc = () => {
           });
 
           successCount++;
-          console.log(`✅ [PayrollAcc] Added payroll for ${user.name} (${user.role}): Gross ₱${defaultGross}, Net ₱${netPay}`);
+          console.log(`✅ [PayrollAcc] Added payroll for ${user.name} (${user.role}): Gross ₱${adjustedGross} (Base: ₱${defaultGross} + OT: ₱${overtimeResult.overtimeBonus}), Net ₱${netPay}`);
         } catch (error) {
           errorCount++;
           console.error(`❌ [PayrollAcc] Error adding payroll for ${user.name}:`, error);
