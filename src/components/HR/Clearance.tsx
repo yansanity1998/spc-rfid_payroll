@@ -274,17 +274,20 @@ export const Clearance = () => {
   // Delete removed - replaced by View functionality
 
   const filtered = users.filter((u) => {
+    // Only show active users
+    if (u.status !== 'Active') return false;
+    
     if (!search) return true;
     const s = search.toLowerCase();
     return (u.name || "").toLowerCase().includes(s) || (u.email || "").toLowerCase().includes(s) || (u.position || "").toLowerCase().includes(s);
   });
 
-  // Calculate statistics
+  // Calculate statistics (only for active users)
   const stats = {
-    totalFaculty: users.length,
-    cleared: users.filter(u => u.clearance?.clearance_status?.toLowerCase() === 'cleared').length,
-    pending: users.filter(u => !u.clearance || u.clearance?.clearance_status?.toLowerCase() === 'pending').length,
-    onHold: users.filter(u => u.clearance?.clearance_status?.toLowerCase() === 'on-hold' || u.clearance?.clearance_status?.toLowerCase() === 'on hold').length,
+    totalFaculty: users.filter(u => u.status === 'Active').length,
+    cleared: users.filter(u => u.status === 'Active' && u.clearance?.clearance_status?.toLowerCase() === 'cleared').length,
+    pending: users.filter(u => u.status === 'Active' && (!u.clearance || u.clearance?.clearance_status?.toLowerCase() === 'pending')).length,
+    onHold: users.filter(u => u.status === 'Active' && (u.clearance?.clearance_status?.toLowerCase() === 'on-hold' || u.clearance?.clearance_status?.toLowerCase() === 'on hold')).length,
   };
 
   return (

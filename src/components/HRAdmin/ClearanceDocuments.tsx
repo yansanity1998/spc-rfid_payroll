@@ -527,19 +527,24 @@ export const ClearanceDocuments = () => {
   };
 
   const filtered = users.filter((u) => {
+    // Only show active users
+    if (u.status !== 'Active') return false;
+    
     if (!search) return true;
     const s = search.toLowerCase();
     return (u.name || "").toLowerCase().includes(s) || (u.email || "").toLowerCase().includes(s);
   });
 
   const stats = {
-  total: users.length,
-  complete: users.filter(u => getCompletionPercentage(u.clearance_doc) === 100).length,
+  total: users.filter(u => u.status === 'Active').length,
+  complete: users.filter(u => u.status === 'Active' && getCompletionPercentage(u.clearance_doc) === 100).length,
   incomplete: users.filter(u => {
+    if (u.status !== 'Active') return false;
     const percentage = getCompletionPercentage(u.clearance_doc);
     return percentage > 0 && percentage < 100;
   }).length,
   noRecords: users.filter(u => {
+    if (u.status !== 'Active') return false;
     const percentage = getCompletionPercentage(u.clearance_doc);
     return !u.clearance_doc || percentage === 0;
   }).length

@@ -43,7 +43,7 @@ export const NavBar = () => {
     { key: "payroll", label: "Payroll", link: "hrAdmin/payroll" },
     { key: "requests", label: "Requests", link: "hrAdmin/requests" },
     { key: "clearance", label: "Clearance", link: "hrAdmin/clearance" },
-    { key: "documents", label: "Documents", link: "hrAdmin/documents" },
+    { key: "documents", label: "File Tracker", link: "hrAdmin/documents" },
     { key: "reports", label: "Reports", link: "hrAdmin/reports" },
   ];
 
