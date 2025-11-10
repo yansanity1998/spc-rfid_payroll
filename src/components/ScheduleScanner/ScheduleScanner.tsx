@@ -366,7 +366,36 @@ const ScheduleScanner: React.FC = () => {
       
       console.log('✅ User found:', user);
       
-      // Check for schedule exemptions first
+      // Check if today is a holiday (active holidays only) - HIGHEST PRIORITY
+      const { data: holidayCheck, error: holidayError } = await supabase
+        .from("holidays")
+        .select("id, title, is_active")
+        .eq("date", today)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (holidayError) {
+        console.error("[ScheduleScanner] Error checking holiday:", holidayError);
+      }
+
+      if (holidayCheck) {
+        console.log(`[ScheduleScanner] Today (${today}) is a holiday: "${holidayCheck.title}". Exempting class attendance.`);
+        showModernAlert(
+          'info', 
+          'Holiday - Classes Exempted', 
+          `Today is ${holidayCheck.title}. All class schedules are exempted. No attendance will be recorded.`, 
+          user.name, 
+          user.role || '', 
+          user.profile_picture || '', 
+          'All Classes', 
+          'Holiday', 
+          `Current time: ${formatPhilippineTime(getCurrentTime())}`, 
+          'exempted'
+        );
+        return; // Exit early - no attendance recording on holidays
+      }
+      
+      // Check for schedule exemptions (leave/gate pass)
       const exemptionCheck = await checkScheduleExemption(user.id, new Date());
       console.log(`[ScheduleScanner] Exemption check for user ${user.id}:`, exemptionCheck);
       

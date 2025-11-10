@@ -623,6 +623,22 @@ export const Attendance = () => {
       (attendanceData || []).forEach(a => mostRecentDates.add(a.att_date));
       const todayStr = new Date().toISOString().split('T')[0];
       const scheduleDates = Array.from(new Set([ ...Array.from(mostRecentDates), todayStr ]));
+      
+      // Fetch holidays for schedule attendance dates
+      let scheduleHolidayDates = new Set<string>();
+      if (scheduleDates.length > 0) {
+        const { data: scheduleHolidays } = await supabase
+          .from('holidays')
+          .select('date, title')
+          .in('date', scheduleDates)
+          .eq('is_active', true);
+        
+        for (const holiday of (scheduleHolidays || [])) {
+          scheduleHolidayDates.add(holiday.date);
+          console.log(`[Schedule Holiday] ${holiday.date} is a holiday: ${holiday.title}`);
+        }
+      }
+      
       let scheduleExemptionsMap = new Map<string, any>();
       if (scheduleUserIds.length > 0 && scheduleDates.length > 0) {
         const { data: scheduleExemptions } = await supabase
@@ -660,12 +676,18 @@ export const Attendance = () => {
         // Get the date for exemption checking (use most recent record date or today)
         const checkDate = mostRecentRecord?.att_date || todayStr;
 
+        // Check if this date is a holiday (HIGHEST PRIORITY)
+        const isHoliday = scheduleHolidayDates.has(checkDate);
+
         // Check for exemptions from preloaded map
         const exemptionCheck = scheduleExemptionsMap.get(`${schedule.user_id}|${checkDate}`) || { isExempted: false, reason: null, type: null };
 
         // Determine attendance status
         let attendanceStatus = 'Absent';
-        if (exemptionCheck.isExempted) {
+        if (isHoliday) {
+          // Holiday takes highest priority
+          attendanceStatus = 'Exempted';
+        } else if (exemptionCheck.isExempted) {
           attendanceStatus = 'Exempted';
         } else if (mostRecentRecord) {
           attendanceStatus = mostRecentRecord.attendance;
@@ -679,7 +701,8 @@ export const Attendance = () => {
           time_out: mostRecentRecord?.time_out || null,
           attendance: attendanceStatus,
           status: mostRecentRecord?.status || false,
-          exemption: exemptionCheck // Add exemption info
+          exemption: exemptionCheck, // Add exemption info
+          isHoliday: isHoliday // Add holiday flag
         };
       });
 
