@@ -3,14 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import supabase from '../../utils/supabase';
 import { Toaster } from 'react-hot-toast';
 
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-  profile_picture?: string;
-}
-
 interface Schedule {
   id: number;
   user_id: number;
@@ -24,11 +16,9 @@ interface Schedule {
 
 const ScheduleScanner: React.FC = () => {
   const navigate = useNavigate();
-  const [users, setUsers] = useState<User[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [scannedCard, setScannedCard] = useState('');
   const [scannerLoading, setScannerLoading] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
   
   // Modern Alert Modal State
   const [showAlert, setShowAlert] = useState(false);
@@ -127,7 +117,6 @@ const ScheduleScanner: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchUsers();
     fetchAllSchedules();
   }, []);
 
@@ -138,18 +127,9 @@ const ScheduleScanner: React.FC = () => {
       if (hiddenInput && document.activeElement !== hiddenInput) {
         hiddenInput.focus();
       }
-    }, 500);
-
-    return () => clearInterval(focusInterval);
-  }, []);
-
-  // Real-time clock updater
-  useEffect(() => {
-    const clockInterval = setInterval(() => {
-      setCurrentTime(new Date());
     }, 1000);
 
-    return () => clearInterval(clockInterval);
+    return () => clearInterval(focusInterval);
   }, []);
 
   // Auto-close alert after 4 seconds
@@ -198,26 +178,6 @@ const ScheduleScanner: React.FC = () => {
     setShowAlert(true);
   };
 
-  // Real-time helper functions
-  const getRealTimeWithSeconds = () => {
-    return currentTime.toLocaleTimeString('en-US', {
-      timeZone: 'Asia/Manila',
-      hour: 'numeric',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true
-    });
-  };
-
-  const getRealTimeFullDate = () => {
-    return currentTime.toLocaleDateString('en-US', {
-      timeZone: 'Asia/Manila',
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
   // Fetch all schedules
   const fetchAllSchedules = async () => {
     try {
@@ -238,31 +198,6 @@ const ScheduleScanner: React.FC = () => {
       
     } catch (error: any) {
       console.error('Error in fetchAllSchedules:', error);
-    }
-  };
-
-  const fetchUsers = async () => {
-    try {
-      const { data: allUsers, error } = await supabase
-        .from('users')
-        .select('*');
-
-      if (error) throw error;
-
-      const filteredUsers = allUsers?.filter(user => {
-        if (!user.role) return false;
-        const role = user.role.toString().trim().toLowerCase();
-        return role === 'faculty' || role === 'staff';
-      }).map(user => ({
-        ...user,
-        name: user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown User'
-      })) || [];
-
-      filteredUsers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      setUsers(filteredUsers);
-      
-    } catch (error: any) {
-      console.error('Error fetching users:', error);
     }
   };
 
@@ -599,269 +534,313 @@ const ScheduleScanner: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-red-900 to-slate-900 relative overflow-hidden">
       <Toaster position="top-center" reverseOrder={false} />
       
-      {/* Header Bar */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate('/')}
-                className="flex items-center gap-2 text-gray-600 hover:text-red-600 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                <span className="font-medium">Back</span>
-              </button>
-              <div className="h-8 w-px bg-gray-300"></div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Class Attendance System</h1>
-                <p className="text-sm text-gray-500">RFID Scanner Portal</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-sm font-semibold text-gray-900">{getRealTimeFullDate()}</p>
-                <p className="text-xs text-gray-500 font-mono">{getRealTimeWithSeconds()}</p>
-              </div>
-              <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-          </div>
+      {/* Background Pattern Overlay */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 via-red-900/60 to-slate-900/80"></div>
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-orange-500 animate-pulse"></div>
         </div>
       </div>
       
-      {/* Main Container */}
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          
-          {/* Left Side - Scanner Interface */}
-          <div className="lg:col-span-3">
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden h-full">
-              
-              {/* Scanner Header */}
-              <div className="bg-gradient-to-r from-red-600 to-red-700 px-8 py-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-white">RFID Scanner</h2>
-                    <p className="text-white/80">Tap your card to record attendance</p>
-                  </div>
-                </div>
-              </div>
+      {/* Back to Home Button - Top Left */}
+      <div className="absolute top-6 left-6 z-50">
+        <button
+          onClick={() => navigate('/')}
+          className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-semibold transition-all duration-300 hover:scale-105 shadow-lg flex items-center gap-2"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back
+        </button>
+      </div>
 
-              {/* Scanner Status */}
-              <div className="p-8">
-                <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 border-2 border-dashed border-gray-300">
-                  {scannerLoading ? (
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="w-24 h-24 border-4 border-red-200 border-t-red-600 rounded-full animate-spin"></div>
-                      <p className="text-gray-900 font-semibold text-lg">Processing...</p>
-                      <p className="text-gray-500 text-sm">Please wait</p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="relative">
-                        <div className="w-32 h-32 bg-gradient-to-br from-red-500 to-red-600 rounded-3xl flex items-center justify-center shadow-xl animate-pulse">
-                          <svg className="w-16 h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                          </svg>
-                        </div>
-                        <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-green-500 rounded-full flex items-center justify-center border-4 border-white shadow-lg">
-                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-gray-900 font-bold text-xl mb-1">Ready to Scan</p>
-                        <p className="text-gray-500">Place your RFID card near the scanner</p>
-                      </div>
-                    </div>
-                  )}
+      {/* Scanner Interface - Centered Overlay */}
+      <div 
+        className="absolute inset-0 z-20 flex items-center justify-center gap-6 p-4"
+        onClick={() => {
+          // Refocus hidden input when clicking anywhere on scanner
+          const hiddenInput = document.querySelector('input[placeholder="RFID will be scanned here"]') as HTMLInputElement;
+          if (!scannerLoading && hiddenInput) {
+            hiddenInput.focus();
+          }
+        }}
+      >
+        {/* Main Scanner Container */}
+        <div 
+          className="bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-2xl border-2 border-red-500/30 rounded-2xl shadow-[0_0_60px_rgba(239,68,68,0.3)] max-w-2xl w-full overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+          style={{ height: 'calc(80vh)' }}
+        >
+          
+          {/* Animated Border Glow */}
+          <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 via-orange-500/20 to-red-500/20 animate-pulse rounded-2xl"></div>
+          
+          {/* Content Container */}
+          <div className="relative z-10 p-4">
+            
+            {/* Scanner Header with Icon */}
+            <div className="text-center mb-3">
+              <div className="relative inline-block mb-2">
+                {/* Outer Rotating Ring */}
+                <div className="absolute inset-0 w-14 h-14 border-2 border-red-500/30 rounded-full animate-spin" style={{ animationDuration: '3s' }}></div>
+                
+                {/* Inner Icon Container */}
+                <div className="relative w-14 h-14 bg-gradient-to-br from-red-600 via-red-700 to-red-900 rounded-full flex items-center justify-center mx-auto shadow-xl shadow-red-500/50">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                  </svg>
+                  
+                  {/* Pulse Effect */}
+                  <div className="absolute inset-0 rounded-full bg-red-500/30 animate-ping"></div>
                 </div>
               </div>
+              
+              <h2 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-orange-400 to-red-400 mb-1 tracking-tight">
+                CLASS ATTENDANCE SCANNER
+              </h2>
+              <p className="text-[10px] text-white/80 font-medium">Schedule-Based Attendance System</p>
+              <div className="mt-1.5 flex items-center justify-center gap-1.5">
+                <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-green-400 text-[10px] font-semibold uppercase tracking-wider">System Online</span>
+              </div>
+            </div>
+
+            {/* Scanner Status - Compact Visual Area */}
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-2 border-red-500/20 rounded-xl p-2.5 mb-2.5 relative overflow-hidden">
+              {/* Animated Background Pattern */}
+              <div className="absolute inset-0 opacity-5">
+                <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-orange-500 animate-pulse"></div>
+              </div>
+              
+              <div className="relative z-10 text-center">
+                {scannerLoading ? (
+                  <div className="flex flex-col items-center gap-1.5">
+                    {/* Compact Spinner */}
+                    <div className="relative">
+                      <div className="w-10 h-10 border-3 border-red-500/20 border-t-red-500 rounded-full animate-spin"></div>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-6 h-6 bg-red-500/20 rounded-full animate-pulse"></div>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-white font-bold text-xs">Processing...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-1.5">
+                    {/* Compact Scanning Animation */}
+                    <div className="relative w-14 h-14">
+                      {/* Outer Pulse Rings */}
+                      <div className="absolute inset-0 border-2 border-red-500/30 rounded-full animate-ping" style={{ animationDuration: '2s' }}></div>
+                      
+                      {/* Center Icon */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center shadow-xl shadow-red-500/50">
+                          <svg className="w-5 h-5 text-white animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <p className="text-white font-bold text-xs animate-pulse">READY TO SCAN</p>
+                      <p className="text-white/70 text-[10px]">Tap card or enter ID</p>
+                      <div className="mt-1 flex items-center justify-center gap-1.5">
+                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-green-400 text-[9px] font-semibold uppercase tracking-wider">RFID Active</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
 
               {/* Hidden Input for RFID Scanner */}
-              <input
-                autoFocus
-                type="text"
-                value={scannedCard}
-                onChange={(e) => setScannedCard(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && scannedCard.trim() !== '') {
+            <input
+              autoFocus
+              type="text"
+              value={scannedCard}
+              onChange={(e) => setScannedCard(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && scannedCard.trim() !== '') {
+                  const cardId = scannedCard.trim();
+                  setScannedCard('');
+                  handleRFIDScan(cardId);
+                }
+              }}
+              className="opacity-0 absolute -left-96"
+              placeholder="RFID will be scanned here"
+            />
+
+            {/* Manual Input Section - Compact */}
+            <div className="space-y-2">
+              <div className="flex flex-col">
+                <label className="mb-1.5 text-white font-bold text-xs flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Manual Entry
+                </label>
+                <input
+                  type="text"
+                  value={scannedCard}
+                  onChange={(e) => setScannedCard(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && scannedCard.trim() !== '') {
+                      const cardId = scannedCard.trim();
+                      setScannedCard('');
+                      handleRFIDScan(cardId);
+                    }
+                  }}
+                  className="w-full h-10 px-3 bg-slate-800/50 backdrop-blur-md border-2 border-red-500/30 rounded-lg text-white text-sm placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all duration-300 shadow-lg"
+                  placeholder="Enter card ID"
+                  disabled={scannerLoading}
+                />
+              </div>
+              
+              <button
+                onClick={() => {
+                  if (scannedCard.trim() !== '') {
                     const cardId = scannedCard.trim();
                     setScannedCard('');
                     handleRFIDScan(cardId);
                   }
                 }}
-                className="opacity-0 absolute -left-96 pointer-events-none"
-                placeholder="RFID will be scanned here"
-              />
+                disabled={scannerLoading || !scannedCard.trim()}
+                className="w-full h-10 bg-gradient-to-r from-red-600 via-red-700 to-red-800 hover:from-red-700 hover:via-red-800 hover:to-red-900 text-white text-sm font-bold rounded-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-red-500/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg flex items-center justify-center gap-2 group"
+              >
+                {scannerLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Submit Attendance
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
 
-              {/* Manual Input Option */}
-              <div className="px-8 pb-8">
-                <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">Manual Entry (Optional)</label>
-                  <div className="flex gap-3">
-                    <input
-                      type="text"
-                      value={scannedCard}
-                      onChange={(e) => setScannedCard(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && scannedCard.trim() !== '') {
-                          const cardId = scannedCard.trim();
-                          setScannedCard('');
-                          handleRFIDScan(cardId);
-                        }
-                      }}
-                      className="flex-1 h-12 px-4 bg-white border-2 border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
-                      placeholder="Enter card ID"
-                      disabled={scannerLoading}
-                    />
-                    <button
-                      onClick={() => {
-                        if (scannedCard.trim() !== '') {
-                          const cardId = scannedCard.trim();
-                          setScannedCard('');
-                          handleRFIDScan(cardId);
-                        }
-                      }}
-                      disabled={scannerLoading || !scannedCard.trim()}
-                      className="px-6 h-12 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-                    >
-                      {scannerLoading ? 'Processing...' : 'Submit'}
-                    </button>
-                  </div>
+        {/* Today's Schedule History - Right Side */}
+        <div 
+          className="hidden xl:block max-w-md w-full"
+          onClick={(e) => e.stopPropagation()}
+          style={{ height: 'calc(80vh)' }}
+        >
+          <div className="bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-2xl border-2 border-red-500/30 rounded-2xl shadow-[0_0_60px_rgba(239,68,68,0.3)] flex flex-col overflow-hidden relative h-full">
+            
+            {/* Animated Border Glow */}
+            <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 via-orange-500/20 to-red-500/20 animate-pulse rounded-2xl pointer-events-none"></div>
+            
+            {/* Header */}
+            <div className="relative z-10 bg-gradient-to-r from-red-600/50 to-orange-600/50 backdrop-blur-md px-4 py-3 border-b border-red-500/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4h3a1 1 0 011 1v9a1 1 0 01-1 1H5a1 1 0 01-1-1V8a1 1 0 011-1h3z" />
+                  </svg>
+                  <h3 className="text-white font-bold text-sm">Today's Schedule</h3>
+                </div>
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-white/10 rounded-full">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-white/80 text-xs font-semibold">{getCurrentDayOfWeek()}</span>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Right Side - Active Schedules */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden h-full flex flex-col">
-              <div className="bg-gradient-to-r from-gray-800 to-gray-900 px-6 py-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-white font-bold text-lg">Today's Schedule</h3>
-                    <p className="text-gray-300 text-sm">{getCurrentDayOfWeek()}</p>
-                  </div>
-                  <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {/* Schedule List */}
+            <div className="relative z-10 flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
+              {schedules.length > 0 ? (
+                schedules
+                  .filter(schedule => schedule.day_of_week === getCurrentDayOfWeek())
+                  .sort((a, b) => {
+                    const timeA = a.start_time.split(':').map(Number);
+                    const timeB = b.start_time.split(':').map(Number);
+                    return (timeA[0] * 60 + timeA[1]) - (timeB[0] * 60 + timeB[1]);
+                  })
+                  .map(schedule => {
+                    const currentTime = getCurrentTime();
+                    const attendanceStatus = getAttendanceStatus(currentTime, schedule.start_time, schedule.end_time);
+                    
+                    return (
+                      <div 
+                        key={schedule.id} 
+                        className={`bg-slate-800/50 backdrop-blur-sm border rounded-xl p-3 transition-all duration-300 hover:bg-slate-800/70 ${
+                          attendanceStatus.canTap 
+                            ? 'border-green-500/30 shadow-lg shadow-green-500/10' 
+                            : 'border-slate-700/50'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <span className="text-white font-bold text-sm">
+                                {formatPhilippineTime(schedule.start_time).split(':')[0]}
+                              </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              {schedule.subject && (
+                                <p className="text-white font-semibold text-sm truncate">{schedule.subject}</p>
+                              )}
+                              {schedule.room && (
+                                <p className="text-white/60 text-xs truncate">{schedule.room}</p>
+                              )}
+                            </div>
+                          </div>
+                          {attendanceStatus.canTap ? (
+                            <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold flex-shrink-0 ${
+                              attendanceStatus.status === 'Present' 
+                                ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                                : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                            }`}>
+                              {attendanceStatus.status === 'Present' ? 'ACTIVE' : 'LATE'}
+                            </span>
+                          ) : (
+                            <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold flex-shrink-0 ${
+                              attendanceStatus.status === 'Early' 
+                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
+                                : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                            }`}>
+                              {attendanceStatus.status === 'Early' ? 'SOON' : 'ENDED'}
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center gap-3 text-xs text-white/50">
+                          <div className="flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>{formatPhilippineTime(schedule.start_time)} - {formatPhilippineTime(schedule.end_time)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full py-12">
+                  <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mb-3">
+                    <svg className="w-8 h-8 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4h3a1 1 0 011 1v9a1 1 0 01-1 1H5a1 1 0 01-1-1V8a1 1 0 011-1h3z" />
                     </svg>
                   </div>
-                </div>
-              </div>
-
-              {schedules.length > 0 ? (
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-                  {schedules
-                    .filter(schedule => schedule.day_of_week === getCurrentDayOfWeek())
-                    .sort((a, b) => {
-                      // Sort by start_time
-                      const timeA = a.start_time.split(':').map(Number);
-                      const timeB = b.start_time.split(':').map(Number);
-                      return (timeA[0] * 60 + timeA[1]) - (timeB[0] * 60 + timeB[1]);
-                    })
-                    .map(schedule => {
-                      const user = users.find(u => u.id === schedule.user_id);
-                      const currentTime = getCurrentTime();
-                      const attendanceStatus = getAttendanceStatus(currentTime, schedule.start_time, schedule.end_time);
-                      
-                      let bgColor = 'bg-white/5';
-                      let borderColor = 'border-white/10';
-                      
-                      if (attendanceStatus.status === 'Present' && attendanceStatus.canTap) {
-                        bgColor = 'bg-green-500/20';
-                        borderColor = 'border-green-400/40';
-                      } else if (attendanceStatus.status === 'Late' && attendanceStatus.canTap) {
-                        bgColor = 'bg-yellow-500/20';
-                        borderColor = 'border-yellow-400/40';
-                      } else if (attendanceStatus.status === 'Absent') {
-                        bgColor = 'bg-red-500/20';
-                        borderColor = 'border-red-400/40';
-                      }
-                      
-                      return (
-                        <div key={schedule.id} className={`${bgColor} border ${borderColor} rounded-xl p-4 transition-all duration-300 hover:shadow-md`}>
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                                <span className="text-white font-bold text-lg">{formatPhilippineTime(schedule.start_time).split(':')[0]}</span>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-gray-900 font-bold text-sm truncate">{user?.name || 'Unknown'}</p>
-                                {schedule.subject && (
-                                  <p className="text-gray-600 text-sm truncate">{schedule.subject}</p>
-                                )}
-                              </div>
-                            </div>
-                            {attendanceStatus.canTap ? (
-                              <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 ${
-                                attendanceStatus.status === 'Present' 
-                                  ? 'bg-green-500 text-white' 
-                                  : 'bg-yellow-500 text-white'
-                              }`}>
-                                {attendanceStatus.status === 'Present' ? '✓ Active' : '⚠ Late'}
-                              </span>
-                            ) : (
-                              <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold flex-shrink-0 ${
-                                attendanceStatus.status === 'Early' 
-                                  ? 'bg-blue-500 text-white' 
-                                  : 'bg-red-500 text-white'
-                              }`}>
-                                {attendanceStatus.status === 'Early' ? 'Upcoming' : '✕ Ended'}
-                              </span>
-                            )}
-                          </div>
-                          
-                          <div className="flex items-center gap-4 text-sm text-gray-600">
-                            <div className="flex items-center gap-2">
-                              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              <span className="font-medium">
-                                {formatPhilippineTime(schedule.start_time)} - {formatPhilippineTime(schedule.end_time)}
-                              </span>
-                            </div>
-                            {schedule.room && (
-                              <div className="flex items-center gap-2">
-                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                </svg>
-                                <span>{schedule.room}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              ) : (
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center">
-                    <svg className="w-12 h-12 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4h3a1 1 0 011 1v9a1 1 0 01-1 1H5a1 1 0 01-1-1V8a1 1 0 011-1h3z" />
-                    </svg>
-                    <p className="text-gray-500 text-xs">No schedules for today</p>
-                  </div>
+                  <p className="text-white/60 font-semibold text-sm mb-1">No Classes Today</p>
+                  <p className="text-white/40 text-xs">No schedules for {getCurrentDayOfWeek()}</p>
                 </div>
               )}
             </div>
           </div>
-          
         </div>
       </div>
 

@@ -7,14 +7,13 @@ export const Payroll = () => {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<number | null>(null);
   const [editData, setEditData] = useState<any>({});
-  const [search, setSearch] = useState(""); // 🔍 search state
+  const [search, setSearch] = useState("");
   const [sortByEmployeeType, setSortByEmployeeType] = useState("");
   const [sortByPeriod, setSortByPeriod] = useState("");
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showPayslipModal, setShowPayslipModal] = useState(false);
   const [payslipData, setPayslipData] = useState<any>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [penaltyData, setPenaltyData] = useState<any>({});
   const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
   const [loans, setLoans] = useState<{[key: number]: any}>({});
   const [currentPage, setCurrentPage] = useState(1);
@@ -1281,7 +1280,6 @@ export const Payroll = () => {
                                   newLoans[pr.userId] = loanResult;
                                   setLoans(newLoans);
                                   
-                                  setPenaltyData(penaltyResult);
                                   setAttendanceHistory(attendanceData.data || []);
                                   setShowHistoryModal(true);
                                 }}
@@ -1591,7 +1589,7 @@ export const Payroll = () => {
                     </div>
                     <h3 className="text-lg font-bold text-gray-800">Payroll Summary</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                     <div className="bg-white p-4 rounded-lg shadow-sm">
                       <p className="text-xs text-gray-500 mb-1">Period</p>
                       <p className="font-bold text-gray-800">{selectedUser?.period}</p>
@@ -1607,6 +1605,10 @@ export const Payroll = () => {
                     <div className="bg-white p-4 rounded-lg shadow-sm">
                       <p className="text-xs text-gray-500 mb-1">Loan Deduction</p>
                       <p className="font-bold text-blue-600 text-lg">₱{selectedUser?.loan_deduction?.toLocaleString() || 0}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                      <p className="text-xs text-gray-500 mb-1">Overtime Bonus</p>
+                      <p className="font-bold text-purple-600 text-lg">₱0</p>
                     </div>
                     <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 rounded-lg shadow-md">
                       <p className="text-xs text-emerald-100 mb-1">Net Pay</p>
@@ -1732,101 +1734,41 @@ export const Payroll = () => {
                   </div>
                 </div>
 
-                {/* Deductions Breakdown Section */}
-                <div className="bg-gradient-to-br from-red-50 to-orange-100 p-5 rounded-xl mb-6 border border-red-200">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-8 h-8 bg-gradient-to-br from-red-600 to-red-700 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-800">Deductions Breakdown</h3>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                    {/* Late Penalties Card */}
-                    <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 p-4 rounded-xl text-white shadow-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <h4 className="font-semibold text-sm">Late Penalties</h4>
-                      </div>
-                      <p className="text-2xl font-bold mb-1">{penaltyData.totalLateMinutes || 0} min</p>
-                      <p className="text-yellow-100 text-sm">₱{penaltyData.totalLatePenalty || 0}</p>
-                    </div>
-
-                    {/* Absent Penalties Card */}
-                    <div className="bg-gradient-to-br from-red-500 to-red-600 p-4 rounded-xl text-white shadow-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <h4 className="font-semibold text-sm">Absent Penalties</h4>
-                      </div>
-                      <p className="text-2xl font-bold mb-1">{penaltyData.absentCount || 0} days</p>
-                      <p className="text-red-100 text-sm">₱{penaltyData.totalAbsentPenalty || 0}</p>
-                    </div>
-
-                    {/* Loan Deductions Card */}
-                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-xl text-white shadow-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {/* Active Loans Section */}
+                {loans[selectedUser?.userId]?.activeLoans?.length > 0 && (
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-5 rounded-xl mb-6 border border-blue-200">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <h4 className="font-semibold text-sm">Loan Deductions</h4>
                       </div>
-                      <p className="text-2xl font-bold mb-1">{loans[selectedUser?.userId]?.activeLoans?.length || 0} loans</p>
-                      <p className="text-blue-100 text-sm">₱{loans[selectedUser?.userId]?.totalLoanDeduction || 0}</p>
+                      <h3 className="text-lg font-bold text-gray-800">Active Loans</h3>
                     </div>
-
-                    {/* Total Deductions Card */}
-                    <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-4 rounded-xl text-white shadow-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                        <h4 className="font-semibold text-sm">Total Deductions</h4>
-                      </div>
-                      <p className="text-2xl font-bold mb-1">₱{(penaltyData.attendancePenalty || 0) + (loans[selectedUser?.userId]?.totalLoanDeduction || 0)}</p>
-                      <p className="text-purple-100 text-sm">Penalties + Loans</p>
+                    <div className="space-y-2">
+                      {loans[selectedUser?.userId].activeLoans.map((loan: any, index: number) => (
+                        <div key={index} className="p-3 bg-white rounded-lg border border-blue-200 shadow-sm">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-semibold text-blue-800">
+                              Loan #{index + 1}: ₱{loan.amount?.toLocaleString()}
+                            </span>
+                            <span className="text-sm font-bold text-blue-900">
+                              ₱{(loan.period_payment || loan.period_deduction)?.toLocaleString()}/period
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-blue-600">
+                              Progress: {loan.periods_paid || 0}/{loan.total_periods || 0} periods paid
+                            </span>
+                            <span className="text-blue-700 font-medium">
+                              {loan.periods_remaining || 0} periods remaining
+                            </span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-
-                  {/* Active Loans Details */}
-                  {loans[selectedUser?.userId]?.activeLoans?.length > 0 && (
-                    <div className="bg-white border border-blue-200 p-4 rounded-lg shadow-sm">
-                      <p className="text-blue-800 font-semibold mb-3 flex items-center gap-2">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                        Active Loan Details:
-                      </p>
-                      <div className="space-y-2">
-                        {loans[selectedUser?.userId].activeLoans.map((loan: any, index: number) => (
-                          <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-semibold text-blue-800">
-                                Loan #{index + 1}: ₱{loan.amount?.toLocaleString()}
-                              </span>
-                              <span className="text-sm font-bold text-blue-900">
-                                ₱{(loan.period_payment || loan.period_deduction)?.toLocaleString()}/period
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-blue-600">
-                                Progress: {loan.periods_paid || 0}/{loan.total_periods || 0} periods paid
-                              </span>
-                              <span className="text-blue-700 font-medium">
-                                {loan.periods_remaining || 0} periods remaining
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex gap-3 justify-end pt-4 border-t border-gray-200">

@@ -7,16 +7,18 @@ export const Payroll = () => {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<number | null>(null);
   const [editData, setEditData] = useState<any>({});
-  const [search, setSearch] = useState(""); // 🔍 search state
+  const [search, setSearch] = useState("");
   const [sortByEmployeeType, setSortByEmployeeType] = useState("");
   const [sortByPeriod, setSortByPeriod] = useState("");
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showPayslipModal, setShowPayslipModal] = useState(false);
+  const [payslipData, setPayslipData] = useState<any>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [penaltyData, setPenaltyData] = useState<any>({});
   const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
   const [loans, setLoans] = useState<{[key: number]: any}>({});
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  // Fixed items per page: limit the table to 10 rows
+  const itemsPerPage = 10;
 
   // Color coding system for employee types
   const getEmployeeTypeColor = (role: string) => {
@@ -46,6 +48,7 @@ export const Payroll = () => {
       id,
       name,
       role,
+      profile_picture,
       payrolls (
         id,
         period,
@@ -484,6 +487,356 @@ export const Payroll = () => {
     }
   };
 
+  // Open payslip modal for preview/printing
+  const openPayslip = (pr: any) => {
+    setPayslipData(pr);
+    setShowPayslipModal(true);
+  };
+
+  // Print payslip by opening a new window with a clean layout and invoking print
+  const printPayslip = (data: any) => {
+    try {
+      const gross = data.gross || 0;
+      const deductions = data.deductions || 0;
+      const loan = data.loan_deduction || 0;
+      const net = data.net || (gross - deductions - loan);
+      
+      // Format current date
+      const currentDate = new Date().toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+
+      const html = `
+        <!doctype html>
+        <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Payslip - ${data.name}</title>
+          <meta name="viewport" content="width=device-width,initial-scale=1" />
+          <style>
+            @page {
+              size: A4 landscape;
+              margin: 10mm;
+            }
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            body {
+              font-family: 'Arial', sans-serif;
+              background: white;
+              padding: 0;
+              font-size: 9pt;
+              line-height: 1.3;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+            }
+            .payslip-container {
+              max-width: 240mm;
+              width: 90%;
+              margin: 0 auto;
+              background: white;
+              border: 2px solid #000;
+              padding: 0;
+            }
+            .header {
+              text-align: center;
+              padding: 15px 20px;
+              border-bottom: 2px solid #000;
+            }
+            .header h1 {
+              font-size: 13pt;
+              font-weight: bold;
+              margin-bottom: 3px;
+              text-transform: uppercase;
+            }
+            .header .subtitle {
+              font-size: 8pt;
+              margin-bottom: 6px;
+            }
+            .header .period {
+              font-size: 9pt;
+              font-weight: bold;
+              margin-top: 6px;
+            }
+            .section {
+              padding: 10px 15px;
+              border-bottom: 2px solid #000;
+            }
+            .section:last-child {
+              border-bottom: none;
+            }
+            .section-title {
+              font-weight: bold;
+              font-size: 9pt;
+              margin-bottom: 6px;
+              text-transform: uppercase;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 120px 1fr;
+              gap: 4px;
+              font-size: 8pt;
+            }
+            .info-label {
+              font-weight: normal;
+            }
+            .info-value {
+              font-weight: normal;
+            }
+            .two-column {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+            }
+            .column-section {
+              display: flex;
+              flex-direction: column;
+            }
+            .amount-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 3px 0;
+              font-size: 8pt;
+            }
+            .amount-label {
+              font-weight: normal;
+            }
+            .amount-value {
+              font-weight: normal;
+              text-align: right;
+              min-width: 70px;
+            }
+            .total-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 6px 0;
+              margin-top: 6px;
+              border-top: 2px solid #000;
+              font-weight: bold;
+              font-size: 9pt;
+            }
+            .net-pay-section {
+              background: #f5f5f5;
+              padding: 10px 15px;
+              text-align: center;
+            }
+            .net-pay-label {
+              font-size: 9pt;
+              font-weight: bold;
+              margin-bottom: 4px;
+            }
+            .net-pay-amount {
+              font-size: 13pt;
+              font-weight: bold;
+            }
+            .footer {
+              padding: 10px 15px;
+              font-size: 8pt;
+              text-align: center;
+              border-top: 2px solid #000;
+            }
+            .signature-section {
+              display: flex;
+              justify-content: space-between;
+              margin-top: 30px;
+              padding: 0 20px;
+            }
+            .signature-box {
+              text-align: center;
+              width: 200px;
+            }
+            .signature-line {
+              border-top: 1px solid #000;
+              margin-bottom: 5px;
+              padding-top: 40px;
+            }
+            @media print {
+              body {
+                padding: 0;
+              }
+              .no-print {
+                display: none !important;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="payslip-container">
+            <!-- Header -->
+            <div class="header">
+              <h1>ST. PETERS COLLEGE-PAYSLIP</h1>
+              <div class="subtitle">Period: AUGUST 11 - AUGUST 25,2025</div>
+              <div class="period">${data.period || 'N/A'}</div>
+            </div>
+
+            <!-- Employee Information -->
+            <div class="section">
+              <div class="section-title">INCOME:</div>
+              <div class="info-grid">
+                <div class="info-label">Department:</div>
+                <div class="info-value">${data.role || 'N/A'}</div>
+                
+                <div class="info-label">Employee Name:</div>
+                <div class="info-value">${data.name || 'N/A'}</div>
+                
+                <div class="info-label">ID #:</div>
+                <div class="info-value">${data.userId || 'N/A'}</div>
+              </div>
+            </div>
+
+            <!-- Income and Deductions -->
+            <div class="section">
+              <div class="two-column">
+                <!-- Income Column -->
+                <div class="column-section">
+                  <div class="amount-row">
+                    <div class="amount-label">Basic Rate:</div>
+                    <div class="amount-value">${gross.toFixed(2)}</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">No. of Days/Hrs Worked:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Basic Pay:</div>
+                    <div class="amount-value">${gross.toFixed(2)}</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Accumulated Overtimes:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Extra Load Amount:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">13th Month:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Other Income:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="total-row">
+                    <div>GROSS PAY:</div>
+                    <div>${gross.toFixed(2)}</div>
+                  </div>
+                  <div class="total-row">
+                    <div>ADD: OTHER BENEFITS:</div>
+                    <div>--</div>
+                  </div>
+                  <div class="total-row">
+                    <div>TOTAL PAY:</div>
+                    <div>${gross.toFixed(2)}</div>
+                  </div>
+                </div>
+
+                <!-- Deductions Column -->
+                <div class="column-section">
+                  <div class="section-title">DEDUCTIONS:</div>
+                  <div class="amount-row">
+                    <div class="amount-label">SSS Employee Share:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">PHILHEALTH Payable:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">HDMF/EE Payable:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Groceries/Canteen:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">HDMF Loan:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Booklet/Loan:</div>
+                    <div class="amount-value">${loan.toFixed(2)}</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">SSS Loan:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">COOP:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Cash Advances:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Uniform/Misc:</div>
+                    <div class="amount-value">--</div>
+                  </div>
+                  <div class="amount-row">
+                    <div class="amount-label">Other Deductions:</div>
+                    <div class="amount-value">${deductions.toFixed(2)}</div>
+                  </div>
+                  <div class="total-row">
+                    <div>TOTAL DEDUCTIONS:</div>
+                    <div>${(deductions + loan).toFixed(2)}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Net Pay -->
+            <div class="net-pay-section">
+              <div class="net-pay-label">PAYROLL NET PAY:</div>
+              <div class="net-pay-amount">${net.toFixed(2)}</div>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+              <div>Date: ${currentDate}</div>
+              <div style="margin-top: 10px;">Received by:</div>
+              <div class="signature-section">
+                <div class="signature-box">
+                  <div class="signature-line"></div>
+                  <div>Employee Signature</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const w = window.open('', '_blank', 'toolbar=0,location=0,menubar=0');
+      if (!w) {
+        alert('Unable to open print window. Please allow popups.');
+        return;
+      }
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      // Delay slightly to ensure styles load
+      setTimeout(() => {
+        w.focus();
+        w.print();
+        // Optionally close after printing
+        // w.close();
+      }, 300);
+    } catch (err) {
+      console.error('Error printing payslip', err);
+      alert('Failed to print payslip');
+    }
+  };
+
   // Only show users who have actual payroll records
   const payrolls = users
     .filter((user) => user.payrolls?.length > 0) // Filter out users without payroll records
@@ -493,6 +846,7 @@ export const Payroll = () => {
         userId: user.id,
         name: user.name,
         role: user.role,
+        profile_picture: user.profile_picture || null,
       }))
     )
     .flat();
@@ -612,7 +966,6 @@ export const Payroll = () => {
                     className="appearance-none bg-white border-2 border-gray-300 rounded-xl px-4 py-2.5 pr-10 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 shadow-sm text-sm"
                   >
                     <option value="">All Employee Types</option>
-                    <option value="Administrator">Administrator</option>
                     <option value="HR Personnel">HR Personnel</option>
                     <option value="Accounting">Accounting</option>
                     <option value="Faculty">Faculty</option>
@@ -646,12 +999,12 @@ export const Payroll = () => {
             {/* Refresh Button */}
             <button
               onClick={fetchPayrolls}
-              className="group relative overflow-hidden bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2"
+              aria-label="Refresh"
+              className="group relative overflow-hidden bg-gradient-to-r from-red-600 to-red-700 text-white w-12 h-12 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center justify-center"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Refresh Data
               <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </button>
           </div>
@@ -877,12 +1230,13 @@ export const Payroll = () => {
                                     deductions: pr.deductions
                                   });
                                 }}
-                                className="px-2 py-1 bg-blue-600 text-white rounded text-xs font-medium transition-all duration-200 hover:bg-blue-700 flex items-center gap-1"
+                                aria-label="Edit"
+                                title="Edit"
+                                className="w-8 h-8 bg-blue-600 text-white rounded transition-all duration-200 hover:bg-blue-700 flex items-center justify-center"
                               >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
-                                Edit
                               </button>
                               <button
                                 onClick={async () => {
@@ -926,49 +1280,62 @@ export const Payroll = () => {
                                   newLoans[pr.userId] = loanResult;
                                   setLoans(newLoans);
                                   
-                                  setPenaltyData(penaltyResult);
                                   setAttendanceHistory(attendanceData.data || []);
                                   setShowHistoryModal(true);
                                 }}
-                                className="px-2 py-1 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded text-xs font-medium transition-all duration-200 hover:from-purple-700 hover:to-purple-800 flex items-center gap-1"
+                                aria-label="History"
+                                title="History"
+                                className="w-8 h-8 bg-purple-600 text-white rounded transition-all duration-200 hover:bg-purple-700 flex items-center justify-center"
                               >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 00-2-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
-                                History
+                              </button>
+                              <button
+                                onClick={() => openPayslip(pr)}
+                                aria-label="Payslip"
+                                title="Payslip"
+                                className="w-8 h-8 bg-teal-600 text-white rounded transition-all duration-200 hover:bg-teal-700 flex items-center justify-center"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-6a2 2 0 012-2h2a2 2 0 012 2v6m-6 4h6a2 2 0 002-2v-3H7v3a2 2 0 002 2z" />
+                                </svg>
                               </button>
                             </>
                           )}
                           {editing === pr.id && (
                             <button
                               onClick={() => savePayroll(pr.id)}
-                              className="px-2 py-1 bg-green-600 text-white rounded text-xs font-medium transition-all duration-200 hover:bg-green-700 flex items-center gap-1"
+                              aria-label="Save"
+                              title="Save"
+                              className="w-8 h-8 bg-green-600 text-white rounded transition-all duration-200 hover:bg-green-700 flex items-center justify-center"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
-                              Save
                             </button>
                           )}
                           {pr.status === "Pending" ? (
                             <button
                               onClick={() => finalizePayroll(pr.id)}
-                              className="px-2 py-1 bg-green-700 text-white rounded text-xs font-medium transition-all duration-200 hover:bg-green-800 flex items-center gap-1"
+                              aria-label="Finalize"
+                              title="Finalize"
+                              className="w-8 h-8 bg-green-700 text-white rounded transition-all duration-200 hover:bg-green-800 flex items-center justify-center"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
-                              Finalize
                             </button>
                           ) : pr.status === "Finalized" ? (
                             <button
                               onClick={() => unfinalizePayroll(pr.id)}
-                              className="px-2 py-1 bg-yellow-600 text-white rounded text-xs font-medium transition-all duration-200 hover:bg-yellow-700 flex items-center gap-1"
+                              aria-label="Unfinalize"
+                              title="Unfinalize"
+                              className="w-8 h-8 bg-yellow-600 text-white rounded transition-all duration-200 hover:bg-yellow-700 flex items-center justify-center"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
-                              Unfinalize
                             </button>
                           ) : null}
                         </div>
@@ -1081,6 +1448,81 @@ export const Payroll = () => {
           </div>
         )}
 
+        {/* Payslip Preview Modal (minimal, modern, printable) */}
+        {showPayslipModal && payslipData && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-800">Payslip Preview</h2>
+                    <p className="text-sm text-gray-500">A modern payslip aligned with the system style. Print a clean copy.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setShowPayslipModal(false); setPayslipData(null); }}
+                      className="px-3 py-2 bg-gray-100 rounded-lg text-sm text-gray-700 hover:bg-gray-200"
+                    >
+                      Close
+                    </button>
+                    <button
+                      onClick={() => printPayslip(payslipData)}
+                      className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg text-sm font-medium shadow hover:from-red-700"
+                    >
+                      Print Payslip
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-4 border-2 border-gray-200 rounded-lg bg-white">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-lg overflow-hidden">
+                        {payslipData?.profile_picture ? (
+                          <img src={payslipData.profile_picture} alt={payslipData.name || 'Employee'} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center text-white">
+                            <img src="/assets/images/spclogo.png" alt="SPC Logo" className="w-8 h-8 object-contain" />
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">Employee</div>
+                        <div className="font-semibold text-gray-800">{payslipData.name}</div>
+                        <div className="text-xs text-gray-500">{payslipData.role}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm text-gray-500">Employee #</div>
+                      <div className="font-semibold text-gray-800">#{payslipData.userId}</div>
+                      <div className="text-xs text-gray-500">Period: {payslipData.period || '--'}</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div className="bg-gray-50 p-3 rounded-lg border-2 border-gray-200 text-center">
+                      <div className="text-xs text-gray-500">Gross Pay</div>
+                      <div className="font-bold text-green-600">₱{(payslipData.gross || 0).toLocaleString()}</div>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg border-2 border-gray-200 text-center">
+                      <div className="text-xs text-gray-500">Deductions</div>
+                      <div className="font-bold text-red-600">₱{(payslipData.deductions || 0).toLocaleString()}</div>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg border-2 border-gray-200 text-center">
+                      <div className="text-xs text-gray-500">Loan Deduction</div>
+                      <div className="font-bold text-blue-600">₱{(payslipData.loan_deduction || 0).toLocaleString()}</div>
+                    </div>
+                    <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-3 rounded-lg text-white text-center">
+                      <div className="text-xs opacity-90">Net Pay</div>
+                      <div className="font-bold text-xl">₱{(payslipData.net || ((payslipData.gross || 0) - (payslipData.deductions || 0) - (payslipData.loan_deduction || 0))).toLocaleString()}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Payroll History Modal */}
         {showHistoryModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -1147,7 +1589,7 @@ export const Payroll = () => {
                     </div>
                     <h3 className="text-lg font-bold text-gray-800">Payroll Summary</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                     <div className="bg-white p-4 rounded-lg shadow-sm">
                       <p className="text-xs text-gray-500 mb-1">Period</p>
                       <p className="font-bold text-gray-800">{selectedUser?.period}</p>
@@ -1163,6 +1605,10 @@ export const Payroll = () => {
                     <div className="bg-white p-4 rounded-lg shadow-sm">
                       <p className="text-xs text-gray-500 mb-1">Loan Deduction</p>
                       <p className="font-bold text-blue-600 text-lg">₱{selectedUser?.loan_deduction?.toLocaleString() || 0}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                      <p className="text-xs text-gray-500 mb-1">Overtime Bonus</p>
+                      <p className="font-bold text-purple-600 text-lg">₱0</p>
                     </div>
                     <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 rounded-lg shadow-md">
                       <p className="text-xs text-emerald-100 mb-1">Net Pay</p>
@@ -1288,101 +1734,41 @@ export const Payroll = () => {
                   </div>
                 </div>
 
-                {/* Deductions Breakdown Section */}
-                <div className="bg-gradient-to-br from-red-50 to-orange-100 p-5 rounded-xl mb-6 border border-red-200">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-8 h-8 bg-gradient-to-br from-red-600 to-red-700 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-800">Deductions Breakdown</h3>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                    {/* Late Penalties Card */}
-                    <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 p-4 rounded-xl text-white shadow-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <h4 className="font-semibold text-sm">Late Penalties</h4>
-                      </div>
-                      <p className="text-2xl font-bold mb-1">{penaltyData.totalLateMinutes || 0} min</p>
-                      <p className="text-yellow-100 text-sm">₱{penaltyData.totalLatePenalty || 0}</p>
-                    </div>
-
-                    {/* Absent Penalties Card */}
-                    <div className="bg-gradient-to-br from-red-500 to-red-600 p-4 rounded-xl text-white shadow-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <h4 className="font-semibold text-sm">Absent Penalties</h4>
-                      </div>
-                      <p className="text-2xl font-bold mb-1">{penaltyData.absentCount || 0} days</p>
-                      <p className="text-red-100 text-sm">₱{penaltyData.totalAbsentPenalty || 0}</p>
-                    </div>
-
-                    {/* Loan Deductions Card */}
-                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-xl text-white shadow-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {/* Active Loans Section */}
+                {loans[selectedUser?.userId]?.activeLoans?.length > 0 && (
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-5 rounded-xl mb-6 border border-blue-200">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <h4 className="font-semibold text-sm">Loan Deductions</h4>
                       </div>
-                      <p className="text-2xl font-bold mb-1">{loans[selectedUser?.userId]?.activeLoans?.length || 0} loans</p>
-                      <p className="text-blue-100 text-sm">₱{loans[selectedUser?.userId]?.totalLoanDeduction || 0}</p>
+                      <h3 className="text-lg font-bold text-gray-800">Active Loans</h3>
                     </div>
-
-                    {/* Total Deductions Card */}
-                    <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-4 rounded-xl text-white shadow-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                        <h4 className="font-semibold text-sm">Total Deductions</h4>
-                      </div>
-                      <p className="text-2xl font-bold mb-1">₱{(penaltyData.attendancePenalty || 0) + (loans[selectedUser?.userId]?.totalLoanDeduction || 0)}</p>
-                      <p className="text-purple-100 text-sm">Penalties + Loans</p>
+                    <div className="space-y-2">
+                      {loans[selectedUser?.userId].activeLoans.map((loan: any, index: number) => (
+                        <div key={index} className="p-3 bg-white rounded-lg border border-blue-200 shadow-sm">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-semibold text-blue-800">
+                              Loan #{index + 1}: ₱{loan.amount?.toLocaleString()}
+                            </span>
+                            <span className="text-sm font-bold text-blue-900">
+                              ₱{(loan.period_payment || loan.period_deduction)?.toLocaleString()}/period
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-blue-600">
+                              Progress: {loan.periods_paid || 0}/{loan.total_periods || 0} periods paid
+                            </span>
+                            <span className="text-blue-700 font-medium">
+                              {loan.periods_remaining || 0} periods remaining
+                            </span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-
-                  {/* Active Loans Details */}
-                  {loans[selectedUser?.userId]?.activeLoans?.length > 0 && (
-                    <div className="bg-white border border-blue-200 p-4 rounded-lg shadow-sm">
-                      <p className="text-blue-800 font-semibold mb-3 flex items-center gap-2">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                        Active Loan Details:
-                      </p>
-                      <div className="space-y-2">
-                        {loans[selectedUser?.userId].activeLoans.map((loan: any, index: number) => (
-                          <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-semibold text-blue-800">
-                                Loan #{index + 1}: ₱{loan.amount?.toLocaleString()}
-                              </span>
-                              <span className="text-sm font-bold text-blue-900">
-                                ₱{(loan.period_payment || loan.period_deduction)?.toLocaleString()}/period
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-blue-600">
-                                Progress: {loan.periods_paid || 0}/{loan.total_periods || 0} periods paid
-                              </span>
-                              <span className="text-blue-700 font-medium">
-                                {loan.periods_remaining || 0} periods remaining
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex gap-3 justify-end pt-4 border-t border-gray-200">
