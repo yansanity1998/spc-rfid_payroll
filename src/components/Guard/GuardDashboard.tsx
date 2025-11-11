@@ -1,13 +1,37 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import supabase from "../../utils/supabase";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Doughnut } from 'react-chartjs-2';
+
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 const GuardDashboard = () => {
-  const [stats, setStats] = useState({
-    total: 0,
-    active: 0,
-    completed: 0,
-  });
   const [recent, setRecent] = useState<any[]>([]);
+  const [gatePassRequests, setGatePassRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Color coding system for employee types
@@ -77,12 +101,18 @@ const GuardDashboard = () => {
       }
 
       if (data) {
-        const total = data.length;
-        const active = data.filter((a) => a.time_in && !a.time_out).length;
-        const completed = data.filter((a) => a.time_in && a.time_out).length;
-
-        setStats({ total, active, completed });
         setRecent(data.slice(0, 10)); // latest 10
+      }
+
+      // 2. Fetch gate pass requests
+      const { data: gatePassData, error: gatePassError } = await supabase
+        .from('requests')
+        .select('*')
+        .eq('request_type', 'Gate Pass')
+        .order('created_at', { ascending: false });
+
+      if (!gatePassError && gatePassData) {
+        setGatePassRequests(gatePassData);
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -95,28 +125,67 @@ const GuardDashboard = () => {
     fetchDashboardData();
   }, []);
 
+  // Calculate gate pass statistics
+  const gatePassStats = useMemo(() => {
+    const pending = gatePassRequests.filter(req => req.status === 'Pending').length;
+    const approved = gatePassRequests.filter(req => req.status === 'Approved').length;
+    const guardApproved = gatePassRequests.filter(req => req.status === 'Guard Approved').length;
+    const rejected = gatePassRequests.filter(req => req.status === 'Rejected').length;
+    const total = gatePassRequests.length;
+
+    return { pending, approved, guardApproved, rejected, total };
+  }, [gatePassRequests]);
+
+  // Doughnut Chart Data - Gate Pass Status
+  const gatePassStatusData = useMemo(() => {
+    const pending = gatePassRequests.filter(req => req.status === 'Pending').length;
+    const approved = gatePassRequests.filter(req => req.status === 'Approved').length;
+    const guardApproved = gatePassRequests.filter(req => req.status === 'Guard Approved').length;
+    const rejected = gatePassRequests.filter(req => req.status === 'Rejected').length;
+
+    return {
+      labels: ['Pending', 'Dean Approved', 'Guard Approved', 'Rejected'],
+      datasets: [{
+        data: [pending, approved, guardApproved, rejected],
+        backgroundColor: [
+          'rgba(234, 179, 8, 0.8)',   // Yellow for Pending
+          'rgba(34, 197, 94, 0.8)',    // Green for Approved
+          'rgba(59, 130, 246, 0.8)',   // Blue for Guard Approved
+          'rgba(239, 68, 68, 0.8)',    // Red for Rejected
+        ],
+        borderColor: [
+          'rgba(234, 179, 8, 1)',
+          'rgba(34, 197, 94, 1)',
+          'rgba(59, 130, 246, 1)',
+          'rgba(239, 68, 68, 1)',
+        ],
+        borderWidth: 2,
+      }]
+    };
+  }, [gatePassRequests]);
+
   return (
-    <div className="min-h-screen w-full lg:ml-70 py-5 roboto px-3 sm:px-5 bg-red-200">
-      <main className="flex flex-col w-full max-w-7xl mx-auto p-4 sm:p-6 bg-white border border-gray-200 shadow-2xl rounded-2xl">
-        <section className="flex-shrink-0 space-y-6 sm:space-y-8">
+    <div className="min-h-screen w-full lg:ml-70 py-8 roboto px-4 sm:px-6 bg-red-50">
+      <main className="flex flex-col w-full max-w-7xl mx-auto">
+        <section className="flex-shrink-0 space-y-6">
           {/* Modern Dashboard Header */}
-          <div className="mb-8">
+          <div className="mb-6">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 bg-gradient-to-br from-teal-600 to-teal-700 rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-gradient-to-br from-teal-600 to-teal-700 rounded-xl flex items-center justify-center shadow-md">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Guard Dashboard</h1>
-                <p className="text-gray-600">Security monitoring and attendance tracking</p>
+                <h1 className="text-2xl font-bold text-gray-900">Guard Dashboard</h1>
+                <p className="text-sm text-gray-600">Security monitoring and attendance tracking</p>
               </div>
             </div>
           </div>
 
-          {/* Modern Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Total Scans Card */}
+          {/* Gate Pass Stats Cards - Dynamic */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Total Gate Passes Card */}
             <div className="group relative overflow-hidden bg-gradient-to-br from-teal-500 to-teal-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
               <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
               <div className="relative z-10 flex items-center justify-between">
@@ -124,40 +193,40 @@ const GuardDashboard = () => {
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
                       <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                     </div>
-                    <h2 className="text-lg font-semibold">Total Scans</h2>
+                    <h2 className="text-lg font-semibold">Total Requests</h2>
                   </div>
-                  <p className="text-3xl font-bold">{stats.total}</p>
-                  <p className="text-teal-100 text-sm mt-1">Today's activity</p>
+                  <p className="text-3xl font-bold">{gatePassStats.total}</p>
+                  <p className="text-teal-100 text-sm mt-1">All gate passes</p>
                 </div>
               </div>
               <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
             </div>
 
-            {/* Active Inside Card */}
-            <div className="group relative overflow-hidden bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+            {/* Pending Card */}
+            <div className="group relative overflow-hidden bg-gradient-to-br from-yellow-500 to-yellow-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
               <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
               <div className="relative z-10 flex items-center justify-between">
                 <div className="text-white">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
                       <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
-                    <h2 className="text-lg font-semibold">Active Inside</h2>
+                    <h2 className="text-lg font-semibold">Pending</h2>
                   </div>
-                  <p className="text-3xl font-bold">{stats.active}</p>
-                  <p className="text-green-100 text-sm mt-1">Currently present</p>
+                  <p className="text-3xl font-bold">{gatePassStats.pending}</p>
+                  <p className="text-yellow-100 text-sm mt-1">Awaiting approval</p>
                 </div>
               </div>
               <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
             </div>
 
-            {/* Completed Sessions Card */}
-            <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+            {/* Dean Approved Card */}
+            <div className="group relative overflow-hidden bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
               <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
               <div className="relative z-10 flex items-center justify-between">
                 <div className="text-white">
@@ -167,13 +236,87 @@ const GuardDashboard = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
-                    <h2 className="text-lg font-semibold">Completed</h2>
+                    <h2 className="text-lg font-semibold">Dean Approved</h2>
                   </div>
-                  <p className="text-3xl font-bold">{stats.completed}</p>
-                  <p className="text-blue-100 text-sm mt-1">Sessions finished</p>
+                  <p className="text-3xl font-bold">{gatePassStats.approved}</p>
+                  <p className="text-green-100 text-sm mt-1">Ready for guard</p>
                 </div>
               </div>
               <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
+            </div>
+
+            {/* Guard Approved Card */}
+            <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+              <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+              <div className="relative z-10 flex items-center justify-between">
+                <div className="text-white">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <h2 className="text-lg font-semibold">Guard Approved</h2>
+                  </div>
+                  <p className="text-3xl font-bold">{gatePassStats.guardApproved}</p>
+                  <p className="text-blue-100 text-sm mt-1">Exit approved</p>
+                </div>
+              </div>
+              <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-white/10 rounded-full"></div>
+            </div>
+          </div>
+
+          {/* Gate Pass Status Chart */}
+          <div className="mt-6">
+            <div className="bg-white border border-gray-200 shadow-xl rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-bold text-gray-800">Gate Pass Status Distribution</h2>
+              </div>
+              <div className="h-80 flex items-center justify-center">
+                {gatePassRequests.length > 0 ? (
+                  <Doughnut data={gatePassStatusData} options={{ 
+                    maintainAspectRatio: false, 
+                    responsive: true,
+                    plugins: {
+                      legend: {
+                        position: 'bottom',
+                        labels: {
+                          padding: 20,
+                          font: {
+                            size: 13
+                          }
+                        }
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const total = gatePassRequests.length;
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${label}: ${value} (${percentage}%)`;
+                          }
+                        }
+                      }
+                    }
+                  }} />
+                ) : (
+                  <div className="text-center text-gray-500">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <p className="font-medium">No gate pass requests available</p>
+                    <p className="text-sm mt-1">Gate pass data will appear here</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </section>
@@ -262,7 +405,7 @@ const GuardDashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-gray-50 border border-gray-200 shadow-xl rounded-2xl mt-6 overflow-hidden">
+        <div className="bg-white border border-gray-200 shadow-xl rounded-2xl mt-6 overflow-hidden">
           <div className="p-6">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 bg-gradient-to-br from-teal-600 to-teal-700 rounded-xl flex items-center justify-center">
@@ -274,37 +417,37 @@ const GuardDashboard = () => {
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Go to Scanner */}
+              {/* View Gate Pass Monitor */}
               <a
-                href="/Guard/scanner"
+                href="/Guard/approvals"
                 className="group bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer border border-gray-200"
               >
                 <div className="flex items-center gap-4 mb-3">
                   <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center group-hover:bg-teal-200 transition-colors">
                     <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h4" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-800">RFID Scanner</h3>
+                  <h3 className="text-lg font-semibold text-gray-800">Gate Pass Monitor</h3>
                 </div>
-                <p className="text-gray-600 text-sm">Access the attendance scanning interface</p>
+                <p className="text-gray-600 text-sm">View and approve gate pass requests</p>
               </a>
 
-              {/* View Reports */}
-              <a
-                href="/Guard/reports"
-                className="group bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer border border-gray-200"
+              {/* Refresh Dashboard */}
+              <button
+                onClick={fetchDashboardData}
+                className="group bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer border border-gray-200 text-left"
               >
                 <div className="flex items-center gap-4 mb-3">
                   <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
                     <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-800">View Reports</h3>
+                  <h3 className="text-lg font-semibold text-gray-800">Refresh Data</h3>
                 </div>
-                <p className="text-gray-600 text-sm">Generate and view attendance reports</p>
-              </a>
+                <p className="text-gray-600 text-sm">Update dashboard with latest information</p>
+              </button>
             </div>
           </div>
         </div>

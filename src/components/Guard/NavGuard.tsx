@@ -60,10 +60,7 @@ export const NavGuard = () => {
 
   const menu = [
     { key: "dashboard", label: "Dashboard", link: "Guard/dashboard" },
-    { key: "scanner", label: "RFID Scanner", link: "Guard/scanner" },
     { key: "approvals", label: "Gate Pass Monitor", link: "Guard/approvals" },
-    { key: "contributions", label: "Gov Contributions", link: "Guard/contributions" },
-    { key: "reports", label: "Reports", link: "Guard/reports" },
   ];
 
   const getMenuIcon = (key: string) => {

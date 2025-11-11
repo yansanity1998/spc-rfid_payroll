@@ -40,10 +40,7 @@ import AccSchedule from "./components/Accounting/AccSchedule";
 import GovContribution from "./components/Accounting/GovContribution";
 import { NavGuard } from "./components/Guard/NavGuard";
 import GuardDashboard from "./components/Guard/GuardDashboard";
-import GuardReports from "./components/Guard/GuardReports";
-import GuardScanner from "./components/Guard/GuardScanner";
 import { GuardApproval } from "./components/Guard/GuardApproval";
-import GuardGovContribution from "./components/Guard/GuardGovContribution";
 import { DatabaseTest } from "./components/Debug/DatabaseTest";
 import FacDashboard from "./components/Faculty/FacDashboard";
 import { FacNav } from "./components/Faculty/FacNav";
@@ -64,7 +61,6 @@ import SAReports from "./components/SA/SAReports";
 import SAEvents from "./components/SA/SAEvents";
 import SARequest from "./components/SA/SARequest";
 import { SANav } from "./components/SA/SANav";
-import SAGovContribution from "./components/SA/SAGovContribution";
 import DiagnoseSARole from "./components/SA/DiagnoseSARole";
 import DiagnoseGuardRole from "./components/Guard/DiagnoseGuardRole";
 import StaffDashboard from "./components/Staff/StaffDashboard";
@@ -152,10 +148,7 @@ function AppContent() {
 
           {/* GUARD */}
           <Route path="/Guard/dashboard" element={<ProtectedRoute allowedRoles={["Guard"]}><GuardDashboard /></ProtectedRoute>}/>
-          <Route path="/Guard/scanner" element={<ProtectedRoute allowedRoles={["Guard"]}><GuardScanner /></ProtectedRoute>}/>
           <Route path="/Guard/approvals" element={<ProtectedRoute allowedRoles={["Guard"]}><GuardApproval /></ProtectedRoute>}/>
-          <Route path="/Guard/contributions" element={<ProtectedRoute allowedRoles={["Guard"]}><GuardGovContribution /></ProtectedRoute>}/>
-          <Route path="/Guard/reports" element={<ProtectedRoute allowedRoles={["Guard"]}><GuardReports /></ProtectedRoute>}/>
 
           {/* FACULTY */}
           <Route path="/Faculty/dashboard" element={<ProtectedRoute allowedRoles={["Faculty"]}><FacDashboard /></ProtectedRoute>} />
@@ -172,7 +165,6 @@ function AppContent() {
           <Route path="/SA/attendance" element={<ProtectedRoute allowedRoles={["SA"]}><SAAttendance /></ProtectedRoute>} />
           <Route path="/SA/schedule" element={<ProtectedRoute allowedRoles={["SA"]}><SASchedule /></ProtectedRoute>} />
           <Route path="/SA/payroll" element={<ProtectedRoute allowedRoles={["SA"]}><SAPayroll /></ProtectedRoute>} />
-          <Route path="/SA/contributions" element={<ProtectedRoute allowedRoles={["SA"]}><SAGovContribution /></ProtectedRoute>} />
           <Route path="/SA/events" element={<ProtectedRoute allowedRoles={["SA"]}><SAEvents /></ProtectedRoute>} />
           <Route path="/SA/request" element={<ProtectedRoute allowedRoles={["SA"]}><SARequest /></ProtectedRoute>} />
           <Route path="/SA/reports" element={<ProtectedRoute allowedRoles={["SA"]}><SAReports /></ProtectedRoute>} />

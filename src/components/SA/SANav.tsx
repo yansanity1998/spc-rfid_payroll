@@ -42,7 +42,6 @@ export const SANav = () => {
     { key: "attendance", label: "Attendance", link: "/SA/attendance" },
     { key: "schedule", label: "Schedule", link: "/SA/schedule" },
     { key: "payroll", label: "Payroll", link: "/SA/payroll" },
-    { key: "contributions", label: "Gov Contributions", link: "/SA/contributions" },
     { key: "request", label: "Request", link: "/SA/request" },
   ];
 
