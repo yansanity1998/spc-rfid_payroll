@@ -50,11 +50,11 @@ export const Attendance = () => {
       return bLatest - aLatest;
     });
 
-  // 🔍 Filter and sort schedule attendance (Faculty and SA only)
+  // 🔍 Filter and sort schedule attendance (Faculty, SA, and Staff)
   const filteredScheduleAttendance = scheduleAttendance
     .filter((record) => {
-      // Only show Faculty and SA roles
-      const allowedRoles = ['Faculty', 'SA'];
+      // Only show Faculty, SA, and Staff roles
+      const allowedRoles = ['Faculty', 'SA', 'Staff'];
       return allowedRoles.includes(record.users?.role);
     })
     .filter(
@@ -1259,6 +1259,7 @@ export const Attendance = () => {
                   >
                     <option value="all">All</option>
                     <option value="Faculty">Faculty</option>
+                    <option value="Staff">Staff</option>
                     <option value="SA">SA</option>
                   </select>
                   <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">

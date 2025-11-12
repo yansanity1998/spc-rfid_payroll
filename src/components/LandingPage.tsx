@@ -89,7 +89,7 @@ const ModernLoginForm = ({ onClose }: { onClose: () => void }) => {
         navigate("/HR/dashboard");
         break;
       case "Accounting":
-        navigate("/accounting/payroll");
+        navigate("/accounting/dashboard");
         break;
       case "Administrator":
         navigate("/hrAdmin/dashboard");
