@@ -11,6 +11,7 @@ export const Attendance = () => {
   const [regularSortBy, setRegularSortBy] = useState("all"); // 📊 Regular attendance sorting
   const [scheduleSortBy, setScheduleSortBy] = useState("all"); // 📊 Schedule attendance sorting
   const [sessionSort, setSessionSort] = useState("all"); // 📊 Session sorting (all, morning, afternoon)
+  const [selectedDate, setSelectedDate] = useState(""); // 📅 Date filter state
   const [deletingId, setDeletingId] = useState<number | string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [selectedUserInfo, setSelectedUserInfo] = useState<any>(null);
@@ -24,18 +25,34 @@ export const Attendance = () => {
   // 🔍 Filter regular attendance logs (sort by latest date and tap time)
   const filtered = records
     .filter(
-      (log) =>
-        log.name?.toLowerCase().includes(search.toLowerCase()) ||
-        log.role?.toLowerCase().includes(search.toLowerCase()) ||
-        log.semester?.toString().includes(search) ||
-        log.schoolYear?.toString().includes(search) ||
-        log.status?.toLowerCase().includes(search.toLowerCase())
+      (log) => {
+        try {
+          if (!search || search.trim() === '') return true;
+          
+          const searchLower = search.toLowerCase();
+          return (
+            (log.name && log.name.toLowerCase().includes(searchLower)) ||
+            (log.role && log.role.toLowerCase().includes(searchLower)) ||
+            (log.semester && log.semester.toString().includes(search)) ||
+            (log.schoolYear && log.schoolYear.toString().includes(search)) ||
+            (log.status && log.status.toLowerCase().includes(searchLower))
+          );
+        } catch (error) {
+          console.error('Error in regular attendance filter:', error, log);
+          return false;
+        }
+      }
     )
     .filter((log) => regularSortBy === "all" || log.role === regularSortBy)
     .filter((log) => {
       // Filter by session
       if (sessionSort === "all") return true;
       return log.session === sessionSort;
+    })
+    .filter((log) => {
+      // Filter by selected date
+      if (!selectedDate) return true;
+      return log.att_date === selectedDate;
     })
     .sort((a, b) => {
       // Sort by most recent tap time (time_in or time_out), newest first
@@ -50,23 +67,39 @@ export const Attendance = () => {
       return bLatest - aLatest;
     });
 
-  // 🔍 Filter and sort schedule attendance (Faculty, SA, and Staff)
+  // 🔍 Filter and sort schedule attendance (Faculty and Staff only)
   const filteredScheduleAttendance = scheduleAttendance
     .filter((record) => {
-      // Only show Faculty, SA, and Staff roles
-      const allowedRoles = ['Faculty', 'SA', 'Staff'];
+      // Only show Faculty and Staff roles
+      const allowedRoles = ['Faculty', 'Staff'];
       return allowedRoles.includes(record.users?.role);
     })
     .filter(
-      (record) =>
-        record.users?.name?.toLowerCase().includes(scheduleSearch.toLowerCase()) ||
-        record.users?.role?.toLowerCase().includes(scheduleSearch.toLowerCase()) ||
-        record.subject?.toLowerCase().includes(scheduleSearch.toLowerCase()) ||
-        record.room?.toLowerCase().includes(scheduleSearch.toLowerCase()) ||
-        record.day_of_week?.toLowerCase().includes(scheduleSearch.toLowerCase()) ||
-        record.attendance?.toLowerCase().includes(scheduleSearch.toLowerCase())
+      (record) => {
+        try {
+          if (!scheduleSearch || scheduleSearch.trim() === '') return true;
+          
+          const searchLower = scheduleSearch.toLowerCase();
+          return (
+            (record.users?.name && record.users.name.toLowerCase().includes(searchLower)) ||
+            (record.users?.role && record.users.role.toLowerCase().includes(searchLower)) ||
+            (record.subject && record.subject.toLowerCase().includes(searchLower)) ||
+            (record.room && record.room.toLowerCase().includes(searchLower)) ||
+            (record.day_of_week && record.day_of_week.toLowerCase().includes(searchLower)) ||
+            (record.attendance && record.attendance.toLowerCase().includes(searchLower))
+          );
+        } catch (error) {
+          console.error('Error in schedule attendance filter:', error, record);
+          return false;
+        }
+      }
     )
     .filter((record) => scheduleSortBy === "all" || record.users?.role === scheduleSortBy)
+    .filter((record) => {
+      // Filter by selected date
+      if (!selectedDate) return true;
+      return record.att_date === selectedDate;
+    })
     .sort((a, b) => {
       // First, sort by date (latest date first)
       const dateA = new Date(a.att_date).getTime();
@@ -222,18 +255,24 @@ export const Attendance = () => {
   };
 
   // Helper function to format date in Philippine timezone
-  const formatPhilippineDate = (dateString: string) => {
-    // Handle date-only strings (YYYY-MM-DD format)
-    const date = dateString.includes('T')
-      ? new Date(dateString)
-      : new Date(dateString + 'T00:00:00Z');
+  const formatPhilippineDate = (dateString: string | null | undefined) => {
+    if (!dateString) return "";
+    
+    try {
+      // Handle date-only strings (YYYY-MM-DD format)
+      const date = dateString.includes('T')
+        ? new Date(dateString)
+        : new Date(dateString + 'T00:00:00Z');
 
-    return date.toLocaleDateString('en-PH', {
-      timeZone: 'Asia/Manila',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+      return date.toLocaleDateString('en-PH', {
+        timeZone: 'Asia/Manila',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return "";
+    }
   };
 
   // Normalize a datetime string to Asia/Manila clock minutes since midnight
@@ -271,6 +310,23 @@ export const Attendance = () => {
         .split('T')[0];
       const currentMinutes = getManilaMinutesSinceMidnight(nowUtc.toISOString());
       const afternoonEnd = 19 * 60; // 7:00 PM
+
+      // Check if today is a holiday (active holidays only)
+      const { data: holidayCheck, error: holidayError } = await supabase
+        .from("holidays")
+        .select("id, title, is_active")
+        .eq("date", today)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (holidayError) {
+        console.error("[AutoAbsent] Error checking holiday:", holidayError);
+      }
+
+      if (holidayCheck) {
+        console.log(`[AutoAbsent] Today (${today}) is a holiday: "${holidayCheck.title}". Skipping auto-absent logic.`);
+        return; // Exit early - no one should be marked absent on a holiday
+      }
 
       // Get all active users (Faculty, SA, Accounting, Staff)
       const { data: allUsers, error: usersError } = await supabase
@@ -386,6 +442,22 @@ export const Attendance = () => {
         const attendanceUserIds = Array.from(new Set((data || []).map((row: any) => row.user?.id).filter(Boolean)));
         const attendanceDates = Array.from(new Set((data || []).map((row: any) => row.att_date).filter(Boolean)));
         let exemptionMap = new Map<string, any>();
+        
+        // Fetch holidays for the date range
+        let holidayDates = new Set<string>();
+        if (attendanceDates.length > 0) {
+          const { data: holidays } = await supabase
+            .from('holidays')
+            .select('date, title')
+            .in('date', attendanceDates)
+            .eq('is_active', true);
+          
+          for (const holiday of (holidays || [])) {
+            holidayDates.add(holiday.date);
+            console.log(`[Holiday] ${holiday.date} is a holiday: ${holiday.title}`);
+          }
+        }
+        
         if (attendanceUserIds.length > 0 && attendanceDates.length > 0) {
           const { data: exemptions } = await supabase
             .from('schedule_exemptions')
@@ -408,10 +480,13 @@ export const Attendance = () => {
           }
         }
 
-        // Process attendance records using preloaded exemption map
+        // Process attendance records using preloaded exemption map and holiday dates
         const processedRecords = (data || []).map((row: any) => {
           const key = `${row.user?.id}|${row.att_date}`;
           const exemptionCheck = exemptionMap.get(key) || { isExempted: false, reason: null, type: null };
+          
+          // Check if this date is a holiday
+          const isHoliday = holidayDates.has(row.att_date);
 
           // Note: we no longer need to count per-day records for status
 
@@ -443,8 +518,12 @@ export const Attendance = () => {
             schoolYear: row.user?.schoolYear,
             hiredDate: row.user?.hiredDate,
             exemption: exemptionCheck, // Add exemption info
+            isHoliday: isHoliday, // Add holiday flag
             status: (() => {
-              // Respect exemptions first
+              // Check if date is a holiday first - highest priority
+              if (isHoliday) return "Exempted";
+              
+              // Respect exemptions next
               if (exemptionCheck.isExempted) return "Exempted";
 
               // Explicit absent flag from DB
@@ -583,6 +662,22 @@ export const Attendance = () => {
       (attendanceData || []).forEach(a => mostRecentDates.add(a.att_date));
       const todayStr = new Date().toISOString().split('T')[0];
       const scheduleDates = Array.from(new Set([ ...Array.from(mostRecentDates), todayStr ]));
+      
+      // Fetch holidays for schedule attendance dates
+      let scheduleHolidayDates = new Set<string>();
+      if (scheduleDates.length > 0) {
+        const { data: scheduleHolidays } = await supabase
+          .from('holidays')
+          .select('date, title')
+          .in('date', scheduleDates)
+          .eq('is_active', true);
+        
+        for (const holiday of (scheduleHolidays || [])) {
+          scheduleHolidayDates.add(holiday.date);
+          console.log(`[Schedule Holiday] ${holiday.date} is a holiday: ${holiday.title}`);
+        }
+      }
+      
       let scheduleExemptionsMap = new Map<string, any>();
       if (scheduleUserIds.length > 0 && scheduleDates.length > 0) {
         const { data: scheduleExemptions } = await supabase
@@ -620,12 +715,18 @@ export const Attendance = () => {
         // Get the date for exemption checking (use most recent record date or today)
         const checkDate = mostRecentRecord?.att_date || todayStr;
 
+        // Check if this date is a holiday (HIGHEST PRIORITY)
+        const isHoliday = scheduleHolidayDates.has(checkDate);
+
         // Check for exemptions from preloaded map
         const exemptionCheck = scheduleExemptionsMap.get(`${schedule.user_id}|${checkDate}`) || { isExempted: false, reason: null, type: null };
 
         // Determine attendance status
         let attendanceStatus = 'Absent';
-        if (exemptionCheck.isExempted) {
+        if (isHoliday) {
+          // Holiday takes highest priority
+          attendanceStatus = 'Exempted';
+        } else if (exemptionCheck.isExempted) {
           attendanceStatus = 'Exempted';
         } else if (mostRecentRecord) {
           attendanceStatus = mostRecentRecord.attendance;
@@ -639,7 +740,8 @@ export const Attendance = () => {
           time_out: mostRecentRecord?.time_out || null,
           attendance: attendanceStatus,
           status: mostRecentRecord?.status || false,
-          exemption: exemptionCheck // Add exemption info
+          exemption: exemptionCheck, // Add exemption info
+          isHoliday: isHoliday // Add holiday flag
         };
       });
 
@@ -723,17 +825,37 @@ export const Attendance = () => {
                   className="appearance-none bg-white border-2 border-gray-300 rounded-xl px-4 py-2.5 pr-10 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 shadow-sm"
                 >
                   <option value="all">All Roles</option>
-                  <option value="Administrator">Administrator</option>
                   <option value="HR Personnel">HR Personnel</option>
                   <option value="Accounting">Accounting</option>
                   <option value="Faculty">Faculty</option>
                   <option value="Staff">Staff</option>
                   <option value="SA">SA</option>
-                  <option value="Guard">Guard</option>
                 </select>
                 <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
+              </div>
+
+              {/* Date Filter */}
+              <div className="relative">
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="appearance-none bg-white border-2 border-gray-300 rounded-xl px-4 py-2.5 pr-10 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 shadow-sm"
+                  title="Filter by specific date"
+                />
+                {selectedDate && (
+                  <button
+                    onClick={() => setSelectedDate("")}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 hover:text-gray-600 transition-colors"
+                    title="Clear date filter"
+                  >
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
               </div>
 
               {/* Session Filter Dropdown */}
@@ -1140,7 +1262,7 @@ export const Attendance = () => {
         </div>
 
         {/* Class Schedule Attendance Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-6">
           {/* Schedule Present Card */}
           <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
             <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
@@ -1196,6 +1318,26 @@ export const Attendance = () => {
                 </div>
                 <p className="text-2xl font-bold">{scheduleAttendance.filter((r) => r.attendance === "Absent" || !r.attendance_record).length}</p>
                 <p className="text-rose-100 text-xs mt-1">Missed classes</p>
+              </div>
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-12 h-12 bg-white/10 rounded-full"></div>
+          </div>
+
+          {/* Schedule Exempted Card */}
+          <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+            <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+            <div className="relative z-10 flex items-center justify-between">
+              <div className="text-white">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h2 className="text-base font-semibold">Classes Exempted</h2>
+                </div>
+                <p className="text-2xl font-bold">{scheduleAttendance.filter((r) => r.attendance === "Exempted").length}</p>
+                <p className="text-blue-100 text-xs mt-1">Schedule exemption</p>
               </div>
             </div>
             <div className="absolute -bottom-1 -right-1 w-12 h-12 bg-white/10 rounded-full"></div>
@@ -1260,11 +1402,32 @@ export const Attendance = () => {
                     <option value="all">All</option>
                     <option value="Faculty">Faculty</option>
                     <option value="Staff">Staff</option>
-                    <option value="SA">SA</option>
                   </select>
                   <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
+                </div>
+
+                {/* Date Filter for Schedule Attendance */}
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="appearance-none bg-white border-2 border-gray-300 rounded-xl px-4 py-2.5 pr-10 text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 shadow-sm"
+                    title="Filter by specific date"
+                  />
+                  {selectedDate && (
+                    <button
+                      onClick={() => setSelectedDate("")}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 hover:text-gray-600 transition-colors"
+                      title="Clear date filter"
+                    >
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1362,13 +1525,16 @@ export const Attendance = () => {
                             ? "bg-yellow-100 text-yellow-800"
                             : record.attendance === "Absent"
                             ? "bg-red-100 text-red-800"
-                            : record.attendance === "No Record"
+                            : record.attendance === "Exempted"
                             ? "bg-blue-100 text-blue-800"
+                            : record.attendance === "No Record"
+                            ? "bg-gray-100 text-gray-800"
                             : "bg-gray-100 text-gray-800"
                         }`}>
                           {record.attendance === "Present" ? "✅ Present" : 
                            record.attendance === "Late" ? "⏰ Late" :
                            record.attendance === "Absent" ? "❌ Absent" : 
+                           record.attendance === "Exempted" ? "✅ Exempted" :
                            record.attendance === "No Record" ? "📋 No Record" :
                            record.attendance || 'Unknown'}
                         </span>
@@ -1386,7 +1552,7 @@ export const Attendance = () => {
                         </div>
                         <div className="text-center">
                           <h3 className="text-lg font-semibold text-gray-800 mb-1">No Class Schedule Attendance Found</h3>
-                          <p className="text-gray-500">Faculty and SA users haven't recorded any class attendance yet.</p>
+                          <p className="text-gray-500">Faculty and Staff users haven't recorded any class attendance yet.</p>
                           <button 
                             onClick={fetchAttendance}
                             className="mt-3 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"

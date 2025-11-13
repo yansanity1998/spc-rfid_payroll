@@ -19,8 +19,8 @@ export const Attendance = () => {
 
   const [regularAttendancePage, setRegularAttendancePage] = useState(1);
   const [attendancePage, setAttendancePage] = useState(1);
-  const regularAttendanceRow = 5;
-  const attendanceRow = 5;
+  const regularAttendanceRow = 10;
+  const attendanceRow = 10;
 
   // 🔍 Filter regular attendance logs (sort by latest date and tap time)
   const filtered = records
@@ -67,11 +67,11 @@ export const Attendance = () => {
       return bLatest - aLatest;
     });
 
-  // 🔍 Filter and sort schedule attendance (Faculty, SA, and Staff)
+  // 🔍 Filter and sort schedule attendance (Faculty and Staff only)
   const filteredScheduleAttendance = scheduleAttendance
     .filter((record) => {
-      // Only show Faculty, SA, and Staff roles
-      const allowedRoles = ['Faculty', 'SA', 'Staff'];
+      // Only show Faculty and Staff roles
+      const allowedRoles = ['Faculty', 'Staff'];
       return allowedRoles.includes(record.users?.role);
     })
     .filter(
@@ -1402,7 +1402,6 @@ export const Attendance = () => {
                     <option value="all">All</option>
                     <option value="Faculty">Faculty</option>
                     <option value="Staff">Staff</option>
-                    <option value="SA">SA</option>
                   </select>
                   <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1553,7 +1552,7 @@ export const Attendance = () => {
                         </div>
                         <div className="text-center">
                           <h3 className="text-lg font-semibold text-gray-800 mb-1">No Class Schedule Attendance Found</h3>
-                          <p className="text-gray-500">Faculty and SA users haven't recorded any class attendance yet.</p>
+                          <p className="text-gray-500">Faculty and Staff users haven't recorded any class attendance yet.</p>
                           <button 
                             onClick={fetchAttendance}
                             className="mt-3 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
