@@ -71,6 +71,7 @@ import StaffReports from "./components/Staff/StaffReports";
 import { StaffNav } from "./components/Staff/StaffNav";
 import DiagnoseStaffRole from "./components/Staff/DiagnoseStaffRole";
 import StaffGovContribution from "./components/Staff/StaffGovContribution";
+import { StaffRequest } from "./components/Staff/StaffRequest";
 
 
 function AppContent() {
@@ -176,6 +177,7 @@ function AppContent() {
           <Route path="/Staff/payroll" element={<ProtectedRoute allowedRoles={["Staff"]}><StaffPayroll /></ProtectedRoute>} />
           <Route path="/Staff/contributions" element={<ProtectedRoute allowedRoles={["Staff"]}><StaffGovContribution /></ProtectedRoute>} />
           <Route path="/Staff/reports" element={<ProtectedRoute allowedRoles={["Staff"]}><StaffReports /></ProtectedRoute>} />
+          <Route path="/Staff/request" element={<ProtectedRoute allowedRoles={["Staff"]}><StaffRequest /></ProtectedRoute>} />
 
           {/* DIAGNOSTIC ROUTES */}
           <Route path="/diagnose-sa" element={<DiagnoseSARole />} />

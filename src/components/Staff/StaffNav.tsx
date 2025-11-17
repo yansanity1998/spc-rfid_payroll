@@ -46,6 +46,7 @@ export const StaffNav = () => {
     { key: "payroll", label: "Payroll", link: "/Staff/payroll" },
     { key: "contributions", label: "Gov Contributions", link: "/Staff/contributions" },
     { key: "reports", label: "Reports", link: "/Staff/reports" },
+    { key: "request", label: "Request", link: "/Staff/request" },
   ];
 
   const getMenuIcon = (key: string) => {

@@ -570,6 +570,7 @@ export const PayrollAcc = () => {
       name,
       role,
       status,
+      base_salary,
       payrolls (
         id,
         period,
@@ -608,25 +609,7 @@ export const PayrollAcc = () => {
     };
   }, [showForm, showHistoryModal]);
 
-  // Get default gross pay based on user role
-  const getDefaultGrossPay = (role: string): number => {
-    switch (role) {
-      case "Faculty":
-        return 30000;
-      case "SA":
-        return 6000;
-      case "Guard":
-        return 10000;
-      case "Staff":
-        return 25000;
-      case "HR Personnel":
-        return 30000;
-      case "Accounting":
-        return 25000;
-      default:
-        return 0;
-    }
-  };
+  // Gross pay now comes from per-user base_salary set by HR (per 15-day period)
 
   // Calculate overtime bonus based on overtime schedules (7pm-9pm)
   const calculateOvertimeBonus = async (userId: number, period?: string): Promise<{
@@ -697,7 +680,9 @@ export const PayrollAcc = () => {
     if (name === 'periodStartDate' && value && formData.user_id) {
       const userId = parseInt(formData.user_id);
       const selectedUser = users.find(u => u.id === userId);
-      const defaultGross = selectedUser ? getDefaultGrossPay(selectedUser.role) : 0;
+      const userBaseSalary = selectedUser && selectedUser.base_salary != null
+        ? Number(selectedUser.base_salary)
+        : 0;
       
       console.log(`📅 [PayrollAcc] Period changed to: ${formatPeriodDisplay(value)} (${value})`);
       console.log(`🔄 [PayrollAcc] Recalculating penalties, loans, and overtime for user ${userId}...`);
@@ -708,7 +693,7 @@ export const PayrollAcc = () => {
         fetchUserLoans(userId),
         calculateOvertimeBonus(userId, value)
       ]).then(([penaltyResult, loanResult, overtimeResult]) => {
-        const adjustedGross = defaultGross + overtimeResult.overtimeBonus;
+        const adjustedGross = userBaseSalary + overtimeResult.overtimeBonus;
         
         setFormData(prev => ({
           ...prev,
@@ -736,11 +721,13 @@ export const PayrollAcc = () => {
     if (name === 'user_id' && value) {
       const userId = parseInt(value);
       
-      // Find the selected user to get their role
+      // Find the selected user to get their base salary
       const selectedUser = users.find(u => u.id === userId);
-      const defaultGross = selectedUser ? getDefaultGrossPay(selectedUser.role) : 0;
+      const userBaseSalary = selectedUser && selectedUser.base_salary != null
+        ? Number(selectedUser.base_salary)
+        : 0;
       
-      console.log(`🔄 [PayrollAcc] User selected: ${value} (${selectedUser?.role}), default gross pay: ₱${defaultGross.toLocaleString()}`);
+      console.log(`🔄 [PayrollAcc] User selected: ${value} (${selectedUser?.role}), base salary: ₱${userBaseSalary.toLocaleString()}`);
       console.log(`🔄 [PayrollAcc] Calculating penalties, loans, and overtime bonuses...`);
       
       // Use periodStartDate if available, otherwise use formData.period
@@ -767,27 +754,27 @@ export const PayrollAcc = () => {
         setLoans(newLoans);
         
         // Calculate adjusted gross pay with overtime bonus
-        const adjustedGross = defaultGross + overtimeResult.overtimeBonus;
+        const adjustedGross = userBaseSalary + overtimeResult.overtimeBonus;
         
         // Update form data with adjusted gross pay (including overtime bonus), calculated penalties and loans
         setFormData(prev => ({
           ...prev,
           user_id: value,
-          gross: adjustedGross, // Set gross pay = default + overtime bonus
+          gross: adjustedGross, // Set gross pay = base_salary + overtime bonus
           deductions: penaltyResult.totalPenalty, // Only penalties in deductions
           loan_deduction: loanResult.totalLoanDeduction, // Loans separate
           net: adjustedGross - penaltyResult.totalPenalty - loanResult.totalLoanDeduction // Net = Adjusted Gross - Deductions - Loan Deductions
         }));
       }).catch((error) => {
         console.error('❌ [PayrollAcc] Error calculating penalties/loans/overtime:', error);
-        // Set form data with default gross pay but without penalties/loans/overtime on error
+        // Set form data with base salary but without penalties/loans/overtime on error
         setFormData(prev => ({
           ...prev,
           user_id: value,
-          gross: defaultGross, // Set default gross pay even on error
+          gross: userBaseSalary, // Set base salary even on error
           deductions: 0,
           loan_deduction: 0,
-          net: defaultGross // Net = Gross when no deductions
+          net: userBaseSalary // Net = Gross when no deductions
         }));
       });
       return; // Exit early since we're handling the async update above
@@ -1111,8 +1098,8 @@ export const PayrollAcc = () => {
 
       for (const user of targetUsers) {
         try {
-          // Get default gross pay based on role
-          const defaultGross = getDefaultGrossPay(user.role);
+          // Use per-user base salary as gross base
+          const userBaseSalary = user.base_salary != null ? Number(user.base_salary) : 0;
           
           // Calculate penalties, loans, and overtime bonuses using the START DATE (same as add payroll)
           const [penaltyResult, loanResult, overtimeResult] = await Promise.all([
@@ -1123,7 +1110,7 @@ export const PayrollAcc = () => {
 
           const totalDeductions = penaltyResult.totalPenalty;
           const loanDeduction = loanResult.totalLoanDeduction;
-          const adjustedGross = defaultGross + overtimeResult.overtimeBonus; // Add overtime bonus to gross
+          const adjustedGross = userBaseSalary + overtimeResult.overtimeBonus; // Add overtime bonus to gross
           const netPay = adjustedGross - totalDeductions - loanDeduction;
 
           // Add payroll record with formatted period display
@@ -1137,7 +1124,7 @@ export const PayrollAcc = () => {
           });
 
           successCount++;
-          console.log(`✅ [PayrollAcc] Added payroll for ${user.name} (${user.role}): Period ${periodDisplay}, Gross ₱${adjustedGross} (Base: ₱${defaultGross} + OT: ₱${overtimeResult.overtimeBonus}), Deductions ₱${totalDeductions}, Net ₱${netPay}`);
+          console.log(`✅ [PayrollAcc] Added payroll for ${user.name} (${user.role}): Period ${periodDisplay}, Gross ₱${adjustedGross} (Base: ₱${userBaseSalary} + OT: ₱${overtimeResult.overtimeBonus}), Deductions ₱${totalDeductions}, Net ₱${netPay}`);
         } catch (error) {
           errorCount++;
           console.error(`❌ [PayrollAcc] Error adding payroll for ${user.name}:`, error);
@@ -2013,7 +2000,14 @@ export const PayrollAcc = () => {
                     </div>
                     <div className="bg-white p-4 rounded-lg shadow-sm">
                       <p className="text-xs text-gray-500 mb-1">Overtime Bonus</p>
-                      <p className="font-bold text-purple-600 text-lg">₱{((selectedUser?.gross || 0) - getDefaultGrossPay(selectedUser?.role || ''))?.toLocaleString() || 0}</p>
+                      <p className="font-bold text-purple-600 text-lg">
+                        ₱{(() => {
+                          const gross = selectedUser?.gross || 0;
+                          const base = selectedUser?.base_salary != null ? Number(selectedUser.base_salary) : 0;
+                          const overtimeBonus = Math.max(0, gross - base);
+                          return overtimeBonus.toLocaleString();
+                        })()}
+                      </p>
                     </div>
                     <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 rounded-lg shadow-md">
                       <p className="text-xs text-emerald-100 mb-1">Net Pay</p>

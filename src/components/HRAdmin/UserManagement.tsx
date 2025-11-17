@@ -487,6 +487,7 @@ export const UserManagement = () => {
     department: "",
     // allow setting positions when creating Faculty / SA / Staff
     positions: "",
+    base_salary: "",
   });
 
   const [editUser, setEditUser] = useState<any | null>(null);
@@ -495,23 +496,39 @@ export const UserManagement = () => {
     scholarship_period: '',
     school_year: '',
     amount: '',
-    notes: ''
+    notes: '',
+    degree: '',
+    start_date: '',
+    end_date: '',
+    attachment: '',
+    newAttachment: null // For file upload
   });
 
 
 
-  const handleToggleStatus = async (id: string, currentStatus: string, userName: string) => {
-    const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
-    const isDeactivating = currentStatus === "Active";
+  const handleTerminateScholarship = async () => {
+    if (!editUser || editUser.role !== "Faculty") {
+      toast.error("Scholarship termination is only available for Faculty records in edit mode.");
+      return;
+    }
 
     const result = await Swal.fire({
-      title: isDeactivating ? 'Deactivate User?' : 'Activate User?',
-      html: `Are you sure you want to <strong>${isDeactivating ? 'deactivate' : 'activate'}</strong> <span style="color: #dc2626; font-weight: bold;">${userName}</span>?${isDeactivating ? '<br><br><span style="color: #ef4444; font-size: 0.9em;">⚠️ This user will not be able to login until reactivated.</span>' : ''}`,
+      title: 'Terminate Scholarship',
+      html: `
+        <div class="text-left mb-2">
+          <p class="text-gray-700 mb-2">You are about to terminate the scholarship of <strong style="color:#dc2626;">${editUser.name}</strong>.</p>
+          <p class="text-xs text-gray-500 mb-3">Please complete the due process details below. This action cannot be undone.</p>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Effective Termination Date</label>
+          <input type="date" id="termination-date" class="w-full px-3 py-2 mb-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500" />
+          <label class="block text-sm font-medium text-gray-700 mb-1">Reason for Termination</label>
+          <textarea id="termination-reason" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none" placeholder="Explain why the scholarship is being terminated..."></textarea>
+        </div>
+      `,
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: isDeactivating ? '#dc2626' : '#16a34a',
+      confirmButtonColor: '#dc2626',
       cancelButtonColor: '#6b7280',
-      confirmButtonText: isDeactivating ? 'Yes, Deactivate' : 'Yes, Activate',
+      confirmButtonText: 'Confirm Termination',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
       customClass: {
@@ -520,41 +537,315 @@ export const UserManagement = () => {
         htmlContainer: 'text-gray-700',
         confirmButton: 'rounded-xl px-6 py-2.5 font-semibold shadow-lg',
         cancelButton: 'rounded-xl px-6 py-2.5 font-semibold'
+      },
+      preConfirm: () => {
+        const dateInput = document.getElementById('termination-date') as HTMLInputElement | null;
+        const reasonInput = document.getElementById('termination-reason') as HTMLTextAreaElement | null;
+        const date = dateInput?.value.trim();
+        const reason = reasonInput?.value.trim();
+
+        if (!date) {
+          Swal.showValidationMessage('Please select an effective termination date');
+          return false;
+        }
+
+        if (!reason || reason.length < 10) {
+          Swal.showValidationMessage('Reason must be at least 10 characters long');
+          return false;
+        }
+
+        return { date, reason };
       }
     });
 
-    if (result.isConfirmed) {
-      const { error } = await supabase
-        .from("users")
-        .update({ status: newStatus })
-        .eq("id", id);
+    if (!result.isConfirmed || !result.value) {
+      return;
+    }
 
-      if (error) {
-        console.error(error.message);
-        Swal.fire({
-          title: 'Error!',
-          text: 'Failed to update user status',
-          icon: 'error',
-          confirmButtonColor: '#dc2626',
-          customClass: {
-            popup: 'rounded-2xl',
-            confirmButton: 'rounded-xl px-6 py-2.5 font-semibold'
-          }
-        });
-      } else {
-        Swal.fire({
-          title: 'Success!',
-          html: `<strong>${userName}</strong> has been ${isDeactivating ? 'deactivated' : 'activated'} successfully.`,
-          icon: 'success',
-          confirmButtonColor: '#16a34a',
-          timer: 2000,
-          showConfirmButton: false,
-          customClass: {
-            popup: 'rounded-2xl'
-          }
-        });
-        fetchUsers();
+    const { date, reason } = result.value as { date: string; reason: string };
+
+    Swal.fire({
+      title: 'Processing...',
+      html: 'Terminating scholarship, please wait.',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
       }
+    });
+
+    try {
+      const { data: existingScholarship } = await supabase
+        .from('scholarship')
+        .select('*')
+        .eq('user_id', editUser.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!existingScholarship) {
+        Swal.close();
+        toast.error('No active scholarship record found to terminate.');
+        return;
+      }
+
+      const terminationNotes = `${reason}${scholarshipData.notes ? `\n\nPrevious notes:\n${scholarshipData.notes}` : ''}`;
+
+      const { error: updateError } = await supabase
+        .from('scholarship')
+        .update({
+          has_scholarship: false,
+          end_date: date,
+          notes: terminationNotes,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingScholarship.id);
+
+      if (updateError) {
+        console.error('Scholarship termination error:', updateError);
+        Swal.close();
+        toast.error('Failed to terminate scholarship: ' + updateError.message);
+        return;
+      }
+
+      setScholarshipData({
+        ...scholarshipData,
+        has_scholarship: false,
+        end_date: date,
+        notes: terminationNotes
+      });
+
+      Swal.fire({
+        title: 'Scholarship Terminated',
+        html: `<div class="text-left text-sm">
+          <p><strong>Employee:</strong> ${editUser.name}</p>
+          <p><strong>Effective Date:</strong> ${date}</p>
+          <p class="mt-2 text-gray-600">The scholarship has been terminated and the record updated for due process documentation.</p>
+        </div>`,
+        icon: 'success',
+        confirmButtonColor: '#16a34a',
+        customClass: {
+          popup: 'rounded-2xl',
+          confirmButton: 'rounded-xl px-6 py-2.5 font-semibold'
+        }
+      });
+    } catch (err: any) {
+      console.error('Scholarship termination unexpected error:', err);
+      Swal.close();
+      toast.error('An unexpected error occurred while terminating the scholarship.');
+    }
+  };
+
+
+  const handleToggleStatus = async (id: string, currentStatus: string, userName: string) => {
+    const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
+    const isDeactivating = currentStatus === "Active";
+
+    let deactivationReason = '';
+    let resignationAttachmentFile: File | null = null;
+
+    // If deactivating, show reason input modal first
+    if (isDeactivating) {
+      const reasonResult = await Swal.fire({
+        title: 'Deactivate User Account',
+        html: `
+          <div class="text-left mb-4">
+            <p class="text-gray-700 mb-3">You are about to deactivate <strong style="color: #dc2626;">${userName}</strong>'s account.</p>
+            <p class="text-sm text-gray-600 mb-4">⚠️ This user will not be able to login until reactivated.</p>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Reason for deactivation:</label>
+            <textarea 
+              id="deactivation-reason" 
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none" 
+              rows="3" 
+              placeholder="Please provide a reason for deactivating this account..."
+              required
+            ></textarea>
+            <div class="mt-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Resignation letter (optional):</label>
+              <input
+                id="resignation-file"
+                type="file"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                class="w-full text-sm text-gray-700"
+              />
+              <p class="mt-1 text-xs text-gray-500">Attach the employee's resignation letter if available.</p>
+            </div>
+          </div>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Deactivate Account',
+        cancelButtonText: 'Cancel',
+        reverseButtons: true,
+        customClass: {
+          popup: 'rounded-2xl',
+          title: 'text-xl font-bold',
+          htmlContainer: 'text-gray-700',
+          confirmButton: 'rounded-xl px-6 py-2.5 font-semibold shadow-lg',
+          cancelButton: 'rounded-xl px-6 py-2.5 font-semibold'
+        },
+        preConfirm: () => {
+          const reasonTextarea = document.getElementById('deactivation-reason') as HTMLTextAreaElement;
+          const reason = reasonTextarea?.value.trim();
+          
+          if (!reason) {
+            Swal.showValidationMessage('Please provide a reason for deactivation');
+            return false;
+          }
+          
+          if (reason.length < 10) {
+            Swal.showValidationMessage('Reason must be at least 10 characters long');
+            return false;
+          }
+
+          const fileInput = document.getElementById('resignation-file') as HTMLInputElement | null;
+          const file = fileInput?.files && fileInput.files.length > 0 ? fileInput.files[0] : null;
+          
+          return { reason, file };
+        }
+      });
+
+      if (!reasonResult.isConfirmed) {
+        return; // User cancelled
+      }
+
+      const resultValue: any = reasonResult.value;
+      deactivationReason = resultValue?.reason || '';
+      resignationAttachmentFile = resultValue?.file || null;
+    } else {
+      // For reactivation, show simple confirmation
+      const result = await Swal.fire({
+        title: 'Activate User?',
+        html: `Are you sure you want to <strong>activate</strong> <span style="color: #16a34a; font-weight: bold;">${userName}</span>?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#16a34a',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, Activate',
+        cancelButtonText: 'Cancel',
+        reverseButtons: true,
+        customClass: {
+          popup: 'rounded-2xl',
+          title: 'text-xl font-bold',
+          htmlContainer: 'text-gray-700',
+          confirmButton: 'rounded-xl px-6 py-2.5 font-semibold shadow-lg',
+          cancelButton: 'rounded-xl px-6 py-2.5 font-semibold'
+        }
+      });
+
+      if (!result.isConfirmed) {
+        return; // User cancelled
+      }
+    }
+
+    // Prepare update data with timestamp in Philippine timezone
+    const philippineTime = new Date().toLocaleString("en-US", {
+      timeZone: "Asia/Manila"
+    });
+    const timestamp = new Date(philippineTime).toISOString();
+
+    const updateData: any = { 
+      status: newStatus 
+    };
+
+    let resignationAttachmentUrl: string | null = null;
+
+    // If deactivating with a resignation letter, upload it and capture URL
+    if (isDeactivating && resignationAttachmentFile) {
+      try {
+        const fileExt = resignationAttachmentFile.name.split('.').pop();
+        const fileName = `${id}_resignation_${Date.now()}.${fileExt}`;
+        const filePath = `resignation_letters/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(filePath, resignationAttachmentFile, {
+            cacheControl: '3600',
+            upsert: true
+          });
+
+        if (uploadError) {
+          console.error('Resignation attachment upload error:', uploadError);
+          toast.error('Failed to upload resignation letter. The user will still be deactivated.');
+        } else {
+          const { data: { publicUrl } } = supabase.storage
+            .from('documents')
+            .getPublicUrl(filePath);
+
+          resignationAttachmentUrl = publicUrl;
+        }
+      } catch (err) {
+        console.error('Unexpected error uploading resignation attachment:', err);
+        toast.error('Unexpected error while uploading resignation letter.');
+      }
+    }
+
+    if (isDeactivating) {
+      updateData.deactivation_reason = deactivationReason;
+      updateData.deactivation_date = timestamp;
+      updateData.reactivation_date = null; // Clear reactivation date
+
+      if (resignationAttachmentUrl) {
+        updateData.resignation_attachment = resignationAttachmentUrl;
+      }
+    } else {
+      updateData.reactivation_date = timestamp;
+      // Keep deactivation_reason and deactivation_date for audit trail
+    }
+
+    const { error } = await supabase
+      .from("users")
+      .update(updateData)
+      .eq("id", id);
+
+    if (error) {
+      console.error(error.message);
+      Swal.fire({
+        title: 'Error!',
+        text: 'Failed to update user status',
+        icon: 'error',
+        confirmButtonColor: '#dc2626',
+        customClass: {
+          popup: 'rounded-2xl',
+          confirmButton: 'rounded-xl px-6 py-2.5 font-semibold'
+        }
+      });
+    } else {
+      const actionText = isDeactivating ? 'deactivated' : 'activated';
+      const currentTime = new Date().toLocaleString('en-US', {
+        timeZone: 'Asia/Manila',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+
+      Swal.fire({
+        title: 'Success!',
+        html: `
+          <div class="text-center">
+            <p class="mb-2"><strong>${userName}</strong> has been ${actionText} successfully.</p>
+            <div class="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 mt-3">
+              <p><strong>Date & Time:</strong> ${currentTime}</p>
+              ${isDeactivating ? `<p><strong>Reason:</strong> ${deactivationReason}</p>` : ''}
+            </div>
+          </div>
+        `,
+        icon: 'success',
+        confirmButtonColor: '#16a34a',
+        timer: 4000,
+        showConfirmButton: true,
+        customClass: {
+          popup: 'rounded-2xl',
+          confirmButton: 'rounded-xl px-6 py-2.5 font-semibold'
+        }
+      });
+      fetchUsers();
     }
   };
 
@@ -762,6 +1053,7 @@ export const UserManagement = () => {
             : null,
         // include positions for roles that may require it (Faculty, SA, Staff)
         positions: (newUser.role === "Faculty" || newUser.role === "SA" || newUser.role === "Staff") ? (newUser.positions || null) : null,
+        base_salary: newUser.base_salary ? Number(newUser.base_salary) : null,
         status: "Active",
         password: "ChangePassword",
       };
@@ -903,6 +1195,7 @@ export const UserManagement = () => {
         hiredDate: "",
         department: "",
         positions: "",
+        base_salary: "",
       });
       
       // Refresh user list
@@ -933,34 +1226,123 @@ export const UserManagement = () => {
     e.preventDefault();
     if (!editUser) return;
 
-    try {
-      const updateData: any = {
-        name: editUser.name,
-        email: editUser.email,
-        role: editUser.role,
-        status: editUser.status,
-        semester: editUser.semester,
-        schoolYear: editUser.schoolYear,
-        hiredDate: editUser.hiredDate,
-        department: editUser.department,
-        age: editUser.age ? parseInt(editUser.age) : null,
-        gender: editUser.gender || null,
-        address: editUser.address || null,
-        contact_no: editUser.contact_no || null,
-        positions: (editUser.role === "Faculty" || editUser.role === "SA" || editUser.role === "Staff") ? editUser.positions : null,
-      };
+    // Show SweetAlert confirmation before making changes
+    const result = await Swal.fire({
+      title: 'Confirm Changes',
+      html: `
+        <div class="text-left mb-4">
+          <p class="text-gray-700 mb-3">You are about to update <strong style="color: #dc2626;">${editUser.name}</strong>'s information.</p>
+          <div class="bg-gray-50 rounded-lg p-3 text-sm">
+            <p class="mb-2"><strong>Role:</strong> ${editUser.role}</p>
+            <p class="mb-2"><strong>Email:</strong> ${editUser.email}</p>
+            <p class="mb-2"><strong>Status:</strong> ${editUser.status}</p>
+            ${editUser.role === 'Faculty' && scholarshipData.has_scholarship ? 
+              `<p class="mb-2"><strong>Scholarship:</strong> Active (${scholarshipData.scholarship_period}, ${scholarshipData.school_year})</p>` : 
+              editUser.role === 'Faculty' ? '<p class="mb-2"><strong>Scholarship:</strong> None</p>' : ''
+            }
+          </div>
+          <p class="text-sm text-gray-600 mt-3">⚠️ These changes will be saved immediately.</p>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, Update User',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      customClass: {
+        popup: 'rounded-2xl',
+        title: 'text-xl font-bold',
+        htmlContainer: 'text-gray-700',
+        confirmButton: 'rounded-xl px-6 py-2.5 font-semibold shadow-lg',
+        cancelButton: 'rounded-xl px-6 py-2.5 font-semibold'
+    }
+  });
 
-      // Handle scholarship data for Faculty users
-      if (editUser.role === "Faculty" && scholarshipData.has_scholarship) {
-        // Check if scholarship record exists
-        const { data: existingScholarship } = await supabase
-          .from('scholarship')
-          .select('*')
-          .eq('user_id', editUser.id)
-          .eq('school_year', scholarshipData.school_year)
-          .eq('scholarship_period', scholarshipData.scholarship_period)
-          .single();
+  if (!result.isConfirmed) {
+    return; // User cancelled the update
+  }
 
+  // Show loading state
+  Swal.fire({
+    title: 'Updating User...',
+    html: 'Please wait while we save the changes.',
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    showConfirmButton: false,
+    didOpen: () => {
+      Swal.showLoading();
+    }
+  });
+
+  try {
+    const updateData: any = {
+      name: editUser.name,
+      email: editUser.email,
+      role: editUser.role,
+      status: editUser.status,
+      semester: editUser.semester,
+      schoolYear: editUser.schoolYear,
+      hiredDate: editUser.hiredDate,
+      department: editUser.department,
+      age: editUser.age ? parseInt(editUser.age) : null,
+      gender: editUser.gender || null,
+      address: editUser.address || null,
+      contact_no: editUser.contact_no || null,
+      positions: (editUser.role === "Faculty" || editUser.role === "SA" || editUser.role === "Staff") ? editUser.positions : null,
+      base_salary: editUser.base_salary !== undefined && editUser.base_salary !== '' ? Number(editUser.base_salary) : null,
+    };
+
+    // Handle scholarship data if user is Faculty
+    if (editUser.role === "Faculty") {
+      // Fetch existing scholarship
+      const { data: existingScholarship } = await supabase
+        .from('scholarship')
+        .select('*')
+        .eq('user_id', editUser.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      // Handle scholarship attachment upload if a new one was selected
+      let attachmentUrl = scholarshipData.attachment;
+      if (scholarshipData.newAttachment) {
+        try {
+          const fileExt = scholarshipData.newAttachment.name.split('.').pop();
+          const fileName = `${editUser.id}_scholarship_${Date.now()}.${fileExt}`;
+          const filePath = `scholarship_documents/${fileName}`;
+          
+          console.log('Uploading scholarship attachment:', filePath);
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('documents')
+            .upload(filePath, scholarshipData.newAttachment, {
+              cacheControl: '3600',
+              upsert: true
+            });
+            
+          if (uploadError) {
+            console.error('Scholarship attachment upload error:', uploadError);
+            toast.error('Failed to upload scholarship attachment: ' + uploadError.message);
+          } else {
+            console.log('Scholarship attachment uploaded successfully:', uploadData);
+            
+            // Get public URL
+            const { data: { publicUrl } } = supabase.storage
+              .from('documents')
+              .getPublicUrl(filePath);
+            
+            attachmentUrl = publicUrl;
+            console.log('Scholarship attachment public URL:', attachmentUrl);
+          }
+        } catch (error: any) {
+          console.error('Scholarship attachment upload error:', error);
+          toast.error('Failed to upload scholarship attachment: ' + error.message);
+        }
+      }
+
+      if (scholarshipData.has_scholarship) {
         const scholarshipPayload = {
           user_id: editUser.id,
           has_scholarship: scholarshipData.has_scholarship,
@@ -968,6 +1350,10 @@ export const UserManagement = () => {
           school_year: scholarshipData.school_year,
           amount: scholarshipData.amount ? parseFloat(scholarshipData.amount) : null,
           notes: scholarshipData.notes || null,
+          degree: scholarshipData.degree || null,
+          start_date: scholarshipData.start_date || null,
+          end_date: scholarshipData.end_date || null,
+          attachment: attachmentUrl || null,
           updated_at: new Date().toISOString()
         };
 
@@ -993,7 +1379,7 @@ export const UserManagement = () => {
             toast.error('Failed to create scholarship: ' + scholarshipError.message);
           }
         }
-      } else if (editUser.role === "Faculty" && !scholarshipData.has_scholarship) {
+      } else {
         // Delete scholarship records if has_scholarship is false
         const { error: deleteError } = await supabase
           .from('scholarship')
@@ -1004,53 +1390,96 @@ export const UserManagement = () => {
           console.error('Scholarship delete error:', deleteError);
         }
       }
+    }
 
-      // Handle profile picture upload if a new one was selected
-      if (editUser.newProfilePicture) {
-        try {
-          const fileExt = editUser.newProfilePicture.name.split('.').pop();
-          const fileName = `${editUser.id}.${fileExt}`;
-          const filePath = `profile-pictures/${fileName}`;
+    // Handle profile picture upload if a new one was selected
+    if (editUser.newProfilePicture) {
+      try {
+        const fileExt = editUser.newProfilePicture.name.split('.').pop();
+        const fileName = `${editUser.id}.${fileExt}`;
+        const filePath = `profile-pictures/${fileName}`;
+        
+        console.log('Uploading new profile picture:', filePath);
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('profile-pictures')
+          .upload(filePath, editUser.newProfilePicture, {
+            cacheControl: '3600',
+            upsert: true
+          });
           
-          console.log('Uploading new profile picture:', filePath);
+        if (uploadError) {
+          console.error('Profile picture upload error:', uploadError);
+          toast.error('Failed to upload profile picture: ' + uploadError.message);
+        } else {
+          console.log('Profile picture uploaded successfully:', uploadData);
           
-          const { data: uploadData, error: uploadError } = await supabase.storage
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
             .from('profile-pictures')
-            .upload(filePath, editUser.newProfilePicture, {
-              cacheControl: '3600',
-              upsert: true
-            });
+            .getPublicUrl(filePath);
             
-          if (uploadError) {
-            console.error('Profile picture upload error:', uploadError);
-            toast.error('Failed to upload profile picture: ' + uploadError.message);
-          } else {
-            console.log('Profile picture uploaded successfully:', uploadData);
-            
-            // Get public URL
-            const { data: { publicUrl } } = supabase.storage
-              .from('profile-pictures')
-              .getPublicUrl(filePath);
-              
-            updateData.profile_picture = publicUrl;
-            console.log('New profile picture URL:', publicUrl);
-          }
-        } catch (error: any) {
-          console.error('Profile picture upload error:', error);
-          toast.error('Failed to upload profile picture: ' + error.message);
+          updateData.profile_picture = publicUrl;
+          console.log('New profile picture URL:', publicUrl);
         }
+      } catch (error: any) {
+        console.error('Profile picture upload error:', error);
+        toast.error('Failed to upload profile picture: ' + error.message);
       }
+    }
 
-      const { error } = await supabase
+    const { error } = await supabase
         .from("users")
         .update(updateData)
         .eq("id", editUser.id);
 
       if (error) {
         console.error('User update error:', error);
-        toast.error('Failed to update user: ' + error.message);
+        
+        // Show error with SweetAlert
+        Swal.fire({
+          title: 'Update Failed!',
+          text: 'Failed to update user: ' + error.message,
+          icon: 'error',
+          confirmButtonColor: '#dc2626',
+          customClass: {
+            popup: 'rounded-2xl',
+            confirmButton: 'rounded-xl px-6 py-2.5 font-semibold'
+          }
+        });
       } else {
-        toast.success('User updated successfully!');
+        // Show success with SweetAlert
+        const currentTime = new Date().toLocaleString('en-US', {
+          timeZone: 'Asia/Manila',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+
+        Swal.fire({
+          title: 'Success!',
+          html: `
+            <div class="text-center">
+              <p class="mb-2"><strong>${editUser.name}</strong> has been updated successfully.</p>
+              <div class="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 mt-3">
+                <p><strong>Updated on:</strong> ${currentTime}</p>
+                <p><strong>Role:</strong> ${editUser.role}</p>
+                <p><strong>Status:</strong> ${editUser.status}</p>
+              </div>
+            </div>
+          `,
+          icon: 'success',
+          confirmButtonColor: '#16a34a',
+          timer: 4000,
+          showConfirmButton: true,
+          customClass: {
+            popup: 'rounded-2xl',
+            confirmButton: 'rounded-xl px-6 py-2.5 font-semibold'
+          }
+        });
         
         // Update the users state immediately to reflect changes in the table
         setUsers(prevUsers => 
@@ -1067,7 +1496,18 @@ export const UserManagement = () => {
       }
     } catch (err: any) {
       console.error('User update error:', err);
-      toast.error('Failed to update user: ' + err.message);
+      
+      // Show error with SweetAlert
+      Swal.fire({
+        title: 'Update Failed!',
+        text: 'An unexpected error occurred: ' + err.message,
+        icon: 'error',
+        confirmButtonColor: '#dc2626',
+        customClass: {
+          popup: 'rounded-2xl',
+          confirmButton: 'rounded-xl px-6 py-2.5 font-semibold'
+        }
+      });
     }
   };
 
@@ -1313,7 +1753,12 @@ export const UserManagement = () => {
                                         scholarship_period: scholarship.scholarship_period || '',
                                         school_year: scholarship.school_year || '',
                                         amount: scholarship.amount || '',
-                                        notes: scholarship.notes || ''
+                                        notes: scholarship.notes || '',
+                                        degree: scholarship.degree || '',
+                                        start_date: scholarship.start_date || '',
+                                        end_date: scholarship.end_date || '',
+                                        attachment: scholarship.attachment || '',
+                                        newAttachment: null
                                       });
                                     } else {
                                       setScholarshipData({
@@ -1321,7 +1766,12 @@ export const UserManagement = () => {
                                         scholarship_period: '',
                                         school_year: '',
                                         amount: '',
-                                        notes: ''
+                                        notes: '',
+                                        degree: '',
+                                        start_date: '',
+                                        end_date: '',
+                                        attachment: '',
+                                        newAttachment: null
                                       });
                                     }
                                   }
@@ -1551,6 +2001,7 @@ export const UserManagement = () => {
                       <option value="">-- Select Semester --</option>
                       <option value="1">1</option>
                       <option value="2">2</option>
+                      <option value="Summer">Summer</option>
                     </select>
                     <input
                       type="number"
@@ -1622,6 +2073,21 @@ export const UserManagement = () => {
                   </select>
                 </div>
               )}
+              {/* Base Salary field for all employee types */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Base Salary (per 15-day period)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newUser.base_salary}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, base_salary: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  placeholder="Enter base salary for this cutoff"
+                />
+              </div>
               
               
               
@@ -1785,7 +2251,7 @@ export const UserManagement = () => {
                   <option>Guard</option>
                 </select>
               </div>
-              
+
               {/* Positions Field - Conditional based on role */}
               {(editUser.role === "Faculty" || editUser.role === "SA" || editUser.role === "Staff") && (
                 <div>
@@ -1796,7 +2262,6 @@ export const UserManagement = () => {
                       setEditUser({ ...editUser, positions: e.target.value })
                     }
                     className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                    required
                   >
                     <option value="">-- Select Position --</option>
                     {editUser.role === "Faculty" && (
@@ -1816,7 +2281,22 @@ export const UserManagement = () => {
                   </select>
                 </div>
               )}
-              
+
+              {/* Base Salary field for all employee types */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Base Salary (per 15-day period)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editUser.base_salary ?? ''}
+                  onChange={(e) =>
+                    setEditUser({ ...editUser, base_salary: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  placeholder="Enter base salary for this cutoff"
+                />
+              </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
                 <input
@@ -1860,6 +2340,7 @@ export const UserManagement = () => {
                       <option value="">-- Select Semester --</option>
                       <option value="1">1</option>
                       <option value="2">2</option>
+                      <option value="Summer">Summer</option>
                     </select>
                     <input
                       type="number"
@@ -1992,28 +2473,35 @@ export const UserManagement = () => {
                   <div className="space-y-4 bg-yellow-50/50 border border-yellow-200 rounded-xl p-4">
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">Has Scholarship?</label>
-                      <div className="flex gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="has_scholarship"
-                            checked={scholarshipData.has_scholarship === true}
-                            onChange={() => setScholarshipData({ ...scholarshipData, has_scholarship: true })}
-                            className="w-4 h-4 text-red-600 focus:ring-red-500"
-                          />
-                          <span className="text-sm font-medium text-gray-700">Yes</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="has_scholarship"
-                            checked={scholarshipData.has_scholarship === false}
-                            onChange={() => setScholarshipData({ ...scholarshipData, has_scholarship: false })}
-                            className="w-4 h-4 text-red-600 focus:ring-red-500"
-                          />
-                          <span className="text-sm font-medium text-gray-700">No</span>
-                        </label>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setScholarshipData({
+                            ...scholarshipData,
+                            has_scholarship: !scholarshipData.has_scholarship,
+                          })
+                        }
+                        className="inline-flex items-center px-2 py-1 rounded-full bg-white border border-yellow-300 shadow-sm transition-colors hover:bg-yellow-100"
+                      >
+                        <span
+                          className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+                            scholarshipData.has_scholarship
+                              ? 'bg-green-500 text-white shadow'
+                              : 'bg-gray-200 text-gray-700'
+                          }`}
+                        >
+                          Active
+                        </span>
+                        <span
+                          className={`ml-1 inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+                            !scholarshipData.has_scholarship
+                              ? 'bg-red-500 text-white shadow'
+                              : 'bg-gray-200 text-gray-700'
+                          }`}
+                        >
+                          None
+                        </span>
+                      </button>
                     </div>
                     
                     {scholarshipData.has_scholarship && (
@@ -2058,6 +2546,136 @@ export const UserManagement = () => {
                         </div>
                         
                         <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Degree Program</label>
+                          <select
+                            value={scholarshipData.degree}
+                            onChange={(e) => setScholarshipData({ ...scholarshipData, degree: e.target.value })}
+                            className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                            required={scholarshipData.has_scholarship}
+                          >
+                            <option value="">-- Select Degree --</option>
+                            <option value="Doctorate degree">Doctorate degree</option>
+                            <option value="Master's degree">Master's degree</option>
+                            <option value="Bachelor's degree">Bachelor's degree</option>
+                            <option value="Associate's degree">Associate's degree</option>
+                          </select>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Start Date</label>
+                            <input
+                              type="date"
+                              value={scholarshipData.start_date}
+                              onChange={(e) => setScholarshipData({ ...scholarshipData, start_date: e.target.value })}
+                              className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                              required={scholarshipData.has_scholarship}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">End Date</label>
+                            <input
+                              type="date"
+                              value={scholarshipData.end_date}
+                              onChange={(e) => setScholarshipData({ ...scholarshipData, end_date: e.target.value })}
+                              className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                              required={scholarshipData.has_scholarship}
+                            />
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Scholarship Document</label>
+                          <div className="space-y-3">
+                            {/* Current attachment display */}
+                            {scholarshipData.attachment && (
+                              <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-medium text-green-800">Current Document</p>
+                                    <p className="text-xs text-green-600">Document attached</p>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <a
+                                    href={scholarshipData.attachment}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors"
+                                  >
+                                    View
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => setScholarshipData({ ...scholarshipData, attachment: '' })}
+                                    className="px-3 py-1 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 transition-colors"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* File upload */}
+                            <div className="flex items-center justify-center w-full">
+                              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                  <svg className="w-8 h-8 mb-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                  </svg>
+                                  <p className="mb-2 text-sm text-gray-500">
+                                    <span className="font-semibold">Click to upload</span> scholarship document
+                                  </p>
+                                  <p className="text-xs text-gray-500">PDF, DOC, DOCX, JPG, PNG (MAX. 10MB)</p>
+                                </div>
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      if (file.size > 10 * 1024 * 1024) {
+                                        toast.error('File size must be less than 10MB');
+                                        return;
+                                      }
+                                      setScholarshipData({ ...scholarshipData, newAttachment: file });
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </div>
+                            
+                            {/* New file selected indicator */}
+                            {scholarshipData.newAttachment && (
+                              <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-blue-800">New file selected</p>
+                                  <p className="text-xs text-blue-600">{scholarshipData.newAttachment.name}</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setScholarshipData({ ...scholarshipData, newAttachment: null })}
+                                  className="px-3 py-1 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2">Notes</label>
                           <textarea
                             value={scholarshipData.notes}
@@ -2066,6 +2684,19 @@ export const UserManagement = () => {
                             placeholder="Additional scholarship details"
                             rows={2}
                           />
+                        </div>
+
+                        <div className="pt-2 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={handleTerminateScholarship}
+                            className="inline-flex items-center px-4 py-2 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 shadow-sm transition-colors"
+                          >
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Terminate Scholarship (Due Process)
+                          </button>
                         </div>
                       </>
                     )}
@@ -2439,6 +3070,231 @@ export const UserManagement = () => {
                   </div>
                 </div>
 
+                {/* Account Status History */}
+                <div className="lg:col-span-2 mt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-purple-600 rounded-md flex items-center justify-center shadow-sm">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <h4 className="text-base font-bold text-gray-800">Account Status History</h4>
+                  </div>
+                  
+                  <div className="group bg-gradient-to-r from-white to-purple-50 border border-purple-100 rounded-md p-4 shadow-sm hover:shadow-md transition-all duration-300">
+                    <div className="space-y-4">
+                      {/* Current Status */}
+                      <div className="flex items-start gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                          selectedUserInfo.status === "Active" 
+                            ? "bg-gradient-to-br from-green-100 to-green-200" 
+                            : selectedUserInfo.status === "Archived"
+                            ? "bg-gradient-to-br from-purple-100 to-purple-200"
+                            : "bg-gradient-to-br from-red-100 to-red-200"
+                        }`}>
+                          <svg className={`w-4 h-4 ${
+                            selectedUserInfo.status === "Active" 
+                              ? "text-green-600" 
+                              : selectedUserInfo.status === "Archived"
+                              ? "text-purple-600"
+                              : "text-red-600"
+                          }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            {selectedUserInfo.status === "Active" ? (
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            ) : selectedUserInfo.status === "Archived" ? (
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                            ) : (
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            )}
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <h5 className="font-semibold text-gray-800 text-sm mb-1">Current Status</h5>
+                          <p className="text-purple-600 text-xs mb-2">Account state</p>
+                          <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                            selectedUserInfo.status === "Active"
+                              ? "bg-green-100 text-green-800 border border-green-200"
+                              : selectedUserInfo.status === "Archived"
+                              ? "bg-purple-100 text-purple-800 border border-purple-200"
+                              : "bg-red-100 text-red-800 border border-red-200"
+                          }`}>
+                            <div className={`w-2 h-2 rounded-full mr-2 ${
+                              selectedUserInfo.status === "Active" 
+                                ? "bg-green-500" 
+                                : selectedUserInfo.status === "Archived"
+                                ? "bg-purple-500"
+                                : "bg-red-500"
+                            }`}></div>
+                            {selectedUserInfo.status}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Deactivation Information - Only show if user has been deactivated */}
+                      {selectedUserInfo.status === "Inactive" && selectedUserInfo.deactivation_reason && (
+                        <div className="border-t border-purple-200 pt-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 bg-gradient-to-br from-red-100 to-red-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                              </svg>
+                            </div>
+                            <div className="flex-1">
+                              <h5 className="font-semibold text-gray-800 text-sm mb-1">Deactivation Details</h5>
+                              <p className="text-red-600 text-xs mb-3">Account deactivation information</p>
+                              
+                              <div className="space-y-3">
+                                <div className="bg-gradient-to-r from-red-50 to-red-100 rounded-md p-3 border border-red-200">
+                                  <div className="flex items-start gap-2 mb-2">
+                                    <svg className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                    </svg>
+                                    <div>
+                                      <p className="font-medium text-red-800 text-sm">Reason:</p>
+                                      <p className="text-red-700 text-sm leading-relaxed">{selectedUserInfo.deactivation_reason}</p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {selectedUserInfo.resignation_attachment && (
+                                  <div className="bg-gradient-to-r from-red-50 to-red-100 rounded-md p-3 border border-red-200">
+                                    <div className="flex items-start gap-2">
+                                      <svg className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                      </svg>
+                                      <div className="flex-1">
+                                        <p className="font-medium text-red-800 text-sm mb-1">Resignation Letter</p>
+                                        <p className="text-red-600 text-xs mb-2">Attached resignation document</p>
+                                        <a
+                                          href={selectedUserInfo.resignation_attachment}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-lg shadow hover:bg-red-700 transition-colors"
+                                        >
+                                          <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                          </svg>
+                                          View Resignation Letter
+                                        </a>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {selectedUserInfo.deactivation_date && (
+                                  <div className="bg-gradient-to-r from-gray-50 to-red-50 rounded-md p-3 border border-red-200">
+                                    <div className="flex items-center gap-2">
+                                      <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                      <div>
+                                        <p className="font-medium text-red-800 text-sm">Deactivated on:</p>
+                                        <p className="text-red-700 text-sm">
+                                          {new Date(selectedUserInfo.deactivation_date).toLocaleString('en-US', {
+                                            timeZone: 'Asia/Manila',
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            second: '2-digit'
+                                          })}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Reactivation Information - Only show if user was reactivated */}
+                      {selectedUserInfo.status === "Active" && selectedUserInfo.reactivation_date && (
+                        <div className="border-t border-purple-200 pt-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-green-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                            </div>
+                            <div className="flex-1">
+                              <h5 className="font-semibold text-gray-800 text-sm mb-1">Reactivation Details</h5>
+                              <p className="text-green-600 text-xs mb-3">Account reactivation information</p>
+                              
+                              <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-md p-3 border border-green-200">
+                                <div className="flex items-center gap-2">
+                                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  <div>
+                                    <p className="font-medium text-green-800 text-sm">Reactivated on:</p>
+                                    <p className="text-green-700 text-sm">
+                                      {new Date(selectedUserInfo.reactivation_date).toLocaleString('en-US', {
+                                        timeZone: 'Asia/Manila',
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit'
+                                      })}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Show previous deactivation reason if available */}
+                              {selectedUserInfo.deactivation_reason && (
+                                <div className="mt-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-md p-3 border border-gray-200">
+                                  <div className="flex items-start gap-2">
+                                    <svg className="w-4 h-4 text-gray-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <div className="flex-1">
+                                      <p className="font-medium text-gray-800 text-sm mb-2">Previous deactivation details:</p>
+                                      <div className="space-y-2">
+                                        <div className="bg-red-50 rounded-md p-2 border border-red-100">
+                                          <p className="font-medium text-red-800 text-xs mb-1">Reason:</p>
+                                          <p className="text-red-700 text-sm leading-relaxed">{selectedUserInfo.deactivation_reason}</p>
+                                        </div>
+                                        {selectedUserInfo.deactivation_date && (
+                                          <div className="bg-gray-50 rounded-md p-2 border border-gray-200">
+                                            <div className="flex items-center gap-2">
+                                              <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                              </svg>
+                                              <div>
+                                                <p className="font-medium text-gray-800 text-xs">Deactivated on:</p>
+                                                <p className="text-gray-700 text-sm">
+                                                  {new Date(selectedUserInfo.deactivation_date).toLocaleString('en-US', {
+                                                    timeZone: 'Asia/Manila',
+                                                    year: 'numeric',
+                                                    month: 'long',
+                                                    day: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                    second: '2-digit'
+                                                  })}
+                                                </p>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Scholarship Information - Only for Faculty */}
                 {selectedUserInfo.role === "Faculty" && (
                   <div className="lg:col-span-2 mt-4">
@@ -2514,7 +3370,86 @@ export const UserManagement = () => {
                               </div>
                             </div>
                           )}
+
+                          {/* Degree */}
+                          {selectedUserScholarship.degree && (
+                            <div className="flex items-start gap-3">
+                              <div className="w-8 h-8 bg-gradient-to-br from-indigo-100 to-indigo-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                                </svg>
+                              </div>
+                              <div className="flex-1">
+                                <h5 className="font-semibold text-gray-800 text-sm mb-1">Degree</h5>
+                                <p className="text-yellow-600 text-xs mb-2">Academic program</p>
+                                <p className="text-lg font-bold text-gray-800">{selectedUserScholarship.degree}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Start Date */}
+                          {selectedUserScholarship.start_date && (
+                            <div className="flex items-start gap-3">
+                              <div className="w-8 h-8 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 0V6a2 2 0 012-2h4a2 2 0 012 2v1m-6 0h8m-8 0H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-2" />
+                                </svg>
+                              </div>
+                              <div className="flex-1">
+                                <h5 className="font-semibold text-gray-800 text-sm mb-1">Start Date</h5>
+                                <p className="text-yellow-600 text-xs mb-2">Scholarship begins</p>
+                                <p className="text-lg font-bold text-gray-800">{new Date(selectedUserScholarship.start_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* End Date */}
+                          {selectedUserScholarship.end_date && (
+                            <div className="flex items-start gap-3">
+                              <div className="w-8 h-8 bg-gradient-to-br from-rose-100 to-rose-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <svg className="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 0V6a2 2 0 012-2h4a2 2 0 012 2v1m-6 0h8m-8 0H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-2" />
+                                </svg>
+                              </div>
+                              <div className="flex-1">
+                                <h5 className="font-semibold text-gray-800 text-sm mb-1">End Date</h5>
+                                <p className="text-yellow-600 text-xs mb-2">Scholarship expires</p>
+                                <p className="text-lg font-bold text-gray-800">{new Date(selectedUserScholarship.end_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                              </div>
+                            </div>
+                          )}
                         </div>
+
+                        {/* Attachment Section */}
+                        {selectedUserScholarship.attachment && (
+                          <div className="mt-4 pt-4 border-t border-yellow-200">
+                            <div className="flex items-start gap-3">
+                              <div className="w-6 h-6 bg-gradient-to-br from-cyan-100 to-cyan-200 rounded-md flex items-center justify-center flex-shrink-0">
+                                <svg className="w-3 h-3 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                </svg>
+                              </div>
+                              <div className="flex-1">
+                                <h5 className="font-semibold text-gray-800 text-sm mb-1">Attachment</h5>
+                                <p className="text-yellow-600 text-xs mb-2">Scholarship document</p>
+                                <div className="bg-gradient-to-r from-gray-50 to-cyan-50 rounded-md p-3 border border-cyan-100">
+                                  <a 
+                                    href={selectedUserScholarship.attachment} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 text-cyan-600 hover:text-cyan-800 font-medium text-sm transition-colors duration-200"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    View Document
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Notes Section */}
                         {selectedUserScholarship.notes && (

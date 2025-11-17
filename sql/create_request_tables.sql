@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS requests (
     total_months INTEGER,
     
     -- Leave specific fields
-    leave_type VARCHAR(100) CHECK (leave_type IN ('Sick Leave', 'Vacation Leave', 'Emergency Leave', 'Maternity Leave', 'Paternity Leave', 'Bereavement Leave')),
+    leave_type VARCHAR(100) CHECK (leave_type IN ('Sick Leave', 'Vacation Leave', 'Emergency Leave', 'Maternity Leave', 'Paternity Leave', 'Bereavement Leave', 'Incentive Leave')),
     start_date DATE,
     end_date DATE,
     total_days INTEGER,

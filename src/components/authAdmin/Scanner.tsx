@@ -268,24 +268,24 @@ const Scanner = () => {
 
     console.log(`[getCurrentSession] Hour: ${hour}, Minute: ${minute}, Total minutes: ${timeMinutes}`);
 
-    // Morning session: 7:00 AM - 12:00 PM (420 - 720 minutes)
-    if (timeMinutes >= 7 * 60 && timeMinutes < 12 * 60) {
-      console.log(`[getCurrentSession] Detected: morning (${timeMinutes} is between 420-720)`);
+    // Morning session: 8:00 AM - 12:00 PM (480 - 720 minutes)
+    if (timeMinutes >= 8 * 60 && timeMinutes < 12 * 60) {
+      console.log(`[getCurrentSession] Detected: morning (${timeMinutes} is between 480-720)`);
       return 'morning';
     }
-    // Afternoon session: 1:00 PM - 7:00 PM (780 - 1140 minutes)
-    if (timeMinutes >= 13 * 60 && timeMinutes < 19 * 60) {
-      console.log(`[getCurrentSession] Detected: afternoon (${timeMinutes} is between 780-1140)`);
+    // Afternoon session: 1:00 PM - 5:30 PM (780 - 1050 minutes)
+    if (timeMinutes >= 13 * 60 && timeMinutes < 17 * 60 + 30) {
+      console.log(`[getCurrentSession] Detected: afternoon (${timeMinutes} is between 780-1050)`);
       return 'afternoon';
     }
-    // Default to morning if before 7 AM, afternoon if after 7 PM
+    // Default to morning if before 8 AM, afternoon if after 5:30 PM
     const defaultSession = timeMinutes < 12 * 60 ? 'morning' : 'afternoon';
     console.log(`[getCurrentSession] Default: ${defaultSession} (${timeMinutes} minutes)`);
     return defaultSession;
   };
 
   // Calculate penalties with precise durations (to the minute) and distinct morning vs afternoon logic
-  // Special handling for SA: single session 7 AM - 5 PM
+  // Special handling for SA: single session 8 AM - 5:30 PM
   const calculatePenalties = (timeIn: Date, timeOut: Date | null, session: 'morning' | 'afternoon', userRole: string = '') => {
     const penalties = {
       lateMinutes: 0,
@@ -303,15 +303,15 @@ const Scanner = () => {
       return d;
     };
 
-    // SA has single session: 7 AM - 5 PM
+    // SA has single session: 8 AM - 5:30 PM
     if (userRole === 'SA') {
-      const saStart = buildTodayAt(7, 0, 0); // 7:00 AM
-      const saEnd = buildTodayAt(17, 0, 0); // 5:00 PM
+      const saStart = buildTodayAt(8, 0, 0); // 8:00 AM
+      const saEnd = buildTodayAt(17, 30, 0); // 5:30 PM
       const graceMinutes = 15;
       const latePerMinute = 1;
       const overtimePerMinute = 0.5;
 
-      // Late calculation for time in (7:00 AM + 15 min grace = 7:15 AM)
+      // Late calculation for time in (8:00 AM + 15 min grace = 8:15 AM)
       const gracePoint = new Date(saStart.getTime() + graceMinutes * 60_000);
       if (timeIn.getTime() > gracePoint.getTime()) {
         const lateMs = timeIn.getTime() - gracePoint.getTime();
@@ -325,7 +325,7 @@ const Scanner = () => {
         const overtimeMs = timeOut.getTime() - saEnd.getTime();
         penalties.overtimeMinutes = Math.ceil(overtimeMs / 60_000);
         penalties.overtimePenalty = penalties.overtimeMinutes * overtimePerMinute;
-        penalties.notes.push(`Overtime by ${penalties.overtimeMinutes} minute(s) past 5:00 PM`);
+        penalties.notes.push(`Overtime by ${penalties.overtimeMinutes} minute(s) past 5:30 PM`);
       }
 
       penalties.totalPenalty = penalties.latePenalty + penalties.overtimePenalty;
@@ -341,14 +341,15 @@ const Scanner = () => {
       afternoon: {
         graceMinutes: 15,
         latePerMinute: 1, // ₱ per minute late
-        overtimeCutoffHour: 19, // 7:00 PM
+        overtimeCutoffHour: 17, // 5:30 PM
+        overtimeCutoffMinute: 30, // 5:30 PM
         overtimePerMinute: 0.5, // ₱ per minute overtime after cutoff
       },
     } as const;
 
-    const morningStart = buildTodayAt(7, 0, 0); // 7:00:00
+    const morningStart = buildTodayAt(8, 0, 0); // 8:00:00
     const afternoonStart = buildTodayAt(13, 0, 0); // 13:00:00
-    const afternoonEnd = buildTodayAt(RATES.afternoon.overtimeCutoffHour, 0, 0); // 19:00:00
+    const afternoonEnd = buildTodayAt(RATES.afternoon.overtimeCutoffHour, RATES.afternoon.overtimeCutoffMinute, 0); // 17:30:00
 
     // Late calculation — exact to the minute (ceil any seconds into a full minute)
     if (session === 'morning') {
@@ -375,7 +376,7 @@ const Scanner = () => {
         const overtimeMs = timeOut.getTime() - afternoonEnd.getTime();
         penalties.overtimeMinutes = Math.ceil(overtimeMs / 60_000);
         penalties.overtimePenalty = penalties.overtimeMinutes * RATES.afternoon.overtimePerMinute;
-        penalties.notes.push(`Overtime by ${penalties.overtimeMinutes} minute(s) past 7:00 PM`);
+        penalties.notes.push(`Overtime by ${penalties.overtimeMinutes} minute(s) past 5:30 PM`);
       }
     }
 
@@ -1008,7 +1009,7 @@ const Scanner = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
                   <span>Morning</span>
-                  <span className="text-[10px]">(7AM-12NN)</span>
+                  <span className="text-[10px]">(8AM-12NN)</span>
                 </button>
                 <button
                   onClick={() => {
@@ -1027,7 +1028,7 @@ const Scanner = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                   </svg>
                   <span>Afternoon</span>
-                  <span className="text-[10px]">(1PM-7PM)</span>
+                  <span className="text-[10px]">(1PM-5:30PM)</span>
                 </button>
               </div>
             </div>

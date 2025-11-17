@@ -53,7 +53,8 @@ export const SARequest = () => {
     end_date: "",
     reason: "",
     substitute_teacher: "",
-    contact_number: ""
+    contact_number: "",
+    attachment: null as File | null
   });
 
 
@@ -275,6 +276,42 @@ export const SARequest = () => {
         const endDate = new Date(leaveForm.end_date);
         const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
+        // Handle attachment upload if file is provided
+        let attachmentUrl = null;
+        if (leaveForm.attachment) {
+          try {
+            const fileExt = leaveForm.attachment.name.split('.').pop();
+            const fileName = `${userData.id}_substitution_form_${Date.now()}.${fileExt}`;
+            const filePath = `request_attachments/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+              .from('documents')
+              .upload(filePath, leaveForm.attachment);
+
+            if (uploadError) {
+              console.error('[SARequest] Attachment upload error:', uploadError);
+              throw uploadError;
+            }
+
+            const { data: { publicUrl } } = supabase.storage
+              .from('documents')
+              .getPublicUrl(filePath);
+
+            attachmentUrl = publicUrl;
+            console.log('[SARequest] Attachment uploaded successfully:', attachmentUrl);
+          } catch (error: any) {
+            console.error('[SARequest] Error uploading attachment:', error);
+            await Swal.fire({
+              title: 'Upload Error!',
+              text: `Failed to upload attachment: ${error.message}`,
+              icon: 'error',
+              confirmButtonColor: '#ca8a04',
+              confirmButtonText: 'OK'
+            });
+            return;
+          }
+        }
+
         const requestData = {
           user_id: userData.id,
           request_type: "Leave",
@@ -286,6 +323,7 @@ export const SARequest = () => {
           reason: leaveForm.reason,
           substitute_teacher: leaveForm.substitute_teacher,
           contact_number: leaveForm.contact_number,
+          attachment: attachmentUrl,
           status: needsDeanApproval ? "Pending Dean Approval" : "Pending",
           dean_approval_required: needsDeanApproval,
           requester_position: userData.positions
@@ -299,7 +337,7 @@ export const SARequest = () => {
 
         if (!error) {
           setActiveForm(null);
-          setLeaveForm({ leave_type: "", start_date: "", end_date: "", reason: "", substitute_teacher: "", contact_number: "" });
+          setLeaveForm({ leave_type: "", start_date: "", end_date: "", reason: "", substitute_teacher: "", contact_number: "", attachment: null });
           fetchRequests();
           
           await Swal.fire({
@@ -739,6 +777,7 @@ export const SARequest = () => {
                       <option value="Maternity Leave">Maternity Leave</option>
                       <option value="Paternity Leave">Paternity Leave</option>
                       <option value="Bereavement Leave">Bereavement Leave</option>
+                      <option value="Incentive Leave">Incentive Leave</option>
                     </select>
                   </div>
                   
@@ -795,6 +834,44 @@ export const SARequest = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
                       placeholder="Your contact number during leave"
                     />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Substitution Form (Attachment)</label>
+                    <div className="space-y-2">
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (file.size > 10 * 1024 * 1024) {
+                              toast.error('File size must be less than 10MB');
+                              return;
+                            }
+                            setLeaveForm({...leaveForm, attachment: file});
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                      />
+                      {leaveForm.attachment && (
+                        <div className="flex items-center gap-2 p-2 bg-purple-50 rounded-lg border border-purple-200">
+                          <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <span className="text-sm text-purple-800 font-medium flex-1">{leaveForm.attachment.name}</span>
+                          <button
+                            onClick={() => setLeaveForm({...leaveForm, attachment: null})}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-500">Upload substitution form (PDF, DOC, DOCX, JPG, PNG - Max 10MB)</p>
+                    </div>
                   </div>
                 </div>
 
@@ -1322,6 +1399,22 @@ export const SARequest = () => {
                           <div>
                             <p className="text-sm text-gray-600 mb-1">Contact Number</p>
                             <p className="text-base font-semibold text-gray-800">{selectedRequest.contact_number}</p>
+                          </div>
+                        )}
+                        {selectedRequest.attachment && (
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">Substitution Form</p>
+                            <a
+                              href={selectedRequest.attachment}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                              </svg>
+                              <span className="text-sm font-medium">View Attachment</span>
+                            </a>
                           </div>
                         )}
                       </div>

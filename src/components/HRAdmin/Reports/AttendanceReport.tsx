@@ -47,6 +47,21 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
     }
   };
 
+  // Employee category classification: Teaching / Non-teaching
+  // - Teaching: Faculty
+  // - Non-teaching: Accounting, Staff, SA, Guard, Administrator, HR Personnel, etc.
+  const getEmployeeCategory = (
+    role: string | undefined | null
+  ): "Teaching" | "Non-teaching" => {
+    const normalizedRole = (role || "").toLowerCase();
+
+    if (normalizedRole === "faculty") {
+      return "Teaching";
+    }
+
+    return "Non-teaching";
+  };
+
   // Helper function to format time in Philippine timezone
   const formatPhilippineTime = (dateString: string) => {
     // Handle different date string formats from Supabase
@@ -140,12 +155,24 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
     fetchAttendanceData();
   }, []);
 
-  // Filter records based on search
-  const filteredRecords = records.filter(record =>
-    record.user?.name?.toLowerCase().includes(search.toLowerCase()) ||
-    record.user?.role?.toLowerCase().includes(search.toLowerCase()) ||
-    record.status?.toLowerCase().includes(search.toLowerCase())
-  );
+  const [categoryFilter, setCategoryFilter] = useState<"All" | "Teaching" | "Non-teaching">("All");
+
+  // Filter records based on search and category
+  const filteredRecords = records.filter(record => {
+    const searchLower = search.toLowerCase();
+    const matchesSearch =
+      record.user?.name?.toLowerCase().includes(searchLower) ||
+      record.user?.role?.toLowerCase().includes(searchLower) ||
+      record.status?.toLowerCase().includes(searchLower) ||
+      getEmployeeCategory(record.user?.role).toLowerCase().includes(searchLower);
+
+    const category = getEmployeeCategory(record.user?.role);
+    const matchesCategory =
+      categoryFilter === "All" ||
+      category === categoryFilter;
+
+    return matchesSearch && matchesCategory;
+  });
 
   // Pagination logic
   const indexOfLastRecord = currentPage * entriesPerPage;
@@ -177,6 +204,7 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
       "Employee ID",
       "Employee Name",
       "Role",
+      "Category",
       "Semester",
       "School Year",
       "Hired Date",
@@ -190,6 +218,7 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
       record.user?.id || "",
       record.user?.name || "",
       record.user?.role || "",
+      getEmployeeCategory(record.user?.role),
       record.user?.semester || "",
       record.user?.schoolYear || "",
       record.user?.hiredDate ? formatPhilippineDate(record.user.hiredDate) : "",
@@ -252,10 +281,10 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
             color: #666;
           }
           .stats {
-            display: flex;
-            justify-content: space-around;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             margin: 20px 0;
-            gap: 20px;
+            gap: 16px;
           }
           .stat-card {
             background: #f8fafc;
@@ -333,9 +362,17 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
           .role-staff { background-color: #fed7aa; color: #c2410c; }
           .role-sa { background-color: #fef3c7; color: #a16207; }
           .role-default { background-color: #f1f5f9; color: #475569; }
+          .category-badge {
+            padding: 2px 6px;
+            border-radius: 9999px;
+            font-size: 10px;
+            font-weight: 600;
+            background-color: #f1f5f9;
+            color: #334155;
+          }
           @media print {
             body { margin: 0; }
-            .stats { flex-direction: column; }
+            .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .stat-card { margin: 5px 0; }
           }
         </style>
@@ -373,6 +410,7 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
               <th>Employee ID</th>
               <th>Employee Name</th>
               <th>Role</th>
+              <th>Category</th>
               <th>Time In</th>
               <th>Time Out</th>
               <th>Status</th>
@@ -407,6 +445,7 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
                   <td>${record.user?.id || ''}</td>
                   <td>${record.user?.name || 'Unknown'}</td>
                   <td><span class="role-badge ${getRoleClass(record.user?.role || '')}">${record.user?.role || 'No Role'}</span></td>
+                  <td><span class="category-badge">${getEmployeeCategory(record.user?.role)}</span></td>
                   <td>${record.time_in ? formatPhilippineTime(record.time_in) : '--'}</td>
                   <td>${record.time_out ? formatPhilippineTime(record.time_out) : '--'}</td>
                   <td><span class="status-badge ${getStatusClass(record.status)}">${record.status}</span></td>
@@ -453,18 +492,36 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
             <p className="text-gray-600">Comprehensive attendance records with filtering and export options</p>
           </div>
 
-          {/* Search Bar */}
-          <div className="relative max-w-md">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search employees..."
-              className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
-            />
-            <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+          {/* Search + Category Filter */}
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+            <div className="relative max-w-md flex-1">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search employees, roles, or status..."
+                className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
+              />
+              <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700">Category:</label>
+              <select
+                value={categoryFilter}
+                onChange={(e) => {
+                  setCategoryFilter(e.target.value as "All" | "Teaching" | "Non-teaching");
+                  setCurrentPage(1);
+                }}
+                className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              >
+                <option value="All">All</option>
+                <option value="Teaching">Teaching</option>
+                <option value="Non-teaching">Non-teaching</option>
+              </select>
+            </div>
           </div>
         </section>
 
@@ -612,6 +669,7 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Date</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Employee</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Role</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Category</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Time In</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Time Out</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Status</th>
@@ -620,7 +678,7 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-8">
+                    <td colSpan={7} className="text-center py-8">
                       <div className="flex items-center justify-center gap-3">
                         <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                         <span className="text-gray-600 font-medium">Loading attendance records...</span>
@@ -642,6 +700,11 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
                       <td className="px-3 py-3 border-b border-gray-200">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium shadow-sm ${getEmployeeTypeColor(record.user?.role || '').split(' ').slice(2).join(' ')}`}>
                           {record.user?.role || 'No Role'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 border-b border-gray-200 text-sm text-gray-700">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                          {getEmployeeCategory(record.user?.role)}
                         </span>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200 text-gray-600 text-sm">
@@ -667,7 +730,7 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="text-center py-12">
+                    <td colSpan={7} className="text-center py-12">
                       <div className="flex flex-col items-center gap-4">
                         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
                           <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
