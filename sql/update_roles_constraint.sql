@@ -6,7 +6,7 @@ ALTER TABLE roles DROP CONSTRAINT IF EXISTS roles_role_check;
 
 -- Add new constraint that includes Staff
 ALTER TABLE roles ADD CONSTRAINT roles_role_check 
-CHECK (role IN ('Accounting', 'Administrator', 'HR Personnel', 'SA', 'Faculty', 'Guard', 'Staff'));
+CHECK (role IN ('Accounting', 'Administrator', 'HR Personnel', 'SA', 'Faculty', 'Guard', 'Staff', 'ACAF'));
 
 -- Verify the constraint was updated
 SELECT 

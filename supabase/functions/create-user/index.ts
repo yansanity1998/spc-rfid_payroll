@@ -123,8 +123,10 @@ serve(async (req) => {
       department: processField(department),
       positions: processField(positions),
       hiredDate: processField(hiredDate),
-      semester: processField(semester, 'number'),
-      schoolYear: processField(schoolYear, 'number'),
+      // Accept semester and schoolYear as flexible strings to support values
+      // like "Summer" or academic year strings such as "2024-2025".
+      semester: processField(semester, 'string'),
+      schoolYear: processField(schoolYear, 'string'),
       status: processField(status) || "Active",
     };
 

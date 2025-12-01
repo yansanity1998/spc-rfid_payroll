@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import supabase from '../../utils/supabase';
 import { Toaster } from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import ImportSchedule from './ImportSchedule';
 
 interface User {
   id: number;
@@ -35,13 +36,19 @@ const Schedule: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
-  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
-  
+  const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+
   // Enhanced user selection states
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [showUserDropdown, setShowUserDropdown] = useState(false);
-  
-  
+
+  // Import schedule state
+  const [showImportModal, setShowImportModal] = useState(false);
+
+  // Schedule modal state
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+
+
 
   const [formData, setFormData] = useState({
     user_id: 0,
@@ -65,18 +72,18 @@ const Schedule: React.FC = () => {
     return schedules.some(schedule => {
       // Skip if this is the schedule being edited
       if (excludeId && schedule.id === excludeId) return false;
-      
+
       // Skip if different day
       if (schedule.day_of_week !== newSchedule.day_of_week) return false;
-      
+
       // Skip if different user (users can have overlapping schedules with each other)
       if (schedule.user_id !== newSchedule.user_id) return false;
-      
+
       const newStart = new Date(`2000-01-01 ${newSchedule.start_time}`);
       const newEnd = new Date(`2000-01-01 ${newSchedule.end_time}`);
       const existingStart = new Date(`2000-01-01 ${schedule.start_time}`);
       const existingEnd = new Date(`2000-01-01 ${schedule.end_time}`);
-      
+
       // Check for actual time overlap
       return (newStart < existingEnd && newEnd > existingStart);
     });
@@ -87,20 +94,20 @@ const Schedule: React.FC = () => {
   // Helper function to format time in Philippine timezone with AM/PM
   const formatPhilippineTime = (timeString: string) => {
     if (!timeString) return "N/A";
-    
+
     // Handle time string format (HH:MM:SS or HH:MM)
     const timeParts = timeString.split(':');
     if (timeParts.length >= 2) {
       const hours = parseInt(timeParts[0]);
       const minutes = parseInt(timeParts[1]);
-      
+
       // Convert to 12-hour format with AM/PM
       const period = hours >= 12 ? 'PM' : 'AM';
       const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-      
+
       return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
     }
-    
+
     return timeString;
   };
 
@@ -118,14 +125,14 @@ const Schedule: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         console.log('Current authenticated user:', user.id);
-        
+
         // Check user in database
         const { data: dbUser, error } = await supabase
           .from('users')
           .select('*')
           .eq('auth_id', user.id)
           .single();
-          
+
         if (error) {
           console.error('Error fetching user from database:', error);
         } else {
@@ -147,7 +154,7 @@ const Schedule: React.FC = () => {
   const fetchAllSchedules = async () => {
     try {
       console.log('Fetching all schedules for scanner...');
-      
+
       const { data, error } = await supabase
         .from('schedules')
         .select('*')
@@ -157,10 +164,10 @@ const Schedule: React.FC = () => {
         console.error('Error fetching all schedules:', error);
         return;
       }
-      
+
       console.log('All schedules loaded:', data?.length || 0);
       setAllSchedules(data || []);
-      
+
     } catch (error: any) {
       console.error('Error in fetchAllSchedules:', error);
     }
@@ -169,7 +176,7 @@ const Schedule: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      
+
       // Get all users first
       const { data: allUsers, error } = await supabase
         .from('users')
@@ -199,7 +206,7 @@ const Schedule: React.FC = () => {
       filteredUsers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
       setUsers(filteredUsers);
-      
+
       if (filteredUsers.length === 0) {
         showNotification('error', 'No Faculty or Staff users found in the database. Please ensure users have the correct roles assigned.');
       }
@@ -216,21 +223,21 @@ const Schedule: React.FC = () => {
       setLoading(true);
       const userId = forceUserId || parseInt(selectedUser);
       console.log('Fetching schedules for user ID:', userId);
-      
+
       if (isNaN(userId)) {
         console.log('Invalid user ID, skipping fetch');
         setSchedules([]);
         return;
       }
-      
+
       // First, let's try a simple query to see if schedules table is accessible
       const { data: testData, error: testError } = await supabase
         .from('schedules')
         .select('*')
         .limit(1);
-        
+
       console.log('Test query result:', testData, testError);
-      
+
       // Now fetch schedules for the specific user
       const { data, error } = await supabase
         .from('schedules')
@@ -242,10 +249,10 @@ const Schedule: React.FC = () => {
         console.error('Supabase error:', error);
         throw error;
       }
-      
+
       console.log('Schedules fetched from database:', data);
       console.log('Number of schedules found:', data?.length || 0);
-      
+
       // Also fetch user info separately if needed
       if (data && data.length > 0) {
         const userIds = [...new Set(data.map(s => s.user_id))];
@@ -253,18 +260,18 @@ const Schedule: React.FC = () => {
           .from('users')
           .select('id, first_name, last_name, email, role')
           .in('id', userIds);
-          
+
         // Attach user data to schedules
         const schedulesWithUsers = data.map(schedule => ({
           ...schedule,
           user: userData?.find(u => u.id === schedule.user_id)
         }));
-        
+
         setSchedules(schedulesWithUsers);
       } else {
         setSchedules(data || []);
       }
-      
+
       // Removed schedule count notification as requested
     } catch (error: any) {
       console.error('Error fetching schedules:', error);
@@ -277,24 +284,24 @@ const Schedule: React.FC = () => {
 
   const handleCreateSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate required fields
     if (!formData.user_id || formData.user_id === 0) {
       showNotification('error', 'Please select a user');
       return;
     }
-    
+
     if (!formData.start_time || !formData.end_time) {
       showNotification('error', 'Please provide both start and end times');
       return;
     }
-    
+
     // Validate time order
     if (formData.start_time >= formData.end_time) {
       showNotification('error', 'End time must be after start time');
       return;
     }
-    
+
     // Check for overlaps
     console.log('🔍 Checking overlap for create:', {
       formData,
@@ -302,31 +309,31 @@ const Schedule: React.FC = () => {
       sameUserSchedules: schedules.filter(s => s.user_id === formData.user_id),
       sameDaySchedules: schedules.filter(s => s.day_of_week === formData.day_of_week && s.user_id === formData.user_id)
     });
-    
+
     const hasOverlap = checkTimeOverlap(formData);
     console.log('🔍 Overlap check result:', hasOverlap);
-    
+
     if (hasOverlap) {
       const conflictingSchedules = schedules.filter(schedule => {
         if (schedule.day_of_week !== formData.day_of_week) return false;
         if (schedule.user_id !== formData.user_id) return false;
-        
+
         const newStart = new Date(`2000-01-01 ${formData.start_time}`);
         const newEnd = new Date(`2000-01-01 ${formData.end_time}`);
         const existingStart = new Date(`2000-01-01 ${schedule.start_time}`);
         const existingEnd = new Date(`2000-01-01 ${schedule.end_time}`);
-        
+
         return (newStart < existingEnd && newEnd > existingStart);
       });
-      
+
       console.log('❌ Conflicting schedules:', conflictingSchedules);
       showNotification('error', `This schedule overlaps with an existing schedule: ${conflictingSchedules.map(s => `${s.subject || 'Class'} (${formatPhilippineTime(s.start_time)}-${formatPhilippineTime(s.end_time)})`).join(', ')}`);
       return;
     }
-    
+
     try {
       setLoading(true);
-      
+
       // Prepare the data to insert
       const scheduleData = {
         user_id: formData.user_id,
@@ -338,9 +345,9 @@ const Schedule: React.FC = () => {
         notes: formData.notes || null,
         is_overtime: formData.is_overtime || false
       };
-      
+
       console.log('Inserting schedule data:', scheduleData);
-      
+
       const { data, error } = await supabase
         .from('schedules')
         .insert([scheduleData])
@@ -381,7 +388,7 @@ const Schedule: React.FC = () => {
     } catch (error: any) {
       console.error('Error creating schedule:', error);
       console.error('Form data:', formData);
-      
+
       let errorMessage = 'Unknown error';
       if (error?.message) {
         errorMessage = error.message;
@@ -390,7 +397,7 @@ const Schedule: React.FC = () => {
       } else if (error?.hint) {
         errorMessage = error.hint;
       }
-      
+
       // Handle specific error cases
       if (errorMessage.includes('permission denied') || errorMessage.includes('RLS')) {
         errorMessage = 'Permission denied. Please check if you have the required role to create schedules.';
@@ -399,7 +406,7 @@ const Schedule: React.FC = () => {
       } else if (errorMessage.includes('check constraint')) {
         errorMessage = 'Invalid data provided. Please check your input values.';
       }
-      
+
       showNotification('error', `Failed to create schedule: ${errorMessage}`);
     } finally {
       setLoading(false);
@@ -409,13 +416,13 @@ const Schedule: React.FC = () => {
   const handleUpdateSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSchedule) return;
-    
+
     // Validate time order
     if (formData.start_time >= formData.end_time) {
       showNotification('error', 'End time must be after start time');
       return;
     }
-    
+
     // Check for overlaps (excluding current schedule)
     console.log('🔍 Checking overlap for update:', {
       formData,
@@ -424,29 +431,29 @@ const Schedule: React.FC = () => {
       sameUserSchedules: schedules.filter(s => s.user_id === formData.user_id),
       sameDaySchedules: schedules.filter(s => s.day_of_week === formData.day_of_week && s.user_id === formData.user_id)
     });
-    
+
     const hasOverlap = checkTimeOverlap(formData, editingSchedule.id);
     console.log('🔍 Overlap check result:', hasOverlap);
-    
+
     if (hasOverlap) {
       const conflictingSchedules = schedules.filter(schedule => {
         if (schedule.id === editingSchedule.id) return false;
         if (schedule.day_of_week !== formData.day_of_week) return false;
         if (schedule.user_id !== formData.user_id) return false;
-        
+
         const newStart = new Date(`2000-01-01 ${formData.start_time}`);
         const newEnd = new Date(`2000-01-01 ${formData.end_time}`);
         const existingStart = new Date(`2000-01-01 ${schedule.start_time}`);
         const existingEnd = new Date(`2000-01-01 ${schedule.end_time}`);
-        
+
         return (newStart < existingEnd && newEnd > existingStart);
       });
-      
+
       console.log('❌ Conflicting schedules:', conflictingSchedules);
       showNotification('error', `This schedule overlaps with an existing schedule: ${conflictingSchedules.map(s => `${s.subject || 'Class'} (${formatPhilippineTime(s.start_time)}-${formatPhilippineTime(s.end_time)})`).join(', ')}`);
       return;
     }
-    
+
     try {
       setLoading(true);
       const { error } = await supabase
@@ -639,8 +646,10 @@ const Schedule: React.FC = () => {
   };
 
   // Handler for user selection from dropdown
-  const handleUserSelect = (userId: string) => {
+  const handleUserSelect = async (userId: string) => {
     setSelectedUser(userId);
+    setShowScheduleModal(true);
+    await fetchSchedules(parseInt(userId));
     setShowUserDropdown(false);
     setUserSearchTerm('');
   };
@@ -718,9 +727,8 @@ const Schedule: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         {/* Notification */}
         {notification && (
-          <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
-            notification.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-          }`}>
+          <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${notification.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+            }`}>
             <div className="flex items-center gap-2">
               {notification.type === 'success' ? (
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -735,7 +743,7 @@ const Schedule: React.FC = () => {
             </div>
           </div>
         )}
-        
+
         {/* Modern Header */}
         <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 sm:p-6 mb-6">
           <div className="flex items-center gap-3 mb-4">
@@ -749,7 +757,7 @@ const Schedule: React.FC = () => {
               <p className="text-gray-600 text-sm">Create and manage schedules for Faculty and Staff users</p>
             </div>
           </div>
-          
+
           {/* Statistics Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-6">
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-xl shadow-lg text-white">
@@ -765,7 +773,7 @@ const Schedule: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-gradient-to-br from-green-500 to-green-600 p-4 rounded-xl shadow-lg text-white">
               <div className="flex items-center justify-between">
                 <div>
@@ -779,7 +787,7 @@ const Schedule: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-4 rounded-xl shadow-lg text-white">
               <div className="flex items-center justify-between">
                 <div>
@@ -793,8 +801,8 @@ const Schedule: React.FC = () => {
                 </div>
               </div>
             </div>
-            
-            
+
+
             <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-4 rounded-xl shadow-lg text-white">
               <div className="flex items-center justify-between">
                 <div>
@@ -831,7 +839,7 @@ const Schedule: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Search and Select User
               </label>
-              
+
               {/* Search Input */}
               <div className="relative">
                 <input
@@ -887,9 +895,8 @@ const Schedule: React.FC = () => {
                         <button
                           key={user.id}
                           onClick={() => handleUserSelect(user.id.toString())}
-                          className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors duration-150 flex items-center gap-3 ${
-                            selectedUser === user.id.toString() ? 'bg-blue-50 border-r-2 border-blue-500' : ''
-                          }`}
+                          className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors duration-150 flex items-center gap-3 ${selectedUser === user.id.toString() ? 'bg-blue-50 border-r-2 border-blue-500' : ''
+                            }`}
                         >
                           {/* User Avatar */}
                           <div className="flex-shrink-0">
@@ -905,7 +912,7 @@ const Schedule: React.FC = () => {
                               </div>
                             )}
                           </div>
-                          
+
                           {/* User Info */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
@@ -920,7 +927,7 @@ const Schedule: React.FC = () => {
                               {user.email}
                             </p>
                           </div>
-                          
+
                           {/* Selection Indicator */}
                           {selectedUser === user.id.toString() && (
                             <div className="flex-shrink-0">
@@ -938,8 +945,8 @@ const Schedule: React.FC = () => {
 
               {/* Click outside to close dropdown */}
               {showUserDropdown && (
-                <div 
-                  className="fixed inset-0 z-40" 
+                <div
+                  className="fixed inset-0 z-40"
                   onClick={() => setShowUserDropdown(false)}
                 />
               )}
@@ -963,7 +970,7 @@ const Schedule: React.FC = () => {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* User Info */}
                   <div className="flex-1">
                     <h3 className="text-base font-semibold text-gray-900 mb-1">
@@ -981,7 +988,7 @@ const Schedule: React.FC = () => {
                       {selectedUserData.email}
                     </p>
                   </div>
-                  
+
                   {/* Clear Selection Button */}
                   <button
                     onClick={() => {
@@ -997,7 +1004,7 @@ const Schedule: React.FC = () => {
                     </svg>
                   </button>
                 </div>
-                
+
                 {/* Quick Stats */}
                 <div className="bg-white bg-opacity-60 rounded-lg p-3">
                   <div className="flex items-center justify-between text-sm">
@@ -1096,7 +1103,7 @@ const Schedule: React.FC = () => {
                           disabled={userSchedules.length === 0}
                           className="mt-1 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-red-200 text-[10px] font-medium text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-400 shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:border-gray-300 disabled:text-gray-400 transition-colors duration-150"
                           title={userSchedules.length === 0 ? 'No schedules to download' : 'Download this user\'s schedules as CSV file'}
-                       >
+                        >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 16v-8m0 8l-3-3m3 3l3-3M5 20h14a2 2 0 002-2v-5a2 2 0 00-2-2h-3" />
                           </svg>
@@ -1161,215 +1168,49 @@ const Schedule: React.FC = () => {
           )}
         </div>
 
-        {/* Schedule Management */}
-        {selectedUser && (
-          <>
-            {/* Create Schedule Button */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-base font-semibold text-gray-900">
-                    Schedule for {selectedUserData?.name}
-                  </h2>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowCreateForm(true);
-                    setEditingSchedule(null);
-                    setFormData({
-                      user_id: parseInt(selectedUser),
-                      day_of_week: 'Monday',
-                      start_time: '',
-                      end_time: '',
-                      subject: '',
-                      room: '',
-                      notes: '',
-                      is_overtime: false
-                    });
-                  }}
-                  className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:shadow-md transition-all duration-200 flex items-center gap-2 text-sm font-medium"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Add Schedule
-                </button>
-              </div>
-            </div>
-
-        {/* Create/Edit Schedule Modal */}
-        {(showCreateForm || editingSchedule) && (
+        {/* Schedule Management Modal */}
+        {showScheduleModal && selectedUser && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-md max-h-[80vh] overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
               {/* Modal Header */}
-              <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4h3a1 1 0 011 1v9a1 1 0 01-1 1H5a1 1 0 01-1-1V8a1 1 0 011-1h3z" />
-                    </svg>
-                    {editingSchedule ? 'Edit Schedule' : 'Create Schedule'}
-                  </h3>
-                  <button
-                    onClick={editingSchedule ? cancelEdit : () => setShowCreateForm(false)}
-                    className="text-white/80 hover:text-white transition-colors"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              {/* Modal Content */}
-              <form onSubmit={editingSchedule ? handleUpdateSchedule : handleCreateSchedule} className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Day of Week</label>
-                    <select
-                      value={formData.day_of_week}
-                      onChange={(e) => setFormData({ ...formData, day_of_week: e.target.value })}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                      required
-                    >
-                      {daysOfWeek.map((day) => (
-                        <option key={day} value={day}>{day}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
-                      <input
-                        type="time"
-                        value={formData.start_time}
-                        onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">End Time</label>
-                      <input
-                        type="time"
-                        value={formData.end_time}
-                        onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                        required
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Subject/Activity</label>
-                    <input
-                      type="text"
-                      value={formData.subject}
-                      onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                      placeholder="e.g., Mathematics, Meeting, Event"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Room/Location</label>
-                    <input
-                      type="text"
-                      value={formData.room}
-                      onChange={(e) => setFormData({ ...formData, room: e.target.value })}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                      placeholder="e.g., Room 101, Conference Hall"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
-                    <input
-                      type="text"
-                      value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                      placeholder="Additional notes..."
-                    />
-                  </div>
-                  
-                  <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg border border-orange-200">
-                    <input
-                      type="checkbox"
-                      id="is_overtime"
-                      checked={formData.is_overtime}
-                      onChange={(e) => setFormData({ ...formData, is_overtime: e.target.checked })}
-                      className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-2 focus:ring-orange-500"
-                    />
-                    <label htmlFor="is_overtime" className="flex-1 cursor-pointer">
-                      <div className="flex items-center gap-2">
-                        <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span className="text-sm font-semibold text-gray-900">Overtime Schedule (7PM-9PM)</span>
-                      </div>
-                      <p className="text-xs text-gray-600 mt-1 ml-7">Adds ₱200 bonus to gross pay in payroll</p>
-                    </label>
-                  </div>
-                </div>
-              </form>
-
-              {/* Modal Footer */}
-              <div className="bg-gray-50 px-6 py-4 flex justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={editingSchedule ? cancelEdit : () => setShowCreateForm(false)}
-                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  form="schedule-form"
-                  disabled={loading}
-                  onClick={editingSchedule ? handleUpdateSchedule : handleCreateSchedule}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 transition-colors"
-                >
-                  {loading ? (editingSchedule ? 'Updating...' : 'Creating...') : (editingSchedule ? 'Update' : 'Create')}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-            {/* Schedule List */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-              <div className="flex justify-between items-center mb-4">
+              <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 flex justify-between items-center">
                 <div className="flex items-center gap-3">
-                  <h3 className="text-base font-semibold text-gray-900">Current Schedules</h3>
-                </div>
-                <button
-                  onClick={() => fetchSchedules()}
-                  disabled={loading}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-lg hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm font-medium"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  {loading ? 'Refreshing...' : 'Refresh Schedules'}
-                </button>
-              </div>
-              
-              {loading ? (
-                <div className="text-center py-16">
-                  <div className="animate-spin rounded-full h-16 w-16 border-4 border-red-200 border-t-red-600 mx-auto"></div>
-                  <p className="text-gray-600 mt-4 font-medium">Loading schedules...</p>
-                </div>
-              ) : schedules.length === 0 ? (
-                <div className="text-center py-16">
-                  <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                    <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">No schedules yet</h3>
-                  <p className="text-gray-500 mb-4">Create your first schedule to get started.</p>
+                  <div>
+                    <h3 className="text-xl font-bold text-white">Schedule for {selectedUserData?.name}</h3>
+                    <p className="text-white/80 text-sm">{selectedUserData?.email}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowScheduleModal(false);
+                    setSelectedUser('');
+                  }}
+                  className="text-white/80 hover:text-white transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2 mb-6">
+                  <button
+                    onClick={() => setShowImportModal(true)}
+                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-md transition-all duration-200 flex items-center gap-2 text-sm font-medium"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    Import Schedule
+                  </button>
                   <button
                     onClick={() => {
                       setShowCreateForm(true);
@@ -1385,59 +1226,270 @@ const Schedule: React.FC = () => {
                         is_overtime: false
                       });
                     }}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:shadow-lg transition-all duration-200 font-semibold"
+                    className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:shadow-md transition-all duration-200 flex items-center gap-2 text-sm font-medium"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    Add First Schedule
+                    Add Schedule
                   </button>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                  {schedules.map((schedule) => (
-                    <div key={schedule.id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col justify-between">
-                      <div className="flex items-center gap-3 px-4 pt-4 pb-2 border-b border-gray-100">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getRoleColor(selectedUserData?.role || '')}`}>{selectedUserData?.role}</span>
-                        <span className="text-xs text-gray-500 ml-2">{schedule.day_of_week}</span>
-                        <span className="text-xs text-gray-500 ml-2">{formatPhilippineTime(schedule.start_time)} - {formatPhilippineTime(schedule.end_time)}</span>
-                        {schedule.is_overtime && (
-                          <span className="ml-2 px-2 py-0.5 rounded-full bg-orange-100 text-orange-800 text-[10px] font-semibold border border-orange-200">Overtime</span>
-                        )}
-                      </div>
-                      <div className="px-4 py-3 flex flex-col gap-1">
-                        <div className="text-sm font-semibold text-gray-900 truncate">{schedule.subject || 'No Subject'}</div>
-                        <div className="text-xs text-gray-500 truncate">{schedule.room || 'No Room'}</div>
-                        {schedule.notes && <div className="text-xs text-gray-400 italic truncate">{schedule.notes}</div>}
-                      </div>
-                      <div className="px-4 pb-4 pt-2 flex items-center justify-end gap-2 border-t border-gray-100">
-                        <div className="w-full flex items-center justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => startEditSchedule(schedule)}
-                            className="inline-flex items-center gap-1 px-3 py-1 rounded-md border border-blue-200 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 shadow-sm transition-colors duration-150"
-                            title="Edit schedule"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6-6m2 2l-6 6m-2 2h6" /></svg>
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteSchedule(schedule.id)}
-                            className="inline-flex items-center gap-1 px-3 py-1 rounded-md border border-red-200 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-400 shadow-sm transition-colors duration-150"
-                            title="Delete schedule"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            Delete
-                          </button>
-                        </div>
+              </div>
+
+              {/* Create/Edit Schedule Modal */}
+              {(showCreateForm || editingSchedule) && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                  <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-md max-h-[80vh] overflow-hidden">
+                    {/* Modal Header */}
+                    <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4h3a1 1 0 011 1v9a1 1 0 01-1 1H5a1 1 0 01-1-1V8a1 1 0 011-1h3z" />
+                          </svg>
+                          {editingSchedule ? 'Edit Schedule' : 'Create Schedule'}
+                        </h3>
+                        <button
+                          onClick={editingSchedule ? cancelEdit : () => setShowCreateForm(false)}
+                          className="text-white/80 hover:text-white transition-colors"
+                        >
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
-                  ))}
+
+                    {/* Modal Content */}
+                    <form onSubmit={editingSchedule ? handleUpdateSchedule : handleCreateSchedule} className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Day of Week</label>
+                          <select
+                            value={formData.day_of_week}
+                            onChange={(e) => setFormData({ ...formData, day_of_week: e.target.value })}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                            required
+                          >
+                            {daysOfWeek.map((day) => (
+                              <option key={day} value={day}>{day}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
+                            <input
+                              type="time"
+                              value={formData.start_time}
+                              onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">End Time</label>
+                            <input
+                              type="time"
+                              value={formData.end_time}
+                              onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Subject/Activity</label>
+                          <input
+                            type="text"
+                            value={formData.subject}
+                            onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                            placeholder="e.g., Mathematics, Meeting, Event"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Room/Location</label>
+                          <input
+                            type="text"
+                            value={formData.room}
+                            onChange={(e) => setFormData({ ...formData, room: e.target.value })}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                            placeholder="e.g., Room 101, Conference Hall"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                          <input
+                            type="text"
+                            value={formData.notes}
+                            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                            placeholder="Additional notes..."
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg border border-orange-200">
+                          <input
+                            type="checkbox"
+                            id="is_overtime"
+                            checked={formData.is_overtime}
+                            onChange={(e) => setFormData({ ...formData, is_overtime: e.target.checked })}
+                            className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-2 focus:ring-orange-500"
+                          />
+                          <label htmlFor="is_overtime" className="flex-1 cursor-pointer">
+                            <div className="flex items-center gap-2">
+                              <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-sm font-semibold text-gray-900">Overtime Schedule (7PM-9PM)</span>
+                            </div>
+                            <p className="text-xs text-gray-600 mt-1 ml-7">Adds ₱200 bonus to gross pay in payroll</p>
+                          </label>
+                        </div>
+                      </div>
+                    </form>
+
+                    {/* Modal Footer */}
+                    <div className="bg-gray-50 px-6 py-4 flex justify-center gap-3">
+                      <button
+                        type="button"
+                        onClick={editingSchedule ? cancelEdit : () => setShowCreateForm(false)}
+                        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        form="schedule-form"
+                        disabled={loading}
+                        onClick={editingSchedule ? handleUpdateSchedule : handleCreateSchedule}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 transition-colors"
+                      >
+                        {loading ? (editingSchedule ? 'Updating...' : 'Creating...') : (editingSchedule ? 'Update' : 'Create')}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
+
+              {/* Schedule List */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-base font-semibold text-gray-900">Current Schedules</h3>
+                  </div>
+                  <button
+                    onClick={() => fetchSchedules()}
+                    disabled={loading}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-lg hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm font-medium"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    {loading ? 'Refreshing...' : 'Refresh Schedules'}
+                  </button>
+                </div>
+
+                {loading ? (
+                  <div className="text-center py-16">
+                    <div className="animate-spin rounded-full h-16 w-16 border-4 border-red-200 border-t-red-600 mx-auto"></div>
+                    <p className="text-gray-600 mt-4 font-medium">Loading schedules...</p>
+                  </div>
+                ) : schedules.length === 0 ? (
+                  <div className="text-center py-16">
+                    <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                      <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">No schedules yet</h3>
+                    <p className="text-gray-500 mb-4">Create your first schedule to get started.</p>
+                    <button
+                      onClick={() => {
+                        setShowCreateForm(true);
+                        setEditingSchedule(null);
+                        setFormData({
+                          user_id: parseInt(selectedUser),
+                          day_of_week: 'Monday',
+                          start_time: '',
+                          end_time: '',
+                          subject: '',
+                          room: '',
+                          notes: '',
+                          is_overtime: false
+                        });
+                      }}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:shadow-lg transition-all duration-200 font-semibold"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add First Schedule
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                    {schedules.map((schedule) => (
+                      <div key={schedule.id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col justify-between">
+                        <div className="flex items-center gap-3 px-4 pt-4 pb-2 border-b border-gray-100">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getRoleColor(selectedUserData?.role || '')}`}>{selectedUserData?.role}</span>
+                          <span className="text-xs text-gray-500 ml-2">{schedule.day_of_week}</span>
+                          <span className="text-xs text-gray-500 ml-2">{formatPhilippineTime(schedule.start_time)} - {formatPhilippineTime(schedule.end_time)}</span>
+                          {schedule.is_overtime && (
+                            <span className="ml-2 px-2 py-0.5 rounded-full bg-orange-100 text-orange-800 text-[10px] font-semibold border border-orange-200">Overtime</span>
+                          )}
+                        </div>
+                        <div className="px-4 py-3 flex flex-col gap-1">
+                          <div className="text-sm font-semibold text-gray-900 truncate">{schedule.subject || 'No Subject'}</div>
+                          <div className="text-xs text-gray-500 truncate">{schedule.room || 'No Room'}</div>
+                          {schedule.notes && <div className="text-xs text-gray-400 italic truncate">{schedule.notes}</div>}
+                        </div>
+                        <div className="px-4 pb-4 pt-2 flex items-center justify-end gap-2 border-t border-gray-100">
+                          <div className="w-full flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startEditSchedule(schedule)}
+                              className="inline-flex items-center gap-1 px-3 py-1 rounded-md border border-blue-200 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 shadow-sm transition-colors duration-150"
+                              title="Edit schedule"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6-6m2 2l-6 6m-2 2h6" /></svg>
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSchedule(schedule.id)}
+                              className="inline-flex items-center gap-1 px-3 py-1 rounded-md border border-red-200 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-400 shadow-sm transition-colors duration-150"
+                              title="Delete schedule"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </>
+          </div>
+        )}
+
+        {/* Import Schedule Modal */}
+        {showImportModal && (
+          <ImportSchedule
+            selectedUserId={selectedUser ? parseInt(selectedUser) : null}
+            onClose={() => setShowImportModal(false)}
+            onImportSuccess={() => {
+              fetchSchedules();
+              fetchAllSchedules();
+            }}
+          />
         )}
       </div>
     </div>

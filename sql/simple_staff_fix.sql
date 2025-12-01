@@ -4,7 +4,7 @@
 -- 1. Update the roles table constraint to include Staff
 ALTER TABLE roles DROP CONSTRAINT IF EXISTS roles_role_check;
 ALTER TABLE roles ADD CONSTRAINT roles_role_check 
-CHECK (role IN ('Accounting', 'Administrator', 'HR Personnel', 'SA', 'Faculty', 'Guard', 'Staff'));
+CHECK (role IN ('Accounting', 'Administrator', 'HR Personnel', 'SA', 'Faculty', 'Guard', 'Staff', 'ACAF'));
 
 -- 2. Ensure your existing user has the correct Staff role and Active status
 UPDATE users 

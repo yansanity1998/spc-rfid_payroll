@@ -1,0 +1,7 @@
+day_of_week,start_time,end_time,subject,room,notes,is_overtime
+Monday,08:00,10:00,Mathematics 101,Room 201,Morning class,false
+Monday,13:00,15:00,Physics 101,Lab 1,Afternoon lab session,false
+Tuesday,08:00,10:00,Chemistry 101,Lab 2,Lab session,false
+Wednesday,10:00,12:00,Biology 101,Room 305,Lecture,false
+Thursday,14:00,16:00,Computer Science,Room 401,Programming class,false
+Friday,08:00,10:00,English Literature,Room 102,Discussion,false

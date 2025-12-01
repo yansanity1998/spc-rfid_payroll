@@ -206,7 +206,8 @@ export const UserManagement = () => {
         'Faculty': [220, 38, 38],
         'Staff': [249, 115, 22],
         'SA': [234, 179, 8],
-        'Guard': [20, 184, 166]
+        'Guard': [20, 184, 166],
+        'ACAF': [79, 70, 229]
       };
       const roleColor = roleColors[selectedUserInfo.role] || [107, 114, 128];
       doc.setFillColor(roleColor[0], roleColor[1], roleColor[2]);
@@ -470,6 +471,8 @@ export const UserManagement = () => {
         return "from-yellow-500 to-yellow-600 text-yellow-800 bg-yellow-100";
       case "Guard":
         return "from-teal-500 to-teal-600 text-teal-800 bg-teal-100";
+      case "ACAF":
+        return "from-indigo-500 to-indigo-600 text-indigo-800 bg-indigo-100";
       default:
         return "from-gray-500 to-gray-600 text-gray-800 bg-gray-100";
     }
@@ -504,6 +507,7 @@ export const UserManagement = () => {
     newAttachment: null // For file upload
   });
 
+  const isNewUserAcaF = newUser.role === "ACAF";
 
 
   const handleTerminateScholarship = async () => {
@@ -1016,7 +1020,13 @@ export const UserManagement = () => {
     const rfidCard = cardValue || scannedCard;
     
     if (!rfidCard) {
-      toast.error("No RFID card scanned!");
+      toast.dismiss();
+      await Swal.fire({
+        title: 'No RFID Card',
+        text: 'No RFID card scanned. Please tap the card or enter the card value to continue.',
+        icon: 'warning',
+        confirmButtonColor: '#dc2626'
+      });
       setScanningRfid(false);
       setScannedCard("");
       return;
@@ -1028,7 +1038,13 @@ export const UserManagement = () => {
 
     // Check if required fields are filled
     if (!newUser.name || !newUser.email) {
-      toast.error("Please fill in all required fields (Name and Email) before scanning RFID!");
+      toast.dismiss();
+      await Swal.fire({
+        title: 'Missing Information',
+        html: 'Please fill in all required fields (<strong>Name</strong> and <strong>Email</strong>) before scanning the RFID card.',
+        icon: 'warning',
+        confirmButtonColor: '#dc2626'
+      });
       setScanningRfid(false);
       setScannedCard("");
       return;
@@ -1204,18 +1220,40 @@ export const UserManagement = () => {
     } catch (err: any) {
       console.error('User Creation Error:', err);
       toast.dismiss(); // Dismiss loading toast
-      
-      // Show specific error message
-      if (err.message.includes('RFID card is already in use')) {
-        toast.error("RFID card is already in use. Please use a different card.");
-      } else if (err.message.includes('Edge Function failed')) {
-        toast.error("Server error: " + err.message);
-      } else if (err.message.includes('Database insert failed')) {
-        toast.error("Database error: " + err.message);
+
+      // Show specific error message via SweetAlert
+      const errMsg = err?.message || String(err);
+
+      if (errMsg.includes('RFID card is already in use')) {
+        await Swal.fire({
+          title: 'RFID Already In Use',
+          text: 'The RFID card you scanned is already assigned to another user. Please use a different card.',
+          icon: 'error',
+          confirmButtonColor: '#dc2626'
+        });
+      } else if (errMsg.includes('Edge Function failed')) {
+        await Swal.fire({
+          title: 'Server Error',
+          text: errMsg,
+          icon: 'error',
+          confirmButtonColor: '#dc2626'
+        });
+      } else if (errMsg.includes('Database insert failed')) {
+        await Swal.fire({
+          title: 'Database Error',
+          text: errMsg,
+          icon: 'error',
+          confirmButtonColor: '#dc2626'
+        });
       } else {
-        toast.error("Failed to create user: " + err.message);
+        await Swal.fire({
+          title: 'Registration Failed',
+          text: errMsg,
+          icon: 'error',
+          confirmButtonColor: '#dc2626'
+        });
       }
-      
+
       // Reset scanning state on error
       setScanningRfid(false);
       setScannedCard("");
@@ -1577,6 +1615,7 @@ export const UserManagement = () => {
                   <option value="Staff">Staff</option>
                   <option value="SA">SA</option>
                   <option value="Guard">Guard</option>
+                  <option value="ACAF">ACAF</option>
                 </select>
                 <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -1955,6 +1994,7 @@ export const UserManagement = () => {
                   <option>Staff</option>
                   <option>SA</option>
                   <option>Guard</option>
+                  <option>ACAF</option>
                 </select>
               </div>
               
@@ -1986,6 +2026,8 @@ export const UserManagement = () => {
                   required
                 />
               </div>
+              {!isNewUserAcaF && (
+                <>
               {(newUser.role === "Faculty" || newUser.role === "SA") && (
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Academic Year</label>
@@ -2088,6 +2130,8 @@ export const UserManagement = () => {
                   placeholder="Enter base salary for this cutoff"
                 />
               </div>
+                </>
+              )}
               
               
               
@@ -2249,6 +2293,7 @@ export const UserManagement = () => {
                   <option>Staff</option>
                   <option>SA</option>
                   <option>Guard</option>
+                  <option>ACAF</option>
                 </select>
               </div>
 
