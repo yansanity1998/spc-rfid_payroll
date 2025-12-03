@@ -72,6 +72,8 @@ import { StaffNav } from "./components/Staff/StaffNav";
 import DiagnoseStaffRole from "./components/Staff/DiagnoseStaffRole";
 import StaffGovContribution from "./components/Staff/StaffGovContribution";
 import { StaffRequest } from "./components/Staff/StaffRequest";
+import AcafDashboard from "./components/ACAF/acafDashboard";
+import { AcafNav } from "./components/ACAF/acafNav";
 
 
 function AppContent() {
@@ -84,6 +86,7 @@ function AppContent() {
   const showNavBarFaculty = location.pathname.startsWith("/Faculty");
   const showNavBarSA = location.pathname.startsWith("/SA");
   const showNavBarStaff = location.pathname.startsWith("/Staff");
+  const showNavBarACAF = location.pathname.startsWith("/ACAF");
 
   
   // Check if current route should show full-screen layout (no navigation bars)
@@ -97,7 +100,7 @@ function AppContent() {
     location.pathname === "/diagnose-staff" ||
     location.pathname === "/database-test" ||
     // If no navbar is shown, it's a full-screen route (catches 404)
-    (!showNavBarHR && !showNavBarHRPersonnel && !showNavBarACC && !showNavBarGuard && !showNavBarFaculty && !showNavBarSA && !showNavBarStaff && location.pathname !== "/");
+    (!showNavBarHR && !showNavBarHRPersonnel && !showNavBarACC && !showNavBarGuard && !showNavBarFaculty && !showNavBarSA && !showNavBarStaff && !showNavBarACAF && location.pathname !== "/");
 
   return (
     <>
@@ -109,6 +112,7 @@ function AppContent() {
         {!isFullScreenRoute && showNavBarFaculty && <FacNav />}
         {!isFullScreenRoute && showNavBarSA && <SANav />}
         {!isFullScreenRoute && showNavBarStaff && <StaffNav />}
+        {!isFullScreenRoute && showNavBarACAF && <AcafNav />}
 
 
         <Routes>
@@ -178,6 +182,9 @@ function AppContent() {
           <Route path="/Staff/contributions" element={<ProtectedRoute allowedRoles={["Staff"]}><StaffGovContribution /></ProtectedRoute>} />
           <Route path="/Staff/reports" element={<ProtectedRoute allowedRoles={["Staff"]}><StaffReports /></ProtectedRoute>} />
           <Route path="/Staff/request" element={<ProtectedRoute allowedRoles={["Staff"]}><StaffRequest /></ProtectedRoute>} />
+
+          {/* ACAF */}
+          <Route path="/ACAF/dashboard" element={<ProtectedRoute allowedRoles={["ACAF"]}><AcafDashboard /></ProtectedRoute>} />
 
           {/* DIAGNOSTIC ROUTES */}
           <Route path="/diagnose-sa" element={<DiagnoseSARole />} />

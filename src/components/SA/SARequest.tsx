@@ -491,7 +491,7 @@ export const SARequest = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-bold mb-1.5">Loan Request</h3>
+                  <h3 className="text-lg font-bold mb-1.5">Cash Advance Request</h3>
                   <p className="text-green-100 text-sm">Apply for financial assistance</p>
                 </div>
               </div>
@@ -630,7 +630,7 @@ export const SARequest = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                         </svg>
                       </div>
-                      <h2 className="text-xl font-bold text-white">Loan Request</h2>
+                      <h2 className="text-xl font-bold text-white">Cash Advance Request</h2>
                     </div>
                     <button
                       onClick={() => setActiveForm(null)}
@@ -646,13 +646,13 @@ export const SARequest = () => {
                 {/* Modal Body */}
                 <div className="p-6 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Loan Amount (₱)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Cash Advance Amount (₱)</label>
                     <input
                       type="number"
                       value={loanForm.amount}
                       onChange={(e) => handleLoanFormChange('amount', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
-                      placeholder="Enter loan amount"
+                      placeholder="Enter cash advance amount"
                     />
                   </div>
                   
@@ -673,7 +673,7 @@ export const SARequest = () => {
                       onChange={(e) => setLoanForm({...loanForm, reason: e.target.value})}
                       rows={3}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
-                      placeholder="Explain why you need this loan"
+                      placeholder="Explain why you need this cash advance"
                     />
                   </div>
                   

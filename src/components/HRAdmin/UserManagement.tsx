@@ -491,6 +491,10 @@ export const UserManagement = () => {
     // allow setting positions when creating Faculty / SA / Staff
     positions: "",
     base_salary: "",
+    work_am_start: "08:00",
+    work_am_end: "12:00",
+    work_pm_start: "13:00",
+    work_pm_end: "17:30",
   });
 
   const [editUser, setEditUser] = useState<any | null>(null);
@@ -1070,6 +1074,10 @@ export const UserManagement = () => {
         // include positions for roles that may require it (Faculty, SA, Staff)
         positions: (newUser.role === "Faculty" || newUser.role === "SA" || newUser.role === "Staff") ? (newUser.positions || null) : null,
         base_salary: newUser.base_salary ? Number(newUser.base_salary) : null,
+        work_am_start: newUser.work_am_start || null,
+        work_am_end: newUser.work_am_end || null,
+        work_pm_start: newUser.work_pm_start || null,
+        work_pm_end: newUser.work_pm_end || null,
         status: "Active",
         password: "ChangePassword",
       };
@@ -1158,6 +1166,10 @@ export const UserManagement = () => {
               hiredDate: newUser.hiredDate || null,
               department: newUser.role === "Faculty" || newUser.role === "SA" ? newUser.department : null,
               positions: (newUser.role === "Faculty" || newUser.role === "SA" || newUser.role === "Staff") ? (newUser.positions || null) : null,
+              work_am_start: newUser.work_am_start || null,
+              work_am_end: newUser.work_am_end || null,
+              work_pm_start: newUser.work_pm_start || null,
+              work_pm_end: newUser.work_pm_end || null,
               status: "Active",
               password: "ChangePassword",
               created_at: new Date().toISOString(),
@@ -1212,6 +1224,10 @@ export const UserManagement = () => {
         department: "",
         positions: "",
         base_salary: "",
+        work_am_start: "08:00",
+        work_am_end: "12:00",
+        work_pm_start: "13:00",
+        work_pm_end: "17:30",
       });
       
       // Refresh user list
@@ -1330,6 +1346,10 @@ export const UserManagement = () => {
       contact_no: editUser.contact_no || null,
       positions: (editUser.role === "Faculty" || editUser.role === "SA" || editUser.role === "Staff") ? editUser.positions : null,
       base_salary: editUser.base_salary !== undefined && editUser.base_salary !== '' ? Number(editUser.base_salary) : null,
+      work_am_start: editUser.work_am_start || null,
+      work_am_end: editUser.work_am_end || null,
+      work_pm_start: editUser.work_pm_start || null,
+      work_pm_end: editUser.work_pm_end || null,
     };
 
     // Handle scholarship data if user is Faculty
@@ -2130,6 +2150,54 @@ export const UserManagement = () => {
                   placeholder="Enter base salary for this cutoff"
                 />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">AM Session Start</label>
+                  <input
+                    type="time"
+                    value={newUser.work_am_start}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, work_am_start: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">AM Session End</label>
+                  <input
+                    type="time"
+                    value={newUser.work_am_end}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, work_am_end: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">PM Session Start</label>
+                  <input
+                    type="time"
+                    value={newUser.work_pm_start}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, work_pm_start: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">PM Session End</label>
+                  <input
+                    type="time"
+                    value={newUser.work_pm_end}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, work_pm_end: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  />
+                </div>
+              </div>
                 </>
               )}
               
@@ -2341,6 +2409,54 @@ export const UserManagement = () => {
                   className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
                   placeholder="Enter base salary for this cutoff"
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">AM Session Start</label>
+                  <input
+                    type="time"
+                    value={editUser.work_am_start || ''}
+                    onChange={(e) =>
+                      setEditUser({ ...editUser, work_am_start: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">AM Session End</label>
+                  <input
+                    type="time"
+                    value={editUser.work_am_end || ''}
+                    onChange={(e) =>
+                      setEditUser({ ...editUser, work_am_end: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">PM Session Start</label>
+                  <input
+                    type="time"
+                    value={editUser.work_pm_start || ''}
+                    onChange={(e) =>
+                      setEditUser({ ...editUser, work_pm_start: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus-border-transparent transition-all duration-200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">PM Session End</label>
+                  <input
+                    type="time"
+                    value={editUser.work_pm_end || ''}
+                    onChange={(e) =>
+                      setEditUser({ ...editUser, work_pm_end: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus-border-transparent transition-all duration-200"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
@@ -3055,6 +3171,27 @@ export const UserManagement = () => {
                     </div>
                     <div className="ml-8">
                       <p className="text-lg font-bold text-gray-800">{selectedUserInfo.hiredDate ? new Date(selectedUserInfo.hiredDate).toLocaleDateString() : 'Not specified'}</p>
+                    </div>
+                  </div>
+
+                  <div className="group bg-gradient-to-r from-white to-blue-50 border border-blue-100 rounded-md p-3 shadow-sm hover:shadow-md transition-all duration-300">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-6 h-6 bg-gradient-to-br from-blue-100 to-blue-200 rounded-md flex items-center justify-center">
+                        <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8h4m4 0h10M5 12h6m4 0h6M7 16h4m4 0h8" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h5 className="font-semibold text-gray-800 text-sm">Work Schedule</h5>
+                        <p className="text-blue-600 text-xs">AM / PM sessions</p>
+                      </div>
+                    </div>
+                    <div className="ml-8">
+                      <p className="text-lg font-bold text-gray-800">
+                        {selectedUserInfo.work_am_start && selectedUserInfo.work_am_end && selectedUserInfo.work_pm_start && selectedUserInfo.work_pm_end
+                          ? `AM: ${selectedUserInfo.work_am_start} - ${selectedUserInfo.work_am_end} | PM: ${selectedUserInfo.work_pm_start} - ${selectedUserInfo.work_pm_end}`
+                          : 'Not configured'}
+                      </p>
                     </div>
                   </div>
 

@@ -259,34 +259,70 @@ const Scanner = () => {
   // Round currency consistently to 2 decimals
   const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
-  // Determine which session (morning or afternoon) based on current time
-  const getCurrentSession = (currentTime: Date): 'morning' | 'afternoon' => {
-    // Use system time directly (laptop time) for consistency
+  type UserWorkHours = {
+    work_am_start?: string | null;
+    work_am_end?: string | null;
+    work_pm_start?: string | null;
+    work_pm_end?: string | null;
+  };
+
+  // Helper to parse "HH:MM" time strings into minutes since midnight
+  const parseTimeToMinutes = (
+    timeStr: string | null | undefined,
+    fallbackHour: number,
+    fallbackMinute: number
+  ): number => {
+    if (timeStr && timeStr.includes(":")) {
+      const [hStr, mStr] = timeStr.split(":");
+      const h = Number(hStr);
+      const m = Number(mStr);
+      if (!Number.isNaN(h) && !Number.isNaN(m)) {
+        return h * 60 + m;
+      }
+    }
+    return fallbackHour * 60 + fallbackMinute;
+  };
+
+  // Determine which session (morning or afternoon) based on time and per-user work hours
+  const getCurrentSession = (
+    currentTime: Date,
+    workHours?: UserWorkHours
+  ): 'morning' | 'afternoon' => {
     const hour = currentTime.getHours();
     const minute = currentTime.getMinutes();
     const timeMinutes = hour * 60 + minute;
 
-    console.log(`[getCurrentSession] Hour: ${hour}, Minute: ${minute}, Total minutes: ${timeMinutes}`);
+    const amStartMin = parseTimeToMinutes(workHours?.work_am_start, 8, 0); // default 08:00
+    const amEndMin = parseTimeToMinutes(workHours?.work_am_end, 12, 0);   // default 12:00
+    const pmStartMin = parseTimeToMinutes(workHours?.work_pm_start, 13, 0); // default 13:00
+    const pmEndMin = parseTimeToMinutes(workHours?.work_pm_end, 17, 30);   // default 17:30
 
-    // Morning session: 8:00 AM - 12:00 PM (480 - 720 minutes)
-    if (timeMinutes >= 8 * 60 && timeMinutes < 12 * 60) {
-      console.log(`[getCurrentSession] Detected: morning (${timeMinutes} is between 480-720)`);
+    console.log(
+      `[getCurrentSession] time=${timeMinutes}min, AM=${amStartMin}-${amEndMin}, PM=${pmStartMin}-${pmEndMin}`
+    );
+
+    if (timeMinutes >= amStartMin && timeMinutes < amEndMin) {
       return 'morning';
     }
-    // Afternoon session: 1:00 PM - 5:30 PM (780 - 1050 minutes)
-    if (timeMinutes >= 13 * 60 && timeMinutes < 17 * 60 + 30) {
-      console.log(`[getCurrentSession] Detected: afternoon (${timeMinutes} is between 780-1050)`);
+    if (timeMinutes >= pmStartMin && timeMinutes < pmEndMin) {
       return 'afternoon';
     }
-    // Default to morning if before 8 AM, afternoon if after 5:30 PM
-    const defaultSession = timeMinutes < 12 * 60 ? 'morning' : 'afternoon';
-    console.log(`[getCurrentSession] Default: ${defaultSession} (${timeMinutes} minutes)`);
-    return defaultSession;
+
+    // Fallback: before AM end -> morning, otherwise afternoon
+    const fallback = timeMinutes < amEndMin ? 'morning' : 'afternoon';
+    console.log(`[getCurrentSession] Fallback session=${fallback}`);
+    return fallback;
   };
 
   // Calculate penalties with precise durations (to the minute) and distinct morning vs afternoon logic
   // Special handling for SA: single session 8 AM - 5:30 PM
-  const calculatePenalties = (timeIn: Date, timeOut: Date | null, session: 'morning' | 'afternoon', userRole: string = '') => {
+  const calculatePenalties = (
+    timeIn: Date,
+    timeOut: Date | null,
+    session: 'morning' | 'afternoon',
+    userRole: string = '',
+    workHours?: UserWorkHours
+  ) => {
     const penalties = {
       lateMinutes: 0,
       overtimeMinutes: 0,
@@ -347,9 +383,18 @@ const Scanner = () => {
       },
     } as const;
 
-    const morningStart = buildTodayAt(8, 0, 0); // 8:00:00
-    const afternoonStart = buildTodayAt(13, 0, 0); // 13:00:00
-    const afternoonEnd = buildTodayAt(RATES.afternoon.overtimeCutoffHour, RATES.afternoon.overtimeCutoffMinute, 0); // 17:30:00
+    // Derive per-user schedule (falling back to defaults when not set)
+    const amStartMin = parseTimeToMinutes(workHours?.work_am_start, 8, 0);
+    const pmStartMin = parseTimeToMinutes(workHours?.work_pm_start, 13, 0);
+    const pmEndMin = parseTimeToMinutes(
+      workHours?.work_pm_end,
+      RATES.afternoon.overtimeCutoffHour,
+      RATES.afternoon.overtimeCutoffMinute
+    );
+
+    const morningStart = buildTodayAt(Math.floor(amStartMin / 60), amStartMin % 60, 0);
+    const afternoonStart = buildTodayAt(Math.floor(pmStartMin / 60), pmStartMin % 60, 0);
+    const afternoonEnd = buildTodayAt(Math.floor(pmEndMin / 60), pmEndMin % 60, 0);
 
     // Late calculation — exact to the minute (ceil any seconds into a full minute)
     if (session === 'morning') {
@@ -410,10 +455,12 @@ const Scanner = () => {
       console.log(`[Scanner] Selected session: ${activeSession}`);
       console.log(`[Scanner] ========================================`);
 
-      // 🔍 Step 1: Find user with this cardId in users table
+      // 🔍 Step 1: Find user with this cardId in users table (including work hours)
       const { data: user, error: userError } = await supabase
         .from("users")
-        .select("id, name, role, profile_picture") // fetch profile picture and role
+        .select(
+          "id, name, role, profile_picture, work_am_start, work_am_end, work_pm_start, work_pm_end"
+        ) // fetch profile picture, role, and work hours
         .eq("id", cardId)   // if RFID = users.id
         .maybeSingle();
 
@@ -606,6 +653,72 @@ const Scanner = () => {
         return;
       }
 
+      // Require configured work hours for non-SA users to use the scanner
+      if (user.role !== 'SA') {
+        const { work_am_start, work_am_end, work_pm_start, work_pm_end } = user as any;
+
+        console.log('[Scanner] Work hours fetched for user', {
+          userId: user.id,
+          role: user.role,
+          work_am_start,
+          work_am_end,
+          work_pm_start,
+          work_pm_end,
+          activeSession,
+        });
+
+        // 1) Block if the user has no schedule configured at all
+        const hasAnySchedule =
+          !!work_am_start ||
+          !!work_am_end ||
+          !!work_pm_start ||
+          !!work_pm_end;
+
+        if (!hasAnySchedule) {
+          showModernAlert(
+            'error',
+            'Work schedule not set',
+            'This user does not have work hours configured. Please ask HR to set their AM/PM schedule before scanning.',
+            user.name ?? user.id,
+            user.role ?? '',
+            user.profile_picture ?? '',
+            'error'
+          );
+          playSound('error');
+          return;
+        }
+
+        // 2) Block per-session if that specific session has no configured schedule
+        const hasMorningSchedule = !!work_am_start || !!work_am_end;
+        const hasAfternoonSchedule = !!work_pm_start || !!work_pm_end;
+        const sessionNameForError = activeSession === 'morning' ? 'Morning' : 'Afternoon';
+
+        const hasSessionSchedule =
+          activeSession === 'morning' ? hasMorningSchedule : hasAfternoonSchedule;
+
+        if (!hasSessionSchedule) {
+          showModernAlert(
+            'error',
+            `${sessionNameForError} schedule not set`,
+            `This user does not have a ${sessionNameForError.toLowerCase()} schedule configured. Please ask HR to set their ${sessionNameForError.toLowerCase()} schedule before scanning for this session.`,
+            user.name ?? user.id,
+            user.role ?? '',
+            user.profile_picture ?? '',
+            'error'
+          );
+          playSound('error');
+          return;
+        }
+      }
+
+      // Build per-user work hours object once
+      const userWorkHours: UserWorkHours = {
+        work_am_start: (user as any).work_am_start ?? null,
+        work_am_end: (user as any).work_am_end ?? null,
+        work_pm_start: (user as any).work_pm_start ?? null,
+        work_pm_end: (user as any).work_pm_end ?? null,
+      };
+
       // Separate morning and afternoon records based on notes field (primary) or time_in (fallback)
       const morningRecord = existingRecords?.find(record => {
         // Prefer explicit session tag in notes added by this scanner
@@ -614,7 +727,7 @@ const Scanner = () => {
         // Fallback: check time_in if no explicit session tag
         if (!record.time_in) return false;
         const timeIn = new Date(record.time_in);
-        const session = getCurrentSession(timeIn);
+        const session = getCurrentSession(timeIn, userWorkHours);
         return session === 'morning';
       });
 
@@ -624,7 +737,7 @@ const Scanner = () => {
         // Fallback: check time_in if no explicit session tag
         if (!record.time_in) return false;
         const timeIn = new Date(record.time_in);
-        const session = getCurrentSession(timeIn);
+        const session = getCurrentSession(timeIn, userWorkHours);
         return session === 'afternoon';
       });
 
@@ -632,23 +745,11 @@ const Scanner = () => {
       console.log(`[Scanner] Morning record:`, morningRecord ? 'exists' : 'none');
       console.log(`[Scanner] Afternoon record:`, afternoonRecord ? 'exists' : 'none');
 
-      // 🚫 Check if user has completed both sessions (prevent multiple entries)
+      // 🚫 Check if user has completed both sessions (no longer blocks taps; used only for logging)
       const morningCompleted = morningRecord && morningRecord.time_in && morningRecord.time_out;
       const afternoonCompleted = afternoonRecord && afternoonRecord.time_in && afternoonRecord.time_out;
-      
       if (morningCompleted && afternoonCompleted) {
-        console.log(`[Scanner] User ${user.name} has completed both morning and afternoon sessions - blocking further taps`);
-        showModernAlert(
-          'info', 
-          'All Sessions Completed', 
-          'You have already completed both morning and afternoon sessions for today. No additional attendance recording is needed.', 
-          user.name ?? user.id, 
-          user.role ?? '', 
-          user.profile_picture ?? '', 
-          'completed'
-        );
-        playSound('info');
-        return;
+        console.log(`[Scanner] User ${user.name} already has completed morning and afternoon sessions today – allowing additional scans as extra records.`);
       }
 
       // Determine current session record based on user selection
@@ -657,26 +758,10 @@ const Scanner = () => {
 
       // Handle based on selected action (Time In or Time Out)
       if (selectedAction === 'time_in') {
-        // TIME IN ACTION
-        // 🚫 Check if current session is already completed (has both time_in and time_out)
-        if (currentRecord && currentRecord.time_in && currentRecord.time_out) {
-          console.log(`[Scanner] User ${user.name} has already completed ${sessionName} session - blocking time in`);
-          showModernAlert(
-            'info',
-            'Session Already Completed',
-            `You have already completed your ${sessionName.toLowerCase()} session for today. Please select the other session if you need to record attendance.`,
-            user.name ?? user.id,
-            user.role ?? '',
-            user.profile_picture ?? '',
-            'completed'
-          );
-          playSound('info');
-          return;
-        }
-        
+        // TIME IN ACTION: create or update records, allowing re-entry even after a completed session
         if (!currentRecord) {
           // Create new record for this session
-          const penalties = calculatePenalties(now, null, activeSession, user.role);
+          const penalties = calculatePenalties(now, null, activeSession, user.role, userWorkHours);
           const displayPenalty = round2(penalties.latePenalty);
           
           const { error: insertError } = await supabase.from("attendance").insert([
@@ -710,8 +795,8 @@ const Scanner = () => {
           playSound('success');
           speakAttendance('time_in', user.name ?? String(user.id), now);
         } else if (currentRecord.time_out) {
-          // If current session record already has time_out, create a NEW record for re-entry
-          const penalties = calculatePenalties(now, null, activeSession, user.role);
+          // Current session already has time_out – create a NEW record for re-entry
+          const penalties = calculatePenalties(now, null, activeSession, user.role, userWorkHours);
           const displayPenalty = round2(penalties.latePenalty);
           
           const { error: insertError } = await supabase.from("attendance").insert([
@@ -745,8 +830,8 @@ const Scanner = () => {
           playSound('success');
           speakAttendance('time_in', user.name ?? String(user.id), now);
         } else {
-          // Update existing record with new time in (only if no time_out yet)
-          const penalties = calculatePenalties(now, null, activeSession, user.role);
+          // Existing record has time_in but no time_out – update time in
+          const penalties = calculatePenalties(now, null, activeSession, user.role, userWorkHours);
           const displayPenalty = round2(penalties.latePenalty);
           
           const { error: updateError } = await supabase
@@ -813,9 +898,9 @@ const Scanner = () => {
         const sessionFromNotes = recordNotes.includes('Afternoon session')
           ? 'afternoon'
           : (recordNotes.includes('Morning session') ? 'morning' : null);
-        const resolvedSession = (sessionFromNotes || activeSession || getCurrentSession(timeInDate)) as 'morning' | 'afternoon';
+        const resolvedSession = (sessionFromNotes || activeSession || getCurrentSession(timeInDate, userWorkHours)) as 'morning' | 'afternoon';
         const sessionLabel = resolvedSession === 'morning' ? 'Morning' : 'Afternoon';
-        const penalties = calculatePenalties(timeInDate, now, resolvedSession, user.role);
+        const penalties = calculatePenalties(timeInDate, now, resolvedSession, user.role, userWorkHours);
         const displayOvertime = round2(penalties.overtimePenalty);
         // Add overtime to whatever late penalty was stored at time-in
         const existingDbPenalty = Number(recordToUpdate.penalty_amount) || 0;

@@ -106,6 +106,9 @@ const ModernLoginForm = ({ onClose }: { onClose: () => void }) => {
       case "SA":
         navigate("/SA/dashboard");
         break;
+      case "ACAF":
+        navigate("/ACAF/dashboard");
+        break;
       default:
         toast.error("Role not assigned. Contact admin.");
     }

@@ -487,6 +487,9 @@ export const LogIn = () => {
         toast.success("Welcome Staff! Redirecting to dashboard...");
         navigate("/Staff/dashboard");
         break;
+      case "ACAF":
+        navigate("/ACAF/dashboard");
+        break;
       default:
         toast.error(`Role not assigned. Debug info: ${debugMsg}`);
     }

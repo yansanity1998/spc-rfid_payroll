@@ -192,7 +192,7 @@ const FacSchedule: React.FC = () => {
             </div>
           </div>
 
-          {/* Work Hours Card (styled like SA schedule card but adapted for Faculty) */}
+          {/* Working Hours Summary - based on HR schedules for this user */}
           <div className="bg-gradient-to-br from-red-50 to-white rounded-xl shadow-sm border-2 border-red-200 p-6 mb-6">
             <div className="flex items-start gap-4">
               <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-red-600 to-red-700 rounded-xl flex items-center justify-center shadow-lg">
@@ -202,19 +202,114 @@ const FacSchedule: React.FC = () => {
               </div>
 
               <div className="flex-1">
-                <h2 className="text-lg font-bold text-gray-900 mb-3">Work Hours</h2>
-                <div className="bg-white rounded-lg p-4 border border-red-200 shadow-sm">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                      </svg>
+                <h2 className="text-lg font-bold text-gray-900 mb-3">Working Hours (from HR schedules)</h2>
+                {schedules.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Morning & Afternoon Sessions */}
+                    <div className="bg-white rounded-lg p-4 border border-red-200 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                          <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                          </svg>
+                        </div>
+                        <h3 className="font-semibold text-gray-900">Morning &amp; Afternoon Sessions</h3>
+                      </div>
+                      {(() => {
+                        const user = currentUser as any;
+                        const morningStart = user?.work_am_start || null;
+                        const morningEnd = user?.work_am_end || null;
+                        const afternoonStart = user?.work_pm_start || null;
+                        const afternoonEnd = user?.work_pm_end || null;
+
+                        const hasAnyWorkHours = morningStart || morningEnd || afternoonStart || afternoonEnd;
+                        if (!hasAnyWorkHours) {
+                          return (
+                            <p className="text-sm text-gray-600 mt-1">
+                              Working hours have not been configured for you yet. Please contact HR.
+                            </p>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Morning Session</p>
+                              {morningStart && morningEnd ? (
+                                <p className="text-lg font-semibold text-red-700">
+                                  {formatPhilippineTime(morningStart)} - {formatPhilippineTime(morningEnd)}
+                                </p>
+                              ) : (
+                                <p className="text-sm text-gray-500">No morning session configured.</p>
+                              )}
+                            </div>
+                            <div className="border-t border-gray-100 pt-3">
+                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Afternoon Session</p>
+                              {afternoonStart && afternoonEnd ? (
+                                <p className="text-lg font-semibold text-red-700">
+                                  {formatPhilippineTime(afternoonStart)} - {formatPhilippineTime(afternoonEnd)}
+                                </p>
+                              ) : (
+                                <p className="text-sm text-gray-500">No afternoon session configured.</p>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Based on the working hours configured by HR for your account.
+                            </p>
+                          </div>
+                        );
+                      })()}
                     </div>
-                    <h3 className="font-semibold text-gray-900">Standard Faculty Schedule</h3>
+
+                    {/* Active Days */}
+                    <div className="bg-white rounded-lg p-4 border border-red-200 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4h3a1 1 0 011 1v9a1 1 0 01-1 1H5a1 1 0 01-1-1V8a1 1 0 011-1h3z" />
+                          </svg>
+                        </div>
+                        <h3 className="font-semibold text-gray-900">Scheduled Days</h3>
+                      </div>
+                      {(() => {
+                        const daysSet = new Set<string>();
+                        schedules.forEach((schedule) => {
+                          if (schedule.day_of_week) {
+                            daysSet.add(schedule.day_of_week);
+                          }
+                        });
+                        const daysList = Array.from(daysSet);
+
+                        if (!daysList.length) {
+                          return <p className="text-sm text-gray-600 mt-1">No specific days configured.</p>;
+                        }
+
+                        return (
+                          <>
+                            <p className="text-sm text-gray-900 font-medium">
+                              {daysList.join(', ')}
+                            </p>
+                            <p className="text-xs text-gray-600 mt-1">Days where HR has created at least one schedule for you.</p>
+                          </>
+                        );
+                      })()}
+                    </div>
                   </div>
-                  <p className="text-2xl font-bold text-red-600">{formatPhilippineTime('08:00:00')} - {formatPhilippineTime('17:00:00')}</p>
-                  <p className="text-sm text-gray-600 mt-1">Contact HR for exceptions or alternate schedules</p>
-                </div>
+                ) : (
+                  <div className="bg-white rounded-lg p-4 border border-red-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <h3 className="font-semibold text-gray-900">No HR schedule yet</h3>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Once HR creates a schedule for you, your working hours summary will appear here.
+                    </p>
+                  </div>
+                )}
 
                 {/* Additional Info */}
                 <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-100">
@@ -225,8 +320,8 @@ const FacSchedule: React.FC = () => {
                     <div className="text-sm text-gray-700">
                       <p className="font-medium mb-1">Notes:</p>
                       <ul className="list-disc list-inside space-y-1 text-gray-600">
-                        <li>Default hours apply unless a schedule is assigned by HR.</li>
-                        <li>Overtime and penalties are determined per department policy.</li>
+                        <li>Your working hours are based on the schedules created by HR.</li>
+                        <li>Contact HR if this summary does not match your actual teaching schedule.</li>
                       </ul>
                     </div>
                   </div>

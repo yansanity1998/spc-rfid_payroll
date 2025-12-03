@@ -103,7 +103,7 @@ export const AcafNav = () => {
 			</div>
 
 			{/* Sidebar (desktop) */}
-			<div className="hidden lg:flex w-70 min-h-screen fixed left-0 top-0 pr-2 py-6 flex-col justify-between bg-gradient-to-b from-purple-900 via-purple-800 to-purple-900 shadow-2xl z-30">
+			<div className="hidden lg:flex w-70 min-h-screen fixed left-0 top-0 pr-2 py-6 flex-col justify-between bg-gradient-to-b from-red-900 via-red-800 to-red-900 shadow-2xl z-30">
 				<div>
 					{/* Profile Section */}
 					<div className="flex flex-col items-center justify-center px-4 py-4 mb-4">
@@ -116,7 +116,7 @@ export const AcafNav = () => {
 										className="h-20 w-20 rounded-full object-cover ring-4 ring-white/30 shadow-xl" 
 									/>
 								) : (
-									<div className="h-20 w-20 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-bold text-xl ring-4 ring-white/30 shadow-xl">
+									<div className="h-20 w-20 rounded-full bg-gradient-to-br from-red-700 to-red-900 flex items-center justify-center text-white font-bold text-xl ring-4 ring-white/30 shadow-xl">
 										{userName ? userName.charAt(0).toUpperCase() : userEmail.charAt(0).toUpperCase()}
 									</div>
 								)}
@@ -204,7 +204,7 @@ export const AcafNav = () => {
 			{/* Mobile overlay */}
 			{menuOpen && (
 				<div className="fixed inset-0 backdrop-blur-sm bg-black/50 z-40 lg:hidden">
-					<div className="fixed top-0 left-0 w-72 h-full bg-gradient-to-b from-purple-900 via-purple-800 to-purple-900 shadow-2xl flex flex-col justify-between">
+					<div className="fixed top-0 left-0 w-72 h-full bg-gradient-to-b from-red-900 via-red-800 to-red-900 shadow-2xl flex flex-col justify-between">
 						<div>
 							<div className="flex flex-col items-center justify-center px-4 py-3 mb-3">
 								<div className="relative">
@@ -216,7 +216,7 @@ export const AcafNav = () => {
 												className="h-16 w-16 rounded-full object-cover ring-4 ring-white/30 shadow-xl" 
 											/>
 										) : (
-											<div className="h-16 w-16 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-bold text-lg ring-4 ring-white/30 shadow-xl">
+											<div className="h-16 w-16 rounded-full bg-gradient-to-br from-red-700 to-red-900 flex items-center justify-center text-white font-bold text-lg ring-4 ring-white/30 shadow-xl">
 												{userName ? userName.charAt(0).toUpperCase() : userEmail.charAt(0).toUpperCase()}
 											</div>
 										)}
