@@ -98,6 +98,8 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
       "Staff": "/Staff/dashboard",
       "Guard": "/Guard/dashboard",
       "ACAF": "/ACAF/dashboard",
+      "President": "/President/dashboard",
+      "Vice President": "/V-President/dashboard",
     };
     return roleMap[role] || "/";
   };

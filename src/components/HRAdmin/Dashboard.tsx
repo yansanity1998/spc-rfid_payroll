@@ -83,6 +83,10 @@ const Dashboard = () => {
     switch (role) {
       case "Administrator":
         return "from-purple-500 to-purple-600 text-purple-800 bg-purple-100";
+      case "President":
+        return "from-pink-500 to-pink-600 text-pink-800 bg-pink-100";
+      case "Vice President":
+        return "from-sky-500 to-sky-600 text-sky-800 bg-sky-100";
       case "HR Personnel":
         return "from-blue-500 to-blue-600 text-blue-800 bg-blue-100";
       case "Accounting":
@@ -95,6 +99,8 @@ const Dashboard = () => {
         return "from-yellow-500 to-yellow-600 text-yellow-800 bg-yellow-100";
       case "Guard":
         return "from-teal-500 to-teal-600 text-teal-800 bg-teal-100";
+      case "ACAF":
+        return "from-indigo-500 to-indigo-600 text-indigo-800 bg-indigo-100";
       default:
         return "from-gray-500 to-gray-600 text-gray-800 bg-gray-100";
     }
@@ -366,24 +372,30 @@ const Dashboard = () => {
         backgroundColor: roles.map(role => {
           const colors: { [key: string]: string } = {
             'Administrator': 'rgba(147, 51, 234, 0.8)',
+            'President': 'rgba(236, 72, 153, 0.8)',
+            'Vice President': 'rgba(56, 189, 248, 0.8)',
             'HR Personnel': 'rgba(59, 130, 246, 0.8)',
             'Accounting': 'rgba(34, 197, 94, 0.8)',
             'Faculty': 'rgba(239, 68, 68, 0.8)',
             'Staff': 'rgba(249, 115, 22, 0.8)',
             'SA': 'rgba(234, 179, 8, 0.8)',
-            'Guard': 'rgba(20, 184, 166, 0.8)'
+            'Guard': 'rgba(20, 184, 166, 0.8)',
+            'ACAF': 'rgba(79, 70, 229, 0.8)'
           };
           return colors[role] || 'rgba(107, 114, 128, 0.8)';
         }),
         borderColor: roles.map(role => {
           const colors: { [key: string]: string } = {
             'Administrator': 'rgba(147, 51, 234, 1)',
+            'President': 'rgba(236, 72, 153, 1)',
+            'Vice President': 'rgba(56, 189, 248, 1)',
             'HR Personnel': 'rgba(59, 130, 246, 1)',
             'Accounting': 'rgba(34, 197, 94, 1)',
             'Faculty': 'rgba(239, 68, 68, 1)',
             'Staff': 'rgba(249, 115, 22, 1)',
             'SA': 'rgba(234, 179, 8, 1)',
-            'Guard': 'rgba(20, 184, 166, 1)'
+            'Guard': 'rgba(20, 184, 166, 1)',
+            'ACAF': 'rgba(79, 70, 229, 1)'
           };
           return colors[role] || 'rgba(107, 114, 128, 1)';
         }),

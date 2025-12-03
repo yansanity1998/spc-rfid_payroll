@@ -109,6 +109,12 @@ const ModernLoginForm = ({ onClose }: { onClose: () => void }) => {
       case "ACAF":
         navigate("/ACAF/dashboard");
         break;
+      case "President":
+        navigate("/President/dashboard");
+        break;
+      case "Vice President":
+        navigate("/V-President/dashboard");
+        break;
       default:
         toast.error("Role not assigned. Contact admin.");
     }

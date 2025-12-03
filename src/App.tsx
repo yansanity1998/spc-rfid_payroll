@@ -74,6 +74,10 @@ import StaffGovContribution from "./components/Staff/StaffGovContribution";
 import { StaffRequest } from "./components/Staff/StaffRequest";
 import AcafDashboard from "./components/ACAF/acafDashboard";
 import { AcafNav } from "./components/ACAF/acafNav";
+import PresidentDashboard from "./components/President/PresidentDashboard";
+import { PresidentNavBar } from "./components/President/PresidentNavBar";
+import ViceDashboard from "./components/V-President/ViceDashboard";
+import { ViceNavBar } from "./components/V-President/ViceNavBar";
 
 
 function AppContent() {
@@ -87,6 +91,8 @@ function AppContent() {
   const showNavBarSA = location.pathname.startsWith("/SA");
   const showNavBarStaff = location.pathname.startsWith("/Staff");
   const showNavBarACAF = location.pathname.startsWith("/ACAF");
+  const showNavBarPresident = location.pathname.startsWith("/President");
+  const showNavBarVice = location.pathname.startsWith("/V-President");
 
   
   // Check if current route should show full-screen layout (no navigation bars)
@@ -100,7 +106,7 @@ function AppContent() {
     location.pathname === "/diagnose-staff" ||
     location.pathname === "/database-test" ||
     // If no navbar is shown, it's a full-screen route (catches 404)
-    (!showNavBarHR && !showNavBarHRPersonnel && !showNavBarACC && !showNavBarGuard && !showNavBarFaculty && !showNavBarSA && !showNavBarStaff && !showNavBarACAF && location.pathname !== "/");
+    (!showNavBarHR && !showNavBarHRPersonnel && !showNavBarACC && !showNavBarGuard && !showNavBarFaculty && !showNavBarSA && !showNavBarStaff && !showNavBarACAF && !showNavBarPresident && !showNavBarVice && location.pathname !== "/");
 
   return (
     <>
@@ -113,6 +119,8 @@ function AppContent() {
         {!isFullScreenRoute && showNavBarSA && <SANav />}
         {!isFullScreenRoute && showNavBarStaff && <StaffNav />}
         {!isFullScreenRoute && showNavBarACAF && <AcafNav />}
+        {!isFullScreenRoute && showNavBarPresident && <PresidentNavBar />}
+        {!isFullScreenRoute && showNavBarVice && <ViceNavBar />}
 
 
         <Routes>
@@ -185,6 +193,12 @@ function AppContent() {
 
           {/* ACAF */}
           <Route path="/ACAF/dashboard" element={<ProtectedRoute allowedRoles={["ACAF"]}><AcafDashboard /></ProtectedRoute>} />
+
+          {/* PRESIDENT */}
+          <Route path="/President/dashboard" element={<ProtectedRoute allowedRoles={["President"]}><PresidentDashboard /></ProtectedRoute>} />
+
+          {/* VICE PRESIDENT */}
+          <Route path="/V-President/dashboard" element={<ProtectedRoute allowedRoles={["Vice President"]}><ViceDashboard /></ProtectedRoute>} />
 
           {/* DIAGNOSTIC ROUTES */}
           <Route path="/diagnose-sa" element={<DiagnoseSARole />} />

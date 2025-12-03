@@ -201,6 +201,8 @@ export const UserManagement = () => {
       // Role and Position Badge - Smaller
       const roleColors: any = {
         'Administrator': [147, 51, 234],
+        'President': [219, 39, 119],       // pink tone
+        'Vice President': [56, 189, 248],  // sky blue tone
         'HR Personnel': [59, 130, 246],
         'Accounting': [34, 197, 94],
         'Faculty': [220, 38, 38],
@@ -459,6 +461,10 @@ export const UserManagement = () => {
     switch (role) {
       case "Administrator":
         return "from-purple-500 to-purple-600 text-purple-800 bg-purple-100";
+      case "President":
+        return "from-pink-500 to-pink-600 text-pink-800 bg-pink-100";
+      case "Vice President":
+        return "from-sky-500 to-sky-600 text-sky-800 bg-sky-100";
       case "HR Personnel":
         return "from-blue-500 to-blue-600 text-blue-800 bg-blue-100";
       case "Accounting":
@@ -511,7 +517,10 @@ export const UserManagement = () => {
     newAttachment: null // For file upload
   });
 
-  const isNewUserAcaF = newUser.role === "ACAF";
+  const isNewUserAcaF =
+    newUser.role === "ACAF" ||
+    newUser.role === "President" ||
+    newUser.role === "Vice President";
 
 
   const handleTerminateScholarship = async () => {
@@ -2008,6 +2017,8 @@ export const UserManagement = () => {
                   className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
                 >
                   <option>Administrator</option>
+                  <option>President</option>
+                  <option>Vice President</option>
                   <option>HR Personnel</option>
                   <option>Accounting</option>
                   <option>Faculty</option>
@@ -2355,6 +2366,8 @@ export const UserManagement = () => {
                   className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
                 >
                   <option>Administrator</option>
+                  <option>President</option>
+                  <option>Vice President</option>
                   <option>HR Personnel</option>
                   <option>Accounting</option>
                   <option>Faculty</option>
