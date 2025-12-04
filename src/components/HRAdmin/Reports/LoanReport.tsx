@@ -19,6 +19,7 @@ interface LoanReportData {
   guard_approved_date: string;
   requester_position: string;
   profile_picture?: string;
+  attachment?: string | null;
   created_at: string;
 }
 
@@ -119,6 +120,7 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
             guard_approved_date: request.guard_approved_date || '',
             requester_position: userData.positions || '',
             profile_picture: userData.profile_picture,
+            attachment: request.attachment || null,
             created_at: request.created_at
           };
 
@@ -208,7 +210,8 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
       'HR Approver': record.guard_approved_by_name,
       'Dean Approval Date': record.approved_date ? formatDateTime(record.approved_date) : 'Pending',
       'HR Approval Date': record.guard_approved_date ? formatDateTime(record.guard_approved_date) : 'Pending',
-      'Submitted Date': formatDateTime(record.created_at)
+      'Submitted Date': formatDateTime(record.created_at),
+      'Attachment URL': record.attachment || ''
     }));
 
     const headers = Object.keys(csvData[0]);
@@ -329,6 +332,7 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
                 <th>Monthly Deduction</th>
                 <th>Total Months</th>
                 <th>Purpose</th>
+                <th>Attachment</th>
                 <th>Status</th>
                 <th>Dean Approver</th>
                 <th>HR Approver</th>
@@ -346,6 +350,7 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
                   <td>₱${record.monthly_deduction.toLocaleString()}</td>
                   <td>${record.total_months} months</td>
                   <td>${record.purpose}</td>
+                  <td>${record.attachment ? `<a href="${record.attachment}" target="_blank">Open</a>` : 'None'}</td>
                   <td>
                     <span class="status-${record.status.toLowerCase().includes('approved') ? 'approved' : 
                                       record.status.toLowerCase().includes('rejected') ? 'rejected' : 'pending'}">
@@ -628,7 +633,7 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
                     <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Employee Name</th>
                     <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Amount</th>
                     <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Repayment</th>
-                    <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Purpose</th>
+                    <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Attachment</th>
                     <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Status</th>
                     <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Submitted</th>
                   </tr>
@@ -672,9 +677,31 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
                         </div>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
-                        <p className="text-sm text-gray-700 max-w-xs truncate" title={record.purpose}>
-                          {record.purpose}
-                        </p>
+                        {record.attachment ? (
+                          <a
+                            href={record.attachment}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors"
+                          >
+                            <svg
+                              className="w-3.5 h-3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828L18 9.828M6.343 17.657a4 4 0 005.657 0L20 9.657a4 4 0 00-5.657-5.657L7.05 11.293"
+                              />
+                            </svg>
+                            <span>View file</span>
+                          </a>
+                        ) : (
+                          <span className="text-xs text-gray-400">No attachment</span>
+                        )}
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(record.status)}`}>
