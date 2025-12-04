@@ -287,8 +287,8 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen w-full lg:ml-64 py-5 roboto bg-red-200 flex items-start justify-center">
-        <main className="flex flex-col w-full max-w-6xl p-3 sm:p-4 bg-white border border-gray-200 shadow-2xl rounded-2xl mx-4">
+      <div className="min-h-screen w-full lg:ml-70 py-5 roboto bg-red-200 flex items-start justify-center">
+        <main className="flex flex-col w-full max-w-7xl p-3 sm:p-4 bg-white border border-gray-200 shadow-2xl rounded-2xl mx-4">
           <div className="flex items-center justify-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
             <span className="ml-3 text-lg text-gray-600">Loading employee data...</span>
@@ -299,8 +299,8 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
   }
 
   return (
-    <div className="min-h-screen w-full lg:ml-64 py-5 roboto bg-red-200 flex items-start justify-center">
-      <main className="flex flex-col w-full max-w-6xl p-3 sm:p-4 bg-white border border-gray-200 shadow-2xl rounded-2xl mx-4">
+    <div className="min-h-screen w-full lg:ml-70 py-5 roboto bg-red-200 flex items-start justify-center">
+      <main className="flex flex-col w-full max-w-7xl p-3 sm:p-4 bg-white border border-gray-200 shadow-2xl rounded-2xl mx-4">
         {/* Header */}
         <section className="flex-shrink-0 space-y-4">
           <div className="mb-6">
@@ -498,20 +498,35 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
         </div>
 
         {/* Employee Table */}
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="bg-gray-50 border border-gray-200 shadow-xl rounded-2xl overflow-hidden mt-6">
+          <div className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-700 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">Employee Records</h2>
+                <p className="text-xs text-gray-600">
+                  Showing {filteredAndSortedEmployees.length} of {employees.length} employees
+                </p>
+              </div>
+            </div>
+          </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-xs sm:text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Employee Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Role</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Position</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Department</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Info</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Contact</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Hired</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Scholarship</th>
+            <table className="min-w-full border-collapse text-sm">
+              <thead className="bg-gradient-to-r from-red-600 to-red-700 text-white">
+                <tr>
+                  <th className="px-3 py-2.5 text-left border-b text-xs font-medium">Employee Name</th>
+                  <th className="px-3 py-2.5 text-left border-b text-xs font-medium">Role</th>
+                  <th className="px-3 py-2.5 text-left border-b text-xs font-medium">Position</th>
+                  <th className="px-3 py-2.5 text-left border-b text-xs font-medium">Department</th>
+                  <th className="px-3 py-2.5 text-left border-b text-xs font-medium">Info</th>
+                  <th className="px-3 py-2.5 text-left border-b text-xs font-medium">Contact</th>
+                  <th className="px-3 py-2.5 text-left border-b text-xs font-medium">Hired</th>
+                  <th className="px-3 py-2.5 text-left border-b text-xs font-medium">Status</th>
+                  <th className="px-3 py-2.5 text-left border-b text-xs font-medium">Scholarship</th>
                 </tr>
               </thead>
               <tbody className="bg-white">
@@ -529,28 +544,28 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
                   </tr>
                 ) : (
                   filteredAndSortedEmployees.map((employee) => (
-                    <tr key={employee.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
-                      <td className="px-4 py-3">
+                    <tr key={employee.id} className="hover:bg-white/80 transition-all duration-200 group border-b border-gray-100">
+                      <td className="px-3 py-3">
                         <div className="text-sm font-medium text-gray-900">{employee.name || "—"}</div>
                         <div className="text-xs text-gray-500 mt-0.5">{employee.email || "—"}</div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-3">
                         <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium ${getRoleColor(employee.role)}`}>
                           {employee.role || "—"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
+                      <td className="px-3 py-3 text-sm text-gray-700">
                         {employee.positions || "—"}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
+                      <td className="px-3 py-3 text-sm text-gray-700">
                         {employee.department || "—"}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-3">
                         <div className="text-xs text-gray-600">
                           <div>{employee.age || "—"} • {employee.gender || "—"}</div>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-3">
                         <div className="text-xs text-gray-600">
                           <div>{employee.contact_no || "—"}</div>
                           <div className="text-gray-400 max-w-xs truncate mt-0.5" title={employee.address}>
@@ -558,10 +573,10 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
+                      <td className="px-3 py-3 text-sm text-gray-700">
                         {employee.hiredDate ? new Date(employee.hiredDate).toLocaleDateString() : "—"}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-3">
                         <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
                           employee.status === "Active" 
                             ? "bg-green-50 text-green-700 border border-green-200" 
@@ -570,7 +585,7 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
                           {employee.status || "—"}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-3">
                         {employee.role === "Faculty" ? (
                           (() => {
                             const scholarship = getScholarship(employee.id);
@@ -600,13 +615,10 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
               </tbody>
             </table>
           </div>
-        </div>
-
-        {/* Summary Footer */}
-        <div className="mt-6 bg-gray-50 p-4 rounded-xl">
-          <div className="flex items-center justify-between text-sm text-gray-600">
+          {/* Summary Footer */}
+          <div className="px-6 py-4 bg-white border-t border-gray-200 flex items-center justify-between text-sm text-gray-600">
             <div>
-              Showing {filteredAndSortedEmployees.length} of {employees.length} employees
+              Showing <span className="font-medium">{filteredAndSortedEmployees.length}</span> of {employees.length} employees
               {selectedRole !== "All" && (
                 <span className="ml-2 px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">
                   Role: {selectedRole}

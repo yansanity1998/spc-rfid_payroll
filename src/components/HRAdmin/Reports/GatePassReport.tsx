@@ -1062,6 +1062,13 @@ export const GatePassReport = ({ onBack }: GatePassReportProps) => {
               </table>
             </div>
           )}
+          {/* Summary Footer */}
+          <div className="px-6 py-4 bg-white border-t border-gray-200 flex items-center justify-between text-sm text-gray-600">
+            <div>
+              Showing <span className="font-medium">{gatePassData.length}</span> gate pass records
+            </div>
+            <div>Generated on {new Date().toLocaleDateString()}</div>
+          </div>
         </div>
 
         {/* View Gate Pass Modal */}

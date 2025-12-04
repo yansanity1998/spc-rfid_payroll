@@ -660,7 +660,7 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
                   </p>
                 </div>
               </div>
-            </div>
+            </div>  
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse text-sm">

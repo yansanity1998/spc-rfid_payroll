@@ -4,6 +4,7 @@ import {
   Route,
   Routes,
   useLocation,
+  useNavigate,
 } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { NotFound } from "./components/NotFound";
@@ -16,6 +17,12 @@ import { Requests } from "./components/HRAdmin/Requests";
 import { Clearance } from "./components/HRAdmin/Clearance";
 import { ClearanceDocuments } from "./components/HRAdmin/ClearanceDocuments";
 import Reports from "./components/HRAdmin/Reports";
+import { AttendanceReport } from "./components/HRAdmin/Reports/AttendanceReport";
+import { EmployeeReport } from "./components/HRAdmin/Reports/EmployeeReport";
+import { PayrollReport } from "./components/HRAdmin/Reports/PayrollReport";
+import { LeaveReport } from "./components/HRAdmin/Reports/LeaveReport";
+import { LoanReport } from "./components/HRAdmin/Reports/LoanReport";
+import { GatePassReport } from "./components/HRAdmin/Reports/GatePassReport";
 import Dashboard from "./components/HRAdmin/Dashboard";
 import Schedule from "./components/HRAdmin/Schedule";
 import { Holiday } from "./components/HRAdmin/Holiday";
@@ -30,6 +37,12 @@ import { Requests as HRRequests } from "./components/HR/Requests";
 import { Clearance as HRClearance } from "./components/HR/Clearance";
 import { ClearanceDocuments as HRClearanceDocuments } from "./components/HR/ClearanceDocuments";
 import HRReports from "./components/HR/Reports";
+import { AttendanceReport as HRAttendanceDetail } from "./components/HR/Reports/AttendanceReport";
+import { EmployeeReport as HREmployeeDetail } from "./components/HR/Reports/EmployeeReport";
+import { PayrollReport as HRPayrollDetail } from "./components/HR/Reports/PayrollReport";
+import { LeaveReport as HRLeaveDetail } from "./components/HR/Reports/LeaveReport";
+import { LoanReport as HRLoanDetail } from "./components/HR/Reports/LoanReport";
+import { GatePassReport as HRGatePassDetail } from "./components/HR/Reports/GatePassReport";
 import HRSchedule from "./components/HR/Schedule";
 import AccDashboard from "./components/Accounting/Dashboard";
 import { NavAccounting } from "./components/Accounting/NavAcc";
@@ -83,6 +96,68 @@ import ViceDashboard from "./components/V-President/ViceDashboard";
 import { ViceNavBar } from "./components/V-President/ViceNavBar";
 import ViceRequest from "./components/V-President/ViceRequest";
 
+
+// HR Admin Report detail pages with proper routing and back navigation
+const HRAttendanceReportPage = () => {
+  const navigate = useNavigate();
+  return <AttendanceReport onBack={() => navigate("/hrAdmin/reports")} />;
+};
+
+const HREmployeeReportPage = () => {
+  const navigate = useNavigate();
+  return <EmployeeReport onBack={() => navigate("/hrAdmin/reports")} />;
+};
+
+const HRPayrollReportPage = () => {
+  const navigate = useNavigate();
+  return <PayrollReport onBack={() => navigate("/hrAdmin/reports")} />;
+};
+
+const HRLeaveReportPage = () => {
+  const navigate = useNavigate();
+  return <LeaveReport onBack={() => navigate("/hrAdmin/reports")} />;
+};
+
+const HRLoanReportPage = () => {
+  const navigate = useNavigate();
+  return <LoanReport onBack={() => navigate("/hrAdmin/reports")} />;
+};
+
+const HRGatePassReportPage = () => {
+  const navigate = useNavigate();
+  return <GatePassReport onBack={() => navigate("/hrAdmin/reports")} />;
+};
+
+// HR Personnel Report detail pages with proper routing and back navigation
+const HRPersonnelAttendanceReportPage = () => {
+  const navigate = useNavigate();
+  return <HRAttendanceDetail onBack={() => navigate("/HR/reports")} />;
+};
+
+const HRPersonnelEmployeeReportPage = () => {
+  const navigate = useNavigate();
+  return <HREmployeeDetail onBack={() => navigate("/HR/reports")} />;
+};
+
+const HRPersonnelPayrollReportPage = () => {
+  const navigate = useNavigate();
+  return <HRPayrollDetail onBack={() => navigate("/HR/reports")} />;
+};
+
+const HRPersonnelLeaveReportPage = () => {
+  const navigate = useNavigate();
+  return <HRLeaveDetail onBack={() => navigate("/HR/reports")} />;
+};
+
+const HRPersonnelLoanReportPage = () => {
+  const navigate = useNavigate();
+  return <HRLoanDetail onBack={() => navigate("/HR/reports")} />;
+};
+
+const HRPersonnelGatePassReportPage = () => {
+  const navigate = useNavigate();
+  return <HRGatePassDetail onBack={() => navigate("/HR/reports")} />;
+};
 
 
 function AppContent() {
@@ -144,6 +219,12 @@ function AppContent() {
           <Route path="/hrAdmin/clearance" element={<ProtectedRoute allowedRoles={["Administrator"]}><Clearance /></ProtectedRoute>} />
           <Route path="/hrAdmin/documents" element={<ProtectedRoute allowedRoles={["Administrator"]}><ClearanceDocuments /></ProtectedRoute>} />
           <Route path="/hrAdmin/reports" element={<ProtectedRoute allowedRoles={["Administrator"]}><Reports /></ProtectedRoute>} />
+          <Route path="/hrAdmin/reports/attendance" element={<ProtectedRoute allowedRoles={["Administrator"]}><HRAttendanceReportPage /></ProtectedRoute>} />
+          <Route path="/hrAdmin/reports/employees" element={<ProtectedRoute allowedRoles={["Administrator"]}><HREmployeeReportPage /></ProtectedRoute>} />
+          <Route path="/hrAdmin/reports/payroll" element={<ProtectedRoute allowedRoles={["Administrator"]}><HRPayrollReportPage /></ProtectedRoute>} />
+          <Route path="/hrAdmin/reports/leave" element={<ProtectedRoute allowedRoles={["Administrator"]}><HRLeaveReportPage /></ProtectedRoute>} />
+          <Route path="/hrAdmin/reports/loan" element={<ProtectedRoute allowedRoles={["Administrator"]}><HRLoanReportPage /></ProtectedRoute>} />
+          <Route path="/hrAdmin/reports/gatepass" element={<ProtectedRoute allowedRoles={["Administrator"]}><HRGatePassReportPage /></ProtectedRoute>} />
 
           {/* HR PERSONNEL */}
           <Route path="/HR/dashboard" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRDashboard /></ProtectedRoute>} />
@@ -155,6 +236,12 @@ function AppContent() {
           <Route path="/HR/clearance" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRClearance /></ProtectedRoute>} />
           <Route path="/HR/documents" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRClearanceDocuments /></ProtectedRoute>} />
           <Route path="/HR/reports" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRReports /></ProtectedRoute>} />
+          <Route path="/HR/reports/attendance" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRPersonnelAttendanceReportPage /></ProtectedRoute>} />
+          <Route path="/HR/reports/employees" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRPersonnelEmployeeReportPage /></ProtectedRoute>} />
+          <Route path="/HR/reports/payroll" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRPersonnelPayrollReportPage /></ProtectedRoute>} />
+          <Route path="/HR/reports/leave" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRPersonnelLeaveReportPage /></ProtectedRoute>} />
+          <Route path="/HR/reports/loan" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRPersonnelLoanReportPage /></ProtectedRoute>} />
+          <Route path="/HR/reports/gatepass" element={<ProtectedRoute allowedRoles={["HR Personnel"]}><HRPersonnelGatePassReportPage /></ProtectedRoute>} />
 
           {/* ACCOUNTING */}
           <Route path="/accounting/dashboard" element={<ProtectedRoute allowedRoles={["Accounting"]}><AccDashboard /></ProtectedRoute>}/>

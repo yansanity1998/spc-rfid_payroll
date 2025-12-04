@@ -426,23 +426,38 @@ export const PayrollReport = ({ onBack }: PayrollReportProps) => {
         </div>
 
         {/* Payroll Table */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="bg-gray-50 border border-gray-200 shadow-xl rounded-2xl overflow-hidden mt-6">
+          <div className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-700 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">Payroll Records</h2>
+                <p className="text-xs text-gray-600">
+                  Showing {filteredAndSortedRecords.length} of {payrollRecords.length} payroll records
+                </p>
+              </div>
+            </div>
+          </div>
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
+            <table className="min-w-full border-collapse text-sm">
+              <thead className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gross Pay</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deductions</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loan Deduction</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Pay</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-3 py-2.5 text-left border-b text-xs font-medium">Employee ID</th>
+                  <th className="px-3 py-2.5 text-left border-b text-xs font-medium">Employee Name</th>
+                  <th className="px-3 py-2.5 text-left border-b text-xs font-medium">Role</th>
+                  <th className="px-3 py-2.5 text-left border-b text-xs font-medium">Period</th>
+                  <th className="px-3 py-2.5 text-left border-b text-xs font-medium">Gross Pay</th>
+                  <th className="px-3 py-2.5 text-left border-b text-xs font-medium">Deductions</th>
+                  <th className="px-3 py-2.5 text-left border-b text-xs font-medium">Loan Deduction</th>
+                  <th className="px-3 py-2.5 text-left border-b text-xs font-medium">Net Pay</th>
+                  <th className="px-3 py-2.5 text-left border-b text-xs font-medium">Status</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white">
                 {filteredAndSortedRecords.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
@@ -457,34 +472,34 @@ export const PayrollReport = ({ onBack }: PayrollReportProps) => {
                   </tr>
                 ) : (
                   filteredAndSortedRecords.map((record) => (
-                    <tr key={record.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-700">
+                    <tr key={record.id} className="hover:bg-white/80 transition-all duration-200 group border-b border-gray-100">
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-700">
                         {record.userId || "N/A"}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
+                      <td className="px-3 py-3 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{record.name || "N/A"}</div>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r ${getRoleColor(record.role || "")}`}>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${getRoleColor(record.role || "")}`}>
                           {record.role || "N/A"}
                         </span>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
                         {record.period || "N/A"}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                         {record.gross > 0 ? `₱${record.gross.toLocaleString()}` : "--"}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-red-600 font-medium">
                         {record.deductions > 0 ? `₱${record.deductions.toLocaleString()}` : "--"}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-orange-600 font-medium">
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-orange-600 font-medium">
                         {record.loan_deduction > 0 ? `₱${record.loan_deduction.toLocaleString()}` : "--"}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-green-600 font-bold">
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-green-600 font-bold">
                         {record.net > 0 ? `₱${record.net.toLocaleString()}` : "--"}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
+                      <td className="px-3 py-3 whitespace-nowrap">
                         <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
                           record.status === "Pending"
                             ? "bg-yellow-100 text-yellow-800"
@@ -503,13 +518,10 @@ export const PayrollReport = ({ onBack }: PayrollReportProps) => {
               </tbody>
             </table>
           </div>
-        </div>
-
-        {/* Summary Footer */}
-        <div className="mt-6 bg-gray-50 p-4 rounded-xl">
-          <div className="flex items-center justify-between text-sm text-gray-600">
+          {/* Summary Footer */}
+          <div className="px-6 py-4 bg-white border-t border-gray-200 flex items-center justify-between text-sm text-gray-600">
             <div>
-              Showing {filteredAndSortedRecords.length} of {payrollRecords.length} payroll records
+              Showing <span className="font-medium">{filteredAndSortedRecords.length}</span> of {payrollRecords.length} payroll records
               {selectedRole !== "All" && (
                 <span className="ml-2 px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">
                   Role: {selectedRole}

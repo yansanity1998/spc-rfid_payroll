@@ -692,6 +692,18 @@ export const LeaveReport = ({ onBack }: LeaveReportProps) => {
               </table>
             </div>
           )}
+          {/* Summary Footer */}
+          <div className="px-6 py-4 bg-white border-t border-gray-200 flex items-center justify-between text-sm text-gray-600">
+            <div>
+              Showing <span className="font-medium">{leaveData.length}</span> leave records
+              {statusFilter !== "All" && (
+                <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
+                  Status: {statusFilter}
+                </span>
+              )}
+            </div>
+            <div>Generated on {new Date().toLocaleDateString()}</div>
+          </div>
         </div>
       </main>
     </div>

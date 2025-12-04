@@ -719,6 +719,18 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
               </table>
             </div>
           )}
+          {/* Summary Footer */}
+          <div className="px-6 py-4 bg-white border-t border-gray-200 flex items-center justify-between text-sm text-gray-600">
+            <div>
+              Showing <span className="font-medium">{loanData.length}</span> loan records
+              {statusFilter !== "All" && (
+                <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">
+                  Status: {statusFilter}
+                </span>
+              )}
+            </div>
+            <div>Generated on {new Date().toLocaleDateString()}</div>
+          </div>
         </div>
       </main>
     </div>

@@ -1,16 +1,11 @@
 // src/pages/Reports.tsx
 import { useState, useEffect, useCallback } from "react";
-import { AttendanceReport } from "./Reports/AttendanceReport";
-import { EmployeeReport } from "./Reports/EmployeeReport";
-import { PayrollReport } from "./Reports/PayrollReport";
-import { LeaveReport } from "./Reports/LeaveReport";
-import { LoanReport } from "./Reports/LoanReport";
-import { GatePassReport } from "./Reports/GatePassReport";
+import { useNavigate } from "react-router-dom";
 import supabase from "../../utils/supabase";
 import toast from "react-hot-toast";
 
 const Reports = () => {
-  const [activeReport, setActiveReport] = useState<string | null>(null);
+  const navigate = useNavigate();
   const [reportStats, setReportStats] = useState({
     attendance: { count: 0, loading: true },
     payroll: { count: 0, loading: true },
@@ -79,6 +74,12 @@ const Reports = () => {
   // Fetch dynamic statistics for each report type
   const fetchReportStatistics = useCallback(async () => {
     try {
+      // Use current month date range for statistics that should align with detailed reports
+      const today = new Date();
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const startDateStr = startOfMonth.toISOString().split("T")[0];
+      const endDateStr = today.toISOString().split("T")[0];
+
       // Set all to loading
       setReportStats(prev => ({
         attendance: { ...prev.attendance, loading: true },
@@ -89,58 +90,70 @@ const Reports = () => {
         gatepass: { ...prev.gatepass, loading: true }
       }));
 
-      // Fetch attendance records count
-      const { data: attendanceData } = await supabase
-        .from("attendance")
-        .select("id", { count: 'exact' });
+      // Use Supabase exact count metadata for all tables to get true totals
+      const [
+        { count: attendanceCount, error: attendanceError },
+        { count: payrollCount, error: payrollError },
+        { count: employeeCount, error: employeeError },
+        { count: leaveCount, error: leaveError },
+        { count: loanCount, error: loanError },
+        { count: gatePassCount, error: gatePassError }
+      ] = await Promise.all([
+        supabase
+          .from("attendance")
+          .select("id", { count: "exact", head: true }),
+        supabase
+          .from("payrolls")
+          .select("id", { count: "exact", head: true }),
+        supabase
+          .from("users")
+          .select("id", { count: "exact", head: true }),
+        supabase
+          .from("requests")
+          .select("id", { count: "exact", head: true })
+          .eq("request_type", "Leave")
+          .gte("created_at", `${startDateStr}T00:00:00`)
+          .lte("created_at", `${endDateStr}T23:59:59`),
+        supabase
+          .from("requests")
+          .select("id", { count: "exact", head: true })
+          .eq("request_type", "Loan")
+          .gte("created_at", `${startDateStr}T00:00:00`)
+          .lte("created_at", `${endDateStr}T23:59:59`),
+        supabase
+          .from("requests")
+          .select("id", { count: "exact", head: true })
+          .eq("request_type", "Gate Pass")
+      ]);
 
-      // Fetch payroll records count
-      const { data: payrollData } = await supabase
-        .from("payrolls")
-        .select("id", { count: 'exact' });
+      if (attendanceError || payrollError || employeeError || leaveError || loanError || gatePassError) {
+        throw new Error("Failed to fetch one or more report statistics");
+      }
 
-      // Fetch employee/users count
-      const { data: employeeData } = await supabase
-        .from("users")
-        .select("id", { count: 'exact' })
-        .eq("status", "Active");
-
-      // Calculate current month data for leave (simulated)
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
-      
-      // Get monthly attendance for leave calculation (users who took leave)
-      const { data: monthlyAttendance } = await supabase
-        .from("attendance")
-        .select("user_id", { count: 'exact' })
-        .gte('att_date', `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`)
-        .lt('att_date', `${currentYear}-${String(currentMonth + 2).padStart(2, '0')}-01`)
-        .eq('status', false); // Absent records as leave
-
-      // Update statistics
+      // Update statistics using exact total counts from the database
       setReportStats({
         attendance: { 
-          count: attendanceData?.length || 0, 
+          count: attendanceCount || 0, 
           loading: false 
         },
         payroll: { 
-          count: payrollData?.length || 0, 
+          count: payrollCount || 0, 
           loading: false 
         },
         leave: { 
-          count: monthlyAttendance?.length || 0, 
+          count: leaveCount || 0, 
           loading: false 
         },
         loan: { 
-          count: Math.floor((employeeData?.length || 0) * 0.3), // Estimated 30% have loans
+          count: loanCount || 0,
           loading: false 
         },
         employee: { 
-          count: employeeData?.length || 0, 
+          count: employeeCount || 0, 
           loading: false 
         },
         gatepass: { 
-          count: reports.length, // Use reports array length to match the total
+          count: gatePassCount || 0,
           loading: false 
         }
       });
@@ -411,31 +424,6 @@ const Reports = () => {
     URL.revokeObjectURL(url);
   };
 
-  // Show specific report component if active
-  if (activeReport === 'attendance') {
-    return <AttendanceReport onBack={() => setActiveReport(null)} />;
-  }
-  
-  if (activeReport === 'employee') {
-    return <EmployeeReport onBack={() => setActiveReport(null)} />;
-  }
-  
-  if (activeReport === 'payroll') {
-    return <PayrollReport onBack={() => setActiveReport(null)} />;
-  }
-
-  if (activeReport === 'leave') {
-    return <LeaveReport onBack={() => setActiveReport(null)} />;
-  }
-
-  if (activeReport === 'loan') {
-    return <LoanReport onBack={() => setActiveReport(null)} />;
-  }
-
-  if (activeReport === 'gatepass') {
-    return <GatePassReport onBack={() => setActiveReport(null)} />;
-  }
-
   return (
     <div className="min-h-screen w-full lg:ml-70 py-5 roboto px-3 sm:px-5 bg-red-200">
       <main className="flex flex-col w-full max-w-7xl mx-auto p-4 sm:p-6 bg-white border border-gray-200 shadow-2xl rounded-2xl">
@@ -455,21 +443,21 @@ const Reports = () => {
         </section>
 
         {/* Dynamic Report Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-4 mt-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-4">
           {/* Attendance Reports */}
-          <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+          <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 p-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105">
             <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
             <div className="relative z-10 flex items-center justify-between">
               <div className="text-white">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-7 h-7 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                     </svg>
                   </div>
-                  <h2 className="text-base font-semibold">Attendance</h2>
+                  <h2 className="text-sm font-semibold">Attendance</h2>
                 </div>
-                <p className="text-2xl font-bold">
+                <p className="text-xl font-bold">
                   {reportStats.attendance.loading ? (
                     <span className="animate-pulse">...</span>
                   ) : (
@@ -479,23 +467,23 @@ const Reports = () => {
                 <p className="text-blue-100 text-xs mt-1">Total records</p>
               </div>
             </div>
-            <div className="absolute -bottom-1 -right-1 w-12 h-12 bg-white/10 rounded-full"></div>
+            <div className="absolute -bottom-1 -right-1 w-9 h-9 bg-white/10 rounded-full"></div>
           </div>
 
           {/* Payroll Reports */}
-          <div className="group relative overflow-hidden bg-gradient-to-br from-green-500 to-green-600 p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+          <div className="group relative overflow-hidden bg-gradient-to-br from-green-500 to-green-600 p-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105">
             <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
             <div className="relative z-10 flex items-center justify-between">
               <div className="text-white">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-7 h-7 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <h2 className="text-base font-semibold">Payroll</h2>
+                  <h2 className="text-sm font-semibold">Payroll</h2>
                 </div>
-                <p className="text-2xl font-bold">
+                <p className="text-xl font-bold">
                   {reportStats.payroll.loading ? (
                     <span className="animate-pulse">...</span>
                   ) : (
@@ -505,49 +493,49 @@ const Reports = () => {
                 <p className="text-green-100 text-xs mt-1">Total records</p>
               </div>
             </div>
-            <div className="absolute -bottom-1 -right-1 w-12 h-12 bg-white/10 rounded-full"></div>
+            <div className="absolute -bottom-1 -right-1 w-9 h-9 bg-white/10 rounded-full"></div>
           </div>
 
           {/* Leave Reports */}
-          <div className="group relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+          <div className="group relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 p-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105">
             <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
             <div className="relative z-10 flex items-center justify-between">
               <div className="text-white">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-7 h-7 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 0V6a2 2 0 012-2h4a2 2 0 012 2v1m-6 0h8m-8 0l-2 9a2 2 0 002 2h8a2 2 0 002-2l-2-9m-8 0V8a2 2 0 012-2h4a2 2 0 012 2v1" />
                     </svg>
                   </div>
-                  <h2 className="text-base font-semibold">Leave</h2>
+                  <h2 className="text-sm font-semibold">Leave</h2>
                 </div>
-                <p className="text-2xl font-bold">
+                <p className="text-xl font-bold">
                   {reportStats.leave.loading ? (
                     <span className="animate-pulse">...</span>
                   ) : (
                     reportStats.leave.count.toLocaleString()
                   )}
                 </p>
-                <p className="text-purple-100 text-xs mt-1">This month</p>
+                <p className="text-purple-100 text-xs mt-1">Total leave requests</p>
               </div>
             </div>
-            <div className="absolute -bottom-1 -right-1 w-12 h-12 bg-white/10 rounded-full"></div>
+            <div className="absolute -bottom-1 -right-1 w-9 h-9 bg-white/10 rounded-full"></div>
           </div>
 
           {/* Loan Reports */}
-          <div className="group relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-600 p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+          <div className="group relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-600 p-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105">
             <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
             <div className="relative z-10 flex items-center justify-between">
               <div className="text-white">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-7 h-7 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                   </div>
-                  <h2 className="text-base font-semibold">Loan</h2>
+                  <h2 className="text-sm font-semibold">Loan</h2>
                 </div>
-                <p className="text-2xl font-bold">
+                <p className="text-xl font-bold">
                   {reportStats.loan.loading ? (
                     <span className="animate-pulse">...</span>
                   ) : (
@@ -557,49 +545,49 @@ const Reports = () => {
                 <p className="text-orange-100 text-xs mt-1">Active loans</p>
               </div>
             </div>
-            <div className="absolute -bottom-1 -right-1 w-12 h-12 bg-white/10 rounded-full"></div>
+            <div className="absolute -bottom-1 -right-1 w-9 h-9 bg-white/10 rounded-full"></div>
           </div>
 
           {/* Employee Reports */}
-          <div className="group relative overflow-hidden bg-gradient-to-br from-indigo-500 to-indigo-600 p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+          <div className="group relative overflow-hidden bg-gradient-to-br from-indigo-500 to-indigo-600 p-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105">
             <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
             <div className="relative z-10 flex items-center justify-between">
               <div className="text-white">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-7 h-7 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                     </svg>
                   </div>
-                  <h2 className="text-base font-semibold">Employee</h2>
+                  <h2 className="text-sm font-semibold">Employee</h2>
                 </div>
-                <p className="text-2xl font-bold">
+                <p className="text-xl font-bold">
                   {reportStats.employee.loading ? (
                     <span className="animate-pulse">...</span>
                   ) : (
                     reportStats.employee.count.toLocaleString()
                   )}
                 </p>
-                <p className="text-indigo-100 text-xs mt-1">Active users</p>
+                <p className="text-indigo-100 text-xs mt-1">Total employees</p>
               </div>
             </div>
-            <div className="absolute -bottom-1 -right-1 w-12 h-12 bg-white/10 rounded-full"></div>
+            <div className="absolute -bottom-1 -right-1 w-9 h-9 bg-white/10 rounded-full"></div>
           </div>
 
           {/* Gate Pass Reports */}
-          <div className="group relative overflow-hidden bg-gradient-to-br from-cyan-500 to-cyan-600 p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+          <div className="group relative overflow-hidden bg-gradient-to-br from-cyan-500 to-cyan-600 p-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105">
             <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
             <div className="relative z-10 flex items-center justify-between">
               <div className="text-white">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-7 h-7 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                   </div>
-                  <h2 className="text-base font-semibold">Gate Pass</h2>
+                  <h2 className="text-sm font-semibold">Gate Pass</h2>
                 </div>
-                <p className="text-2xl font-bold">
+                <p className="text-xl font-bold">
                   {reportStats.gatepass.loading ? (
                     <span className="animate-pulse">...</span>
                   ) : (
@@ -609,7 +597,7 @@ const Reports = () => {
                 <p className="text-cyan-100 text-xs mt-1">Total requests</p>
               </div>
             </div>
-            <div className="absolute -bottom-1 -right-1 w-12 h-12 bg-white/10 rounded-full"></div>
+            <div className="absolute -bottom-1 -right-1 w-9 h-9 bg-white/10 rounded-full"></div>
           </div>
         </div>
 
@@ -652,20 +640,20 @@ const Reports = () => {
                   <button 
                     onClick={() => {
                       if (report.id === 1) {
-                        setActiveReport('attendance');
+                        navigate("/hrAdmin/reports/attendance");
                       } else if (report.id === 2) {
-                        setActiveReport('payroll');
+                        navigate("/hrAdmin/reports/payroll");
                       } else if (report.id === 3) {
-                        setActiveReport('leave');
+                        navigate("/hrAdmin/reports/leave");
                       } else if (report.id === 4) {
-                        setActiveReport('loan');
+                        navigate("/hrAdmin/reports/loan");
                       } else if (report.id === 6) {
-                        setActiveReport('employee');
+                        navigate("/hrAdmin/reports/employees");
                       } else if (report.id === 7) {
-                        setActiveReport('gatepass');
+                        navigate("/hrAdmin/reports/gatepass");
                       } else {
                         // Handle other report types in the future
-                        alert(`${report.title} functionality coming soon!`);
+                        toast("This report type is coming soon.");
                       }
                     }}
                     className={`flex-1 px-4 py-2.5 bg-gradient-to-r ${report.color} text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2`}

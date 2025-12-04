@@ -66,7 +66,7 @@ export const Requests = () => {
     try {
       console.log('[HR Requests] Fetching ALL requests from Faculty...');
 
-      // Fetch ALL requests from Faculty (Program Head, Full Time, Part Time)
+      // Fetch ALL requests from Faculty (Dean, Program Head, Full Time, Part Time)
       const { data: allRequests, error: requestError } = await supabase
         .from('requests')
         .select('*')
@@ -109,7 +109,7 @@ export const Requests = () => {
         const userData = usersMap.get(request.user_id);
         
         if (userData && userData.role === 'Faculty' && 
-            ['Program Head', 'Full Time', 'Part Time'].includes(userData.positions)) {
+            ['Dean', 'Program Head', 'Full Time', 'Part Time'].includes(userData.positions)) {
           
           const deanApprover = request.approved_by ? usersMap.get(request.approved_by) : null;
           const secondApprover = request.guard_approved_by ? usersMap.get(request.guard_approved_by) : null;
