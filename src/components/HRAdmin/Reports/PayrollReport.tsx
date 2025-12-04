@@ -181,7 +181,7 @@ export const PayrollReport = ({ onBack }: PayrollReportProps) => {
             <thead>
               <tr>
                 <th>Employee ID</th>
-                <th>Employee</th>
+                <th>Employee Name</th>
                 <th>Role</th>
                 <th>Period</th>
                 <th>Gross Pay</th>
@@ -432,7 +432,7 @@ export const PayrollReport = ({ onBack }: PayrollReportProps) => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee Name</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gross Pay</th>

@@ -74,6 +74,7 @@ import StaffGovContribution from "./components/Staff/StaffGovContribution";
 import { StaffRequest } from "./components/Staff/StaffRequest";
 import AcafDashboard from "./components/ACAF/acafDashboard";
 import { AcafNav } from "./components/ACAF/acafNav";
+import AcafRequest from "./components/ACAF/acafRequest";
 import PresidentDashboard from "./components/President/PresidentDashboard";
 import { PresidentNavBar } from "./components/President/PresidentNavBar";
 import PresidentRequest from "./components/President/PresidentRequest";
@@ -197,6 +198,7 @@ function AppContent() {
 
           {/* ACAF */}
           <Route path="/ACAF/dashboard" element={<ProtectedRoute allowedRoles={["ACAF"]}><AcafDashboard /></ProtectedRoute>} />
+          <Route path="/ACAF/requests" element={<ProtectedRoute allowedRoles={["ACAF"]}><AcafRequest /></ProtectedRoute>} />
 
           {/* PRESIDENT */}
           <Route path="/President/dashboard" element={<ProtectedRoute allowedRoles={["President"]}><PresidentDashboard /></ProtectedRoute>} />

@@ -322,7 +322,7 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Employee</th>
+                <th>Employee Name</th>
                 <th>Position</th>
                 <th>Loan Amount</th>
                 <th>Date Needed</th>
@@ -625,7 +625,7 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
                 <thead className="bg-gradient-to-r from-orange-600 to-orange-700 text-white sticky top-0 z-10">
                   <tr>
                     <th className="px-3 py-2.5 text-left border-b text-sm font-medium">ID</th>
-                    <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Employee</th>
+                    <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Employee Name</th>
                     <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Amount</th>
                     <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Repayment</th>
                     <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Purpose</th>

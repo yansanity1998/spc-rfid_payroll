@@ -667,7 +667,7 @@ export const AttendanceReport = ({ onBack }: { onBack: () => void }) => {
               <thead className="bg-gradient-to-r from-blue-600 to-blue-700 text-white sticky top-0 z-10">
                 <tr>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Date</th>
-                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Employee</th>
+                  <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Employee Name</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Role</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Category</th>
                   <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Time In</th>

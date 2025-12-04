@@ -314,7 +314,7 @@ export const LeaveReport = ({ onBack }: LeaveReportProps) => {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Employee</th>
+                <th>Employee Name</th>
                 <th>Position</th>
                 <th>Leave Type</th>
                 <th>Start Date</th>
@@ -599,7 +599,7 @@ export const LeaveReport = ({ onBack }: LeaveReportProps) => {
                 <thead className="bg-gradient-to-r from-purple-600 to-purple-700 text-white sticky top-0 z-10">
                   <tr>
                     <th className="px-3 py-2.5 text-left border-b text-sm font-medium">ID</th>
-                    <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Employee</th>
+                    <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Employee Name</th>
                     <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Leave Type</th>
                     <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Duration</th>
                     <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Purpose</th>

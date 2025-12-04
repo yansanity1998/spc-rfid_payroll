@@ -675,7 +675,7 @@ export const GatePassReport = ({ onBack }: GatePassReportProps) => {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Employee</th>
+                <th>Employee Name</th>
                 <th>Role</th>
                 <th>Position</th>
                 <th>Destination</th>
@@ -944,7 +944,7 @@ export const GatePassReport = ({ onBack }: GatePassReportProps) => {
                 <thead className="bg-gradient-to-r from-blue-600 to-blue-700 text-white sticky top-0 z-10">
                   <tr>
                     <th className="px-3 py-2.5 text-left border-b text-sm font-medium">ID</th>
-                    <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Employee</th>
+                    <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Employee Name</th>
                     <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Destination</th>
                     <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Time Schedule</th>
                     <th className="px-3 py-2.5 text-left border-b text-sm font-medium">Purpose</th>

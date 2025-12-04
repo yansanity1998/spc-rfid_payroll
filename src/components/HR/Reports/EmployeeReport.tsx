@@ -503,7 +503,7 @@ export const EmployeeReport = ({ onBack }: EmployeeReportProps) => {
             <table className="w-full text-xs sm:text-sm">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Employee</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Employee Name</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Role</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Position</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Department</th>
