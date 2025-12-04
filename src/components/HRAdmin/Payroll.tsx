@@ -860,7 +860,11 @@ export const Payroll = () => {
         pr.period.toLowerCase().includes(search.toLowerCase());
       
       // Employee type filter
-      const matchesEmployeeType = !sortByEmployeeType || pr.role === sortByEmployeeType;
+      const matchesEmployeeType =
+        !sortByEmployeeType ||
+        pr.role === sortByEmployeeType ||
+        (sortByEmployeeType === "Teaching" && pr.role === "Faculty") ||
+        (sortByEmployeeType === "Non-Teaching" && (pr.role === "Staff" || pr.role === "SA"));
       
       // Period filter
       const matchesPeriod = !sortByPeriod || pr.period === sortByPeriod;
@@ -968,9 +972,8 @@ export const Payroll = () => {
                     <option value="">All Employee Types</option>
                     <option value="HR Personnel">HR Personnel</option>
                     <option value="Accounting">Accounting</option>
-                    <option value="Faculty">Faculty</option>
-                    <option value="Staff">Staff</option>
-                    <option value="SA">SA</option>
+                    <option value="Teaching">Teaching</option>
+                    <option value="Non-Teaching">Non-Teaching</option>
                   </select>
                   <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

@@ -816,7 +816,11 @@ export const UserManagement = () => {
         user.role.toLowerCase().includes(search.toLowerCase()) ||
         user.status.toLowerCase().startsWith(search.toLowerCase());
       
-      const matchesSort = sortBy === "All" || user.role === sortBy;
+      const matchesSort =
+        sortBy === "All" ||
+        user.role === sortBy ||
+        (sortBy === "Teaching" && user.role === "Faculty") ||
+        (sortBy === "Non-Teaching" && (user.role === "Staff" || user.role === "SA"));
       
       return matchesSearch && matchesSort;
     }
@@ -856,7 +860,6 @@ export const UserManagement = () => {
                   className="w-full pl-10 pr-4 py-2.5 bg-white border-2 border-gray-300 rounded-xl text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 shadow-sm"
                 />
                 <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
 
@@ -868,13 +871,10 @@ export const UserManagement = () => {
                   className="appearance-none bg-white border-2 border-gray-300 rounded-xl px-4 py-2.5 pr-10 text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 cursor-pointer shadow-sm"
                 >
                   <option value="All">All Employee Types</option>
-                  <option value="Administrator">Administrator</option>
                   <option value="HR Personnel">HR Personnel</option>
                   <option value="Accounting">Accounting</option>
-                  <option value="Faculty">Faculty</option>
-                  <option value="Staff">Staff</option>
-                  <option value="SA">SA</option>
-                  <option value="Guard">Guard</option>
+                  <option value="Teaching">Teaching</option>
+                  <option value="Non-Teaching">Non-Teaching</option>
                 </select>
                 <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -1207,12 +1207,15 @@ export const UserManagement = () => {
                   className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
                 >
                   <option>Administrator</option>
+                  <option>President</option>
+                  <option>Vice President</option>
                   <option>HR Personnel</option>
                   <option>Accounting</option>
                   <option>Faculty</option>
                   <option>Staff</option>
                   <option>SA</option>
                   <option>Guard</option>
+                  <option>ACAF</option>
                 </select>
               </div>
               

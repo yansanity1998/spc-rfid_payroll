@@ -43,7 +43,12 @@ export const Attendance = () => {
         }
       }
     )
-    .filter((log) => regularSortBy === "all" || log.role === regularSortBy)
+    .filter((log) => {
+      if (regularSortBy === "all") return true;
+      if (regularSortBy === "Teaching") return log.role === "Faculty";
+      if (regularSortBy === "Non-Teaching") return log.role === "Staff" || log.role === "SA";
+      return log.role === regularSortBy;
+    })
     .filter((log) => {
       // Filter by session
       if (sessionSort === "all") return true;
@@ -827,9 +832,8 @@ export const Attendance = () => {
                   <option value="all">All Roles</option>
                   <option value="HR Personnel">HR Personnel</option>
                   <option value="Accounting">Accounting</option>
-                  <option value="Faculty">Faculty</option>
-                  <option value="Staff">Staff</option>
-                  <option value="SA">SA</option>
+                  <option value="Teaching">Teaching</option>
+                  <option value="Non-Teaching">Non-Teaching</option>
                 </select>
                 <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

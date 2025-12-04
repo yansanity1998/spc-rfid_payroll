@@ -38,6 +38,7 @@ export const ViceNavBar = () => {
 
 	const menu = [
 		{ key: "dashboard", label: "Dashboard", link: "/V-President/dashboard" },
+		{ key: "requests", label: "Requests", link: "/V-President/requests" },
 	];
 
 	const getMenuIcon = (key: string) => {

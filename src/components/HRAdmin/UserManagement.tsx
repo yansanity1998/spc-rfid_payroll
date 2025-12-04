@@ -1585,7 +1585,11 @@ export const UserManagement = () => {
         user.role.toLowerCase().includes(search.toLowerCase()) ||
         user.status.toLowerCase().startsWith(search.toLowerCase());
       
-      const matchesSort = sortBy === "All" || user.role === sortBy;
+      const matchesSort =
+        sortBy === "All" ||
+        user.role === sortBy ||
+        (sortBy === "Teaching" && user.role === "Faculty") ||
+        (sortBy === "Non-Teaching" && (user.role === "Staff" || user.role === "SA"));
       
       return matchesSearch && matchesSort;
     }
@@ -1640,11 +1644,8 @@ export const UserManagement = () => {
                   {/* Administrator removed from sorting per request */}
                   <option value="HR Personnel">HR Personnel</option>
                   <option value="Accounting">Accounting</option>
-                  <option value="Faculty">Faculty</option>
-                  <option value="Staff">Staff</option>
-                  <option value="SA">SA</option>
-                  <option value="Guard">Guard</option>
-                  <option value="ACAF">ACAF</option>
+                  <option value="Teaching">Teaching</option>
+                  <option value="Non-Teaching">Non-Teaching</option>
                 </select>
                 <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />

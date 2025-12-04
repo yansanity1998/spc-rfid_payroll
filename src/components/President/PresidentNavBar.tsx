@@ -38,6 +38,7 @@ export const PresidentNavBar = () => {
 
 	const menu = [
 		{ key: "dashboard", label: "Dashboard", link: "/President/dashboard" },
+		{ key: "requests", label: "Requests", link: "/President/requests" },
 	];
 
 	const getMenuIcon = (key: string) => {

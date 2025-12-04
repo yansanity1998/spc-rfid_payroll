@@ -17,7 +17,8 @@ export const FacRequest = () => {
     purpose: "",
     destination: "",
     time_out: "",
-    time_in: ""
+    time_in: "",
+    attachment: null as File | null
   });
   
   const [loanForm, setLoanForm] = useState({
@@ -26,7 +27,8 @@ export const FacRequest = () => {
     date_needed: "",
     repayment_terms: "",
     period_deduction: "",
-    total_periods: ""
+    total_periods: "",
+    attachment: null as File | null
   });
 
   // Auto-calculate period deduction when amount or total periods change
@@ -141,6 +143,42 @@ export const FacRequest = () => {
         const needsDeanApproval = userData.role === 'Faculty' && 
           ['Program Head', 'Full Time', 'Part Time'].includes(userData.positions);
 
+        // Handle attachment upload if file is provided
+        let attachmentUrl = null;
+        if (gatePassForm.attachment) {
+          try {
+            const fileExt = gatePassForm.attachment.name.split('.').pop();
+            const fileName = `${userData.id}_gatepass_${Date.now()}.${fileExt}`;
+            const filePath = `request_attachments/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+              .from('documents')
+              .upload(filePath, gatePassForm.attachment);
+
+            if (uploadError) {
+              console.error('[FacRequest] Gate Pass attachment upload error:', uploadError);
+              throw uploadError;
+            }
+
+            const { data: { publicUrl } } = supabase.storage
+              .from('documents')
+              .getPublicUrl(filePath);
+
+            attachmentUrl = publicUrl;
+            console.log('[FacRequest] Gate Pass attachment uploaded successfully:', attachmentUrl);
+          } catch (error: any) {
+            console.error('[FacRequest] Error uploading gate pass attachment:', error);
+            await Swal.fire({
+              title: 'Upload Error!',
+              text: `Failed to upload attachment: ${error.message}`,
+              icon: 'error',
+              confirmButtonColor: '#dc2626',
+              confirmButtonText: 'OK'
+            });
+            return;
+          }
+        }
+
         const requestData = {
           user_id: userData.id,
           request_type: "Gate Pass",
@@ -149,10 +187,11 @@ export const FacRequest = () => {
           time_in: gatePassForm.time_in ? new Date(gatePassForm.time_in).toISOString() : null,
           purpose: gatePassForm.purpose,
           destination: gatePassForm.destination,
+          attachment: attachmentUrl,
           status: needsDeanApproval ? "Pending Dean Approval" : "Pending",
           dean_approval_required: needsDeanApproval,
           requester_position: userData.positions,
-          approved_by: needsDeanApproval ? null : "ROY AURELIO BACOMO"
+          approved_by: null
         };
 
         console.log('[FacRequest] Submitting Gate Pass request:', requestData);
@@ -163,7 +202,7 @@ export const FacRequest = () => {
 
         if (!error) {
           setActiveForm(null);
-          setGatePassForm({ purpose: "", destination: "", time_out: "", time_in: "" });
+          setGatePassForm({ purpose: "", destination: "", time_out: "", time_in: "", attachment: null });
           fetchRequests();
           
           await Swal.fire({
@@ -208,6 +247,42 @@ export const FacRequest = () => {
         const needsDeanApproval = userData.role === 'Faculty' && 
           ['Program Head', 'Full Time', 'Part Time'].includes(userData.positions);
 
+        // Handle attachment upload if file is provided
+        let attachmentUrl = null;
+        if (loanForm.attachment) {
+          try {
+            const fileExt = loanForm.attachment.name.split('.').pop();
+            const fileName = `${userData.id}_loan_${Date.now()}.${fileExt}`;
+            const filePath = `request_attachments/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+              .from('documents')
+              .upload(filePath, loanForm.attachment);
+
+            if (uploadError) {
+              console.error('[FacRequest] Loan attachment upload error:', uploadError);
+              throw uploadError;
+            }
+
+            const { data: { publicUrl } } = supabase.storage
+              .from('documents')
+              .getPublicUrl(filePath);
+
+            attachmentUrl = publicUrl;
+            console.log('[FacRequest] Loan attachment uploaded successfully:', attachmentUrl);
+          } catch (error: any) {
+            console.error('[FacRequest] Error uploading loan attachment:', error);
+            await Swal.fire({
+              title: 'Upload Error!',
+              text: `Failed to upload attachment: ${error.message}`,
+              icon: 'error',
+              confirmButtonColor: '#dc2626',
+              confirmButtonText: 'OK'
+            });
+            return;
+          }
+        }
+
         const requestData = {
           user_id: userData.id,
           request_type: "Loan",
@@ -218,10 +293,11 @@ export const FacRequest = () => {
           repayment_terms: loanForm.repayment_terms,
           period_deduction: loanForm.period_deduction ? parseFloat(loanForm.period_deduction) : null,
           total_periods: loanForm.total_periods ? parseInt(loanForm.total_periods) : null,
+          attachment: attachmentUrl,
           status: needsDeanApproval ? "Pending Dean Approval" : "Pending",
           dean_approval_required: needsDeanApproval,
           requester_position: userData.positions,
-          approved_by: needsDeanApproval ? null : "ROY AURELIO BACOMO"
+          approved_by: null
         };
 
         console.log('[FacRequest] Submitting Loan request:', requestData);
@@ -232,7 +308,7 @@ export const FacRequest = () => {
 
         if (!error) {
           setActiveForm(null);
-          setLoanForm({ amount: "", reason: "", date_needed: "", repayment_terms: "", period_deduction: "", total_periods: "" });
+          setLoanForm({ amount: "", reason: "", date_needed: "", repayment_terms: "", period_deduction: "", total_periods: "", attachment: null });
           fetchRequests();
           
           await Swal.fire({
@@ -332,7 +408,7 @@ export const FacRequest = () => {
           status: needsDeanApproval ? "Pending Dean Approval" : "Pending",
           dean_approval_required: needsDeanApproval,
           requester_position: userData.positions,
-          approved_by: needsDeanApproval ? null : "ROY AURELIO BACOMO"
+          approved_by: null
         };
 
         console.log('[FacRequest] Submitting Leave request:', requestData);
@@ -601,6 +677,44 @@ export const FacRequest = () => {
                       placeholder="Explain the purpose of your visit"
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Supporting Document (Attachment)</label>
+                    <div className="space-y-2">
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (file.size > 10 * 1024 * 1024) {
+                              toast.error('File size must be less than 10MB');
+                              return;
+                            }
+                            setGatePassForm({...gatePassForm, attachment: file});
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      />
+                      {gatePassForm.attachment && (
+                        <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                          <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <span className="text-sm text-blue-800 font-medium flex-1">{gatePassForm.attachment.name}</span>
+                          <button
+                            onClick={() => setGatePassForm({...gatePassForm, attachment: null})}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-500">Upload supporting document (PDF, DOC, DOCX, JPG, PNG - Max 10MB)</p>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Modal Footer */}
@@ -718,6 +832,44 @@ export const FacRequest = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
                       placeholder="Additional repayment terms or conditions"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Supporting Document (Attachment)</label>
+                    <div className="space-y-2">
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (file.size > 10 * 1024 * 1024) {
+                              toast.error('File size must be less than 10MB');
+                              return;
+                            }
+                            setLoanForm({...loanForm, attachment: file});
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                      />
+                      {loanForm.attachment && (
+                        <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-200">
+                          <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <span className="text-sm text-green-800 font-medium flex-1">{loanForm.attachment.name}</span>
+                          <button
+                            onClick={() => setLoanForm({...loanForm, attachment: null})}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-500">Upload supporting document (PDF, DOC, DOCX, JPG, PNG - Max 10MB)</p>
+                    </div>
                   </div>
                 </div>
 
@@ -1237,6 +1389,30 @@ export const FacRequest = () => {
                     )}
                   </div>
                 </div>
+
+                {selectedRequest.attachment && (
+                  <div className="bg-gray-50 rounded-2xl p-6 border border-dashed border-gray-300 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-gray-200 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828L18 9.828M6.343 17.657a4 4 0 005.657 0L20 9.657a4 4 0 00-5.657-5.657L7.05 11.293" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800">Attachment</p>
+                        <p className="text-xs text-gray-500">Click the button to view the uploaded document.</p>
+                      </div>
+                    </div>
+                    <a
+                      href={selectedRequest.attachment}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 text-white hover:shadow-md transition-all duration-200"
+                    >
+                      View attachment
+                    </a>
+                  </div>
+                )}
 
                 {/* Gate Pass Details */}
                 {selectedRequest.request_type === 'Gate Pass' && (

@@ -76,8 +76,12 @@ import AcafDashboard from "./components/ACAF/acafDashboard";
 import { AcafNav } from "./components/ACAF/acafNav";
 import PresidentDashboard from "./components/President/PresidentDashboard";
 import { PresidentNavBar } from "./components/President/PresidentNavBar";
+import PresidentRequest from "./components/President/PresidentRequest";
+
 import ViceDashboard from "./components/V-President/ViceDashboard";
 import { ViceNavBar } from "./components/V-President/ViceNavBar";
+import ViceRequest from "./components/V-President/ViceRequest";
+
 
 
 function AppContent() {
@@ -196,9 +200,11 @@ function AppContent() {
 
           {/* PRESIDENT */}
           <Route path="/President/dashboard" element={<ProtectedRoute allowedRoles={["President"]}><PresidentDashboard /></ProtectedRoute>} />
+          <Route path="/President/requests" element={<ProtectedRoute allowedRoles={["President"]}><PresidentRequest /></ProtectedRoute>} />
 
           {/* VICE PRESIDENT */}
           <Route path="/V-President/dashboard" element={<ProtectedRoute allowedRoles={["Vice President"]}><ViceDashboard /></ProtectedRoute>} />
+          <Route path="/V-President/requests" element={<ProtectedRoute allowedRoles={["Vice President"]}><ViceRequest /></ProtectedRoute>} />
 
           {/* DIAGNOSTIC ROUTES */}
           <Route path="/diagnose-sa" element={<DiagnoseSARole />} />
