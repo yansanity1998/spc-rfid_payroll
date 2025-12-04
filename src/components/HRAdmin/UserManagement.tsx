@@ -60,6 +60,7 @@ export const UserManagement = () => {
   const [create, showCreate] = useState(false);
   const [edit, showEdit] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
+  const [scholarshipMap, setScholarshipMap] = useState<Record<number, boolean>>({});
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [editingRfid, setEditingRfid] = useState(false);
@@ -967,21 +968,67 @@ export const UserManagement = () => {
   };
 
   const fetchUsers = async () => {
-    // Fetch all users first
-    const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .order("created_at", { ascending: false });
+    try {
+      let query = supabase
+        .from("users")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error(error);
-    } else {
-      // Filter by archived status using existing status field
-      const filteredData = (data || []).filter(user => {
-        const isArchived = user.status === "Archived";
-        return showArchived ? isArchived : !isArchived;
+      if (showArchived) {
+        query = query.eq("status", "Archived");
+      } else {
+        query = query.neq("status", "Archived");
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error(error);
+        setUsers([]);
+        setScholarshipMap({});
+        return;
+      }
+
+      const fetchedUsers = data || [];
+      setUsers(fetchedUsers);
+
+      if (fetchedUsers.length === 0) {
+        setScholarshipMap({});
+        return;
+      }
+
+      const facultyIds = fetchedUsers
+        .filter((u: any) => u.role === "Faculty")
+        .map((u: any) => u.id);
+
+      if (facultyIds.length === 0) {
+        setScholarshipMap({});
+        return;
+      }
+
+      const { data: scholarshipRows, error: scholarshipError } = await supabase
+        .from("scholarship")
+        .select("user_id, has_scholarship")
+        .in("user_id", facultyIds);
+
+      if (scholarshipError) {
+        console.error("Failed to load scholarship map", scholarshipError);
+        setScholarshipMap({});
+        return;
+      }
+
+      const map: Record<number, boolean> = {};
+      (scholarshipRows || []).forEach((row: any) => {
+        if (row && typeof row.user_id === "number") {
+          map[row.user_id] = !!row.has_scholarship;
+        }
       });
-      setUsers(filteredData);
+
+      setScholarshipMap(map);
+    } catch (err) {
+      console.error("Unexpected error while fetching users", err);
+      setUsers([]);
+      setScholarshipMap({});
     }
   };
 
@@ -1589,7 +1636,9 @@ export const UserManagement = () => {
         sortBy === "All" ||
         user.role === sortBy ||
         (sortBy === "Teaching" && user.role === "Faculty") ||
-        (sortBy === "Non-Teaching" && (user.role === "Staff" || user.role === "SA"));
+        (sortBy === "Non-Teaching" && (user.role === "Staff" || user.role === "SA")) ||
+        (sortBy === "TeachingScholar" && user.role === "Faculty" && scholarshipMap[user.id]) ||
+        (sortBy === "TeachingNoScholar" && user.role === "Faculty" && !scholarshipMap[user.id]);
       
       return matchesSearch && matchesSort;
     }
@@ -1645,6 +1694,8 @@ export const UserManagement = () => {
                   <option value="HR Personnel">HR Personnel</option>
                   <option value="Accounting">Accounting</option>
                   <option value="Teaching">Teaching</option>
+                  <option value="TeachingScholar">Teaching (Scholarship)</option>
+                  <option value="TeachingNoScholar">Teaching (No Scholarship)</option>
                   <option value="Non-Teaching">Non-Teaching</option>
                 </select>
                 <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -1737,8 +1788,47 @@ export const UserManagement = () => {
                         </div>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-gray-800 text-sm">{user.name || 'No Name'}</span>
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-start gap-1.5">
+                            <span className="font-semibold text-gray-800 text-sm truncate max-w-[180px]">
+                              {user.name || 'No Name'}
+                            </span>
+                            {user.role === "Faculty" && scholarshipMap[user.id] && (
+                              <span
+                                className="inline-flex items-center text-red-500"
+                                title="Active scholarship"
+                              >
+                                <svg
+                                  className="w-3 h-3"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <path
+                                    d="M3 9L12 5L21 9L12 13L3 9Z"
+                                    stroke="currentColor"
+                                    strokeWidth="1.2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                  <path
+                                    d="M6 11V15C6 17.2091 8.23858 19 11 19H13C15.7614 19 18 17.2091 18 15V11"
+                                    stroke="currentColor"
+                                    strokeWidth="1.2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                  <path
+                                    d="M19 9V6"
+                                    stroke="currentColor"
+                                    strokeWidth="1.2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
