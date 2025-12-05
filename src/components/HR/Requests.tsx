@@ -306,7 +306,7 @@ export const Requests = () => {
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Faculty Requests Monitor</h1>
             </div>
             <div className="flex items-center justify-between">
-              <p className="text-gray-600">Monitor gate pass, loan, and leave requests from faculty members</p>
+              <p className="text-gray-600">Monitor gate pass, cash advance, and leave requests from faculty members</p>
             </div>
           </div>
 
@@ -542,7 +542,7 @@ export const Requests = () => {
                           req.type === 'Leave' ? 'bg-purple-100 text-purple-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {req.type}
+                          {req.type === 'Loan' ? 'Cash Advance' : req.type}
                         </span>
                       </td>
                       <td className="px-3 py-3 border-b border-gray-200">
@@ -694,7 +694,7 @@ export const Requests = () => {
                           selectedRequestDetails.type === 'Leave' ? 'bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800' :
                           'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800'
                         }`}>
-                          {selectedRequestDetails.type}
+                          {selectedRequestDetails.type === 'Loan' ? 'Cash Advance' : selectedRequestDetails.type}
                         </span>
                       </div>
                     </div>
@@ -836,11 +836,11 @@ export const Requests = () => {
                         <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                         </svg>
-                        Loan Details
+                        Cash Advance Details
                       </h3>
                       <div className="grid md:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-semibold text-green-700 mb-1">Loan Amount</label>
+                          <label className="block text-sm font-semibold text-green-700 mb-1">Cash Advance Amount</label>
                           <p className="text-green-900 bg-white p-3 rounded-lg border border-green-200 text-lg font-bold">
                             ₱{selectedRequestDetails.amount?.toLocaleString() || 'Not specified'}
                           </p>

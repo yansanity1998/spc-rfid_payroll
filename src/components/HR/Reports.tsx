@@ -44,8 +44,8 @@ const Reports = () => {
     },
     {
       id: 4,
-      title: "Loan Reports",
-      description: "Outstanding loan balances and repayment schedules.",
+      title: "Cash Advance Reports",
+      description: "Outstanding cash advance balances and repayment schedules.",
       icon: "M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z",
       color: "from-orange-500 to-orange-600",
       bgColor: "bg-orange-50",
@@ -357,7 +357,7 @@ const Reports = () => {
 
   const exportLoanReport = async () => {
     try {
-      toast.loading("Generating loan report...");
+      toast.loading("Generating cash advance report...");
       
       // Since there's no loan table yet, we'll create a sample report
       const { data, error } = await supabase
@@ -371,20 +371,20 @@ const Reports = () => {
         "Employee ID": user.id,
         "Employee Name": user.name,
         Role: user.role,
-        "Loan Type": Math.random() > 0.5 ? "Personal Loan" : "Emergency Loan",
-        "Loan Amount": (Math.floor(Math.random() * 50000) + 10000).toLocaleString(),
+        "Cash Advance Type": Math.random() > 0.5 ? "Personal Cash Advance" : "Emergency Cash Advance",
+        "Cash Advance Amount": (Math.floor(Math.random() * 50000) + 10000).toLocaleString(),
         "Outstanding Balance": (Math.floor(Math.random() * 30000) + 5000).toLocaleString(),
         "Monthly Payment": (Math.floor(Math.random() * 5000) + 1000).toLocaleString(),
         "Next Payment Date": new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
         Status: Math.random() > 0.3 ? "Active" : "Completed"
       }));
 
-      exportToCSV(loanData, "loan_report");
+      exportToCSV(loanData, "cash_advance_report");
       toast.dismiss();
-      toast.success("Loan report exported successfully!");
+      toast.success("Cash advance report exported successfully!");
     } catch (error) {
       toast.dismiss();
-      toast.error("Failed to export loan report");
+      toast.error("Failed to export cash advance report");
       console.error("Export error:", error);
     }
   };
@@ -522,7 +522,7 @@ const Reports = () => {
             <div className="absolute -bottom-1 -right-1 w-9 h-9 bg-white/10 rounded-full"></div>
           </div>
 
-          {/* Loan Reports */}
+          {/* Loan Reports (Cash Advance) */}
           <div className="group relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-600 p-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105">
             <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
             <div className="relative z-10 flex items-center justify-between">
@@ -533,7 +533,7 @@ const Reports = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                   </div>
-                  <h2 className="text-sm font-semibold">Loan</h2>
+                  <h2 className="text-sm font-semibold">Cash Advance</h2>
                 </div>
                 <p className="text-xl font-bold">
                   {reportStats.loan.loading ? (
@@ -542,7 +542,7 @@ const Reports = () => {
                     reportStats.loan.count.toLocaleString()
                   )}
                 </p>
-                <p className="text-orange-100 text-xs mt-1">Active loans</p>
+                <p className="text-orange-100 text-xs mt-1">Active cash advances</p>
               </div>
             </div>
             <div className="absolute -bottom-1 -right-1 w-9 h-9 bg-white/10 rounded-full"></div>
@@ -640,17 +640,17 @@ const Reports = () => {
                   <button 
                     onClick={() => {
                       if (report.id === 1) {
-                        navigate("/HR/reports/attendance");
+                        navigate("/hrAdmin/reports/attendance");
                       } else if (report.id === 2) {
-                        navigate("/HR/reports/payroll");
+                        navigate("/hrAdmin/reports/payroll");
                       } else if (report.id === 3) {
-                        navigate("/HR/reports/leave");
+                        navigate("/hrAdmin/reports/leave");
                       } else if (report.id === 4) {
-                        navigate("/HR/reports/loan");
+                        navigate("/hrAdmin/reports/loan");
                       } else if (report.id === 6) {
-                        navigate("/HR/reports/employees");
+                        navigate("/hrAdmin/reports/employees");
                       } else if (report.id === 7) {
-                        navigate("/HR/reports/gatepass");
+                        navigate("/hrAdmin/reports/gatepass");
                       } else {
                         // Handle other report types in the future
                         toast("This report type is coming soon.");

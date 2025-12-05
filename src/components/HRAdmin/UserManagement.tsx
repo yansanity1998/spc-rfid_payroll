@@ -495,6 +495,7 @@ export const UserManagement = () => {
     schoolYear: "",
     hiredDate: "",
     department: "",
+    program: "",
     // allow setting positions when creating Faculty / SA / Staff
     positions: "",
     base_salary: "",
@@ -515,7 +516,9 @@ export const UserManagement = () => {
     start_date: '',
     end_date: '',
     attachment: '',
-    newAttachment: null // For file upload
+    attachment2: '',
+    newAttachment: null,
+    newAttachment2: null
   });
 
   const isNewUserAcaF =
@@ -1127,6 +1130,7 @@ export const UserManagement = () => {
           newUser.role === "Faculty" || newUser.role === "SA"
             ? newUser.department
             : null,
+        program: newUser.role === "Faculty" ? (newUser.program || null) : null,
         // include positions for roles that may require it (Faculty, SA, Staff)
         positions: (newUser.role === "Faculty" || newUser.role === "SA" || newUser.role === "Staff") ? (newUser.positions || null) : null,
         base_salary: newUser.base_salary ? Number(newUser.base_salary) : null,
@@ -1221,6 +1225,7 @@ export const UserManagement = () => {
               schoolYear: newUser.schoolYear || null,
               hiredDate: newUser.hiredDate || null,
               department: newUser.role === "Faculty" || newUser.role === "SA" ? newUser.department : null,
+              program: newUser.role === "Faculty" ? (newUser.program || null) : null,
               positions: (newUser.role === "Faculty" || newUser.role === "SA" || newUser.role === "Staff") ? (newUser.positions || null) : null,
               work_am_start: newUser.work_am_start || null,
               work_am_end: newUser.work_am_end || null,
@@ -1278,6 +1283,7 @@ export const UserManagement = () => {
         schoolYear: "",
         hiredDate: "",
         department: "",
+        program: "",
         positions: "",
         base_salary: "",
         work_am_start: "08:00",
@@ -1396,6 +1402,7 @@ export const UserManagement = () => {
       schoolYear: editUser.schoolYear,
       hiredDate: editUser.hiredDate,
       department: editUser.department,
+      program: editUser.role === "Faculty" ? (editUser.program || null) : null,
       age: editUser.age ? parseInt(editUser.age) : null,
       gender: editUser.gender || null,
       address: editUser.address || null,
@@ -1419,40 +1426,75 @@ export const UserManagement = () => {
         .limit(1)
         .single();
 
-      // Handle scholarship attachment upload if a new one was selected
+      // Handle scholarship attachment uploads if new ones were selected
       let attachmentUrl = scholarshipData.attachment;
+      let attachmentUrl2 = scholarshipData.attachment2;
+
       if (scholarshipData.newAttachment) {
         try {
           const fileExt = scholarshipData.newAttachment.name.split('.').pop();
-          const fileName = `${editUser.id}_scholarship_${Date.now()}.${fileExt}`;
+          const fileName = `${editUser.id}_scholarship_1_${Date.now()}.${fileExt}`;
           const filePath = `scholarship_documents/${fileName}`;
-          
-          console.log('Uploading scholarship attachment:', filePath);
-          
+
+          console.log('Uploading scholarship attachment 1:', filePath);
+
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('documents')
             .upload(filePath, scholarshipData.newAttachment, {
               cacheControl: '3600',
               upsert: true
             });
-            
+
           if (uploadError) {
-            console.error('Scholarship attachment upload error:', uploadError);
+            console.error('Scholarship attachment 1 upload error:', uploadError);
             toast.error('Failed to upload scholarship attachment: ' + uploadError.message);
           } else {
-            console.log('Scholarship attachment uploaded successfully:', uploadData);
-            
-            // Get public URL
+            console.log('Scholarship attachment 1 uploaded successfully:', uploadData);
+
             const { data: { publicUrl } } = supabase.storage
               .from('documents')
               .getPublicUrl(filePath);
-            
+
             attachmentUrl = publicUrl;
-            console.log('Scholarship attachment public URL:', attachmentUrl);
+            console.log('Scholarship attachment 1 public URL:', attachmentUrl);
           }
         } catch (error: any) {
-          console.error('Scholarship attachment upload error:', error);
+          console.error('Scholarship attachment 1 upload error:', error);
           toast.error('Failed to upload scholarship attachment: ' + error.message);
+        }
+      }
+
+      if (scholarshipData.newAttachment2) {
+        try {
+          const fileExt2 = scholarshipData.newAttachment2.name.split('.').pop();
+          const fileName2 = `${editUser.id}_scholarship_2_${Date.now()}.${fileExt2}`;
+          const filePath2 = `scholarship_documents/${fileName2}`;
+
+          console.log('Uploading scholarship attachment 2:', filePath2);
+
+          const { data: uploadData2, error: uploadError2 } = await supabase.storage
+            .from('documents')
+            .upload(filePath2, scholarshipData.newAttachment2, {
+              cacheControl: '3600',
+              upsert: true
+            });
+
+          if (uploadError2) {
+            console.error('Scholarship attachment 2 upload error:', uploadError2);
+            toast.error('Failed to upload second scholarship attachment: ' + uploadError2.message);
+          } else {
+            console.log('Scholarship attachment 2 uploaded successfully:', uploadData2);
+
+            const { data: { publicUrl: publicUrl2 } } = supabase.storage
+              .from('documents')
+              .getPublicUrl(filePath2);
+
+            attachmentUrl2 = publicUrl2;
+            console.log('Scholarship attachment 2 public URL:', attachmentUrl2);
+          }
+        } catch (error: any) {
+          console.error('Scholarship attachment 2 upload error:', error);
+          toast.error('Failed to upload second scholarship attachment: ' + error.message);
         }
       }
 
@@ -1468,6 +1510,7 @@ export const UserManagement = () => {
           start_date: scholarshipData.start_date || null,
           end_date: scholarshipData.end_date || null,
           attachment: attachmentUrl || null,
+          attachment2: attachmentUrl2 || null,
           updated_at: new Date().toISOString()
         };
 
@@ -1917,7 +1960,9 @@ export const UserManagement = () => {
                                         start_date: scholarship.start_date || '',
                                         end_date: scholarship.end_date || '',
                                         attachment: scholarship.attachment || '',
-                                        newAttachment: null
+                                        attachment2: (scholarship as any).attachment2 || '',
+                                        newAttachment: null,
+                                        newAttachment2: null
                                       });
                                     } else {
                                       setScholarshipData({
@@ -1930,7 +1975,9 @@ export const UserManagement = () => {
                                         start_date: '',
                                         end_date: '',
                                         attachment: '',
-                                        newAttachment: null
+                                        attachment2: '',
+                                        newAttachment: null,
+                                        newAttachment2: null
                                       });
                                     }
                                   }
@@ -2207,6 +2254,23 @@ export const UserManagement = () => {
                   >
                     <option value="">-- Select Department --</option>
                     <option value="CCS">CCS</option>
+                  </select>
+                </div>
+              )}
+              {newUser.role === "Faculty" && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Program</label>
+                  <select
+                    value={newUser.program}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, program: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                    required
+                  >
+                    <option value="">-- Select Program --</option>
+                    <option value="BSIT">BSIT</option>
+                    <option value="BSCS">BSCS</option>
                   </select>
                 </div>
               )}
@@ -2649,6 +2713,23 @@ export const UserManagement = () => {
                   </select>
                 </div>
               )}
+              {editUser.role === "Faculty" && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Program</label>
+                  <select
+                    value={editUser.program || ""}
+                    onChange={(e) =>
+                      setEditUser({ ...editUser, program: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-white/50 backdrop-blur-md border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                    required
+                  >
+                    <option value="">-- Select Program --</option>
+                    <option value="BSIT">BSIT</option>
+                    <option value="BSCS">BSCS</option>
+                  </select>
+                </div>
+              )}
               
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
@@ -2850,9 +2931,9 @@ export const UserManagement = () => {
                         </div>
                         
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">Scholarship Document</label>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Scholarship Documents</label>
                           <div className="space-y-3">
-                            {/* Current attachment display */}
+                            {/* Current primary scholarship document */}
                             {scholarshipData.attachment && (
                               <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
                                 <div className="flex items-center gap-3">
@@ -2862,8 +2943,8 @@ export const UserManagement = () => {
                                     </svg>
                                   </div>
                                   <div>
-                                    <p className="text-sm font-medium text-green-800">Current Document</p>
-                                    <p className="text-xs text-green-600">Document attached</p>
+                                    <p className="text-sm font-medium text-green-800">Scholarship Document</p>
+                                    <p className="text-xs text-green-600">Primary document attached</p>
                                   </div>
                                 </div>
                                 <div className="flex gap-2">
@@ -2885,7 +2966,41 @@ export const UserManagement = () => {
                                 </div>
                               </div>
                             )}
-                            
+
+                            {/* Current scholarship contract / second document */}
+                            {scholarshipData.attachment2 && (
+                              <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-medium text-green-800">Scholarship Contract</p>
+                                    <p className="text-xs text-green-600">Second document attached</p>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <a
+                                    href={scholarshipData.attachment2}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors"
+                                  >
+                                    View
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => setScholarshipData({ ...scholarshipData, attachment2: '' })}
+                                    className="px-3 py-1 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 transition-colors"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
                             {/* File upload */}
                             <div className="flex items-center justify-center w-full">
                               <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
@@ -2894,7 +3009,7 @@ export const UserManagement = () => {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                                   </svg>
                                   <p className="mb-2 text-sm text-gray-500">
-                                    <span className="font-semibold">Click to upload</span> scholarship document
+                                    <span className="font-semibold">Click to upload</span> scholarship document / contract
                                   </p>
                                   <p className="text-xs text-gray-500">PDF, DOC, DOCX, JPG, PNG (MAX. 10MB)</p>
                                 </div>
@@ -2902,21 +3017,47 @@ export const UserManagement = () => {
                                   type="file"
                                   className="hidden"
                                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                  multiple
                                   onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
+                                    const files = e.target.files ? Array.from(e.target.files) : [];
+                                    if (!files.length) return;
+
+                                    const updated: any = { ...scholarshipData };
+
+                                    const applyFile = (file: File, key: 'newAttachment' | 'newAttachment2') => {
                                       if (file.size > 10 * 1024 * 1024) {
                                         toast.error('File size must be less than 10MB');
-                                        return;
+                                        return false;
                                       }
-                                      setScholarshipData({ ...scholarshipData, newAttachment: file });
+                                      updated[key] = file;
+                                      return true;
+                                    };
+
+                                    let hasPrimary = !!updated.attachment || !!updated.newAttachment;
+                                    let hasSecondary = !!updated.attachment2 || !!updated.newAttachment2;
+
+                                    for (const file of files) {
+                                      if (!hasPrimary) {
+                                        if (applyFile(file, 'newAttachment')) {
+                                          hasPrimary = true;
+                                        }
+                                      } else if (!hasSecondary) {
+                                        if (applyFile(file, 'newAttachment2')) {
+                                          hasSecondary = true;
+                                        }
+                                      } else {
+                                        toast.error('You can only upload two scholarship files (document and contract).');
+                                        break;
+                                      }
                                     }
+
+                                    setScholarshipData(updated);
                                   }}
                                 />
                               </label>
                             </div>
                             
-                            {/* New file selected indicator */}
+                            {/* New files selected indicator */}
                             {scholarshipData.newAttachment && (
                               <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                                 <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -2925,12 +3066,33 @@ export const UserManagement = () => {
                                   </svg>
                                 </div>
                                 <div className="flex-1">
-                                  <p className="text-sm font-medium text-blue-800">New file selected</p>
+                                  <p className="text-sm font-medium text-blue-800">New file 1 selected</p>
                                   <p className="text-xs text-blue-600">{scholarshipData.newAttachment.name}</p>
                                 </div>
                                 <button
                                   type="button"
                                   onClick={() => setScholarshipData({ ...scholarshipData, newAttachment: null })}
+                                  className="px-3 py-1 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
+
+                            {scholarshipData.newAttachment2 && (
+                              <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-blue-800">New file 2 selected</p>
+                                  <p className="text-xs text-blue-600">{scholarshipData.newAttachment2.name}</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setScholarshipData({ ...scholarshipData, newAttachment2: null })}
                                   className="px-3 py-1 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 transition-colors"
                                 >
                                   Cancel
@@ -3708,31 +3870,62 @@ export const UserManagement = () => {
                         </div>
 
                         {/* Attachment Section */}
-                        {selectedUserScholarship.attachment && (
+                        {(selectedUserScholarship.attachment || selectedUserScholarship.attachment2) && (
                           <div className="mt-4 pt-4 border-t border-yellow-200">
-                            <div className="flex items-start gap-3">
-                              <div className="w-6 h-6 bg-gradient-to-br from-cyan-100 to-cyan-200 rounded-md flex items-center justify-center flex-shrink-0">
-                                <svg className="w-3 h-3 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                </svg>
-                              </div>
-                              <div className="flex-1">
-                                <h5 className="font-semibold text-gray-800 text-sm mb-1">Attachment</h5>
-                                <p className="text-yellow-600 text-xs mb-2">Scholarship document</p>
-                                <div className="bg-gradient-to-r from-gray-50 to-cyan-50 rounded-md p-3 border border-cyan-100">
-                                  <a 
-                                    href={selectedUserScholarship.attachment} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 text-cyan-600 hover:text-cyan-800 font-medium text-sm transition-colors duration-200"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            <div className="space-y-3">
+                              {selectedUserScholarship.attachment && (
+                                <div className="flex items-start gap-3">
+                                  <div className="w-6 h-6 bg-gradient-to-br from-cyan-100 to-cyan-200 rounded-md flex items-center justify-center flex-shrink-0">
+                                    <svg className="w-3 h-3 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                                     </svg>
-                                    View Document
-                                  </a>
+                                  </div>
+                                  <div className="flex-1">
+                                    <h5 className="font-semibold text-gray-800 text-sm mb-1">Attachment</h5>
+                                    <p className="text-yellow-600 text-xs mb-2">Scholarship document</p>
+                                    <div className="bg-gradient-to-r from-gray-50 to-cyan-50 rounded-md p-3 border border-cyan-100">
+                                      <a 
+                                        href={selectedUserScholarship.attachment} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-2 text-cyan-600 hover:text-cyan-800 font-medium text-sm transition-colors duration-200"
+                                      >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        View Document
+                                      </a>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
+                              )}
+
+                              {selectedUserScholarship.attachment2 && (
+                                <div className="flex items-start gap-3">
+                                  <div className="w-6 h-6 bg-gradient-to-br from-cyan-100 to-cyan-200 rounded-md flex items-center justify-center flex-shrink-0">
+                                    <svg className="w-3 h-3 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                    </svg>
+                                  </div>
+                                  <div className="flex-1">
+                                    <h5 className="font-semibold text-gray-800 text-sm mb-1">Scholarship Contract</h5>
+                                    <p className="text-yellow-600 text-xs mb-2">Additional scholarship document</p>
+                                    <div className="bg-gradient-to-r from-gray-50 to-cyan-50 rounded-md p-3 border border-cyan-100">
+                                      <a 
+                                        href={selectedUserScholarship.attachment2} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-2 text-cyan-600 hover:text-cyan-800 font-medium text-sm transition-colors duration-200"
+                                      >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        View Scholarship Contract
+                                      </a>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}

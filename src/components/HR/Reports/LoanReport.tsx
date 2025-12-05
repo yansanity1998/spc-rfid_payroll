@@ -199,7 +199,7 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
       'Request ID': record.id,
       'Employee Name': record.name,
       'Position': record.requester_position,
-      'Loan Amount': record.amount,
+      'Cash Advance Amount': record.amount,
       'Purpose': record.purpose,
       'Date Needed': formatDate(record.date_needed),
       'Monthly Deduction': record.monthly_deduction,
@@ -232,14 +232,14 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `loan_report_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `cash_advance_report_${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    toast.success('Loan report exported successfully!');
+    toast.success('Cash advance report exported successfully!');
   };
 
   const exportToPDF = () => {
@@ -265,7 +265,7 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Loan Report - ${currentDate}</title>
+          <title>Cash Advance Report - ${currentDate}</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
             .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #EA580C; padding-bottom: 20px; }
@@ -292,7 +292,7 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
         </head>
         <body>
           <div class="header">
-            <h1>Loan Report</h1>
+            <h1>Cash Advance Report</h1>
             <p>SPC RFID Payroll System</p>
             <p>Generated on: ${currentDate}</p>
             <p>Report Period: ${formatDate(dateRange.startDate)} to ${formatDate(dateRange.endDate)}</p>
@@ -327,7 +327,7 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
                 <th>ID</th>
                 <th>Employee Name</th>
                 <th>Position</th>
-                <th>Loan Amount</th>
+                <th>Cash Advance Amount</th>
                 <th>Date Needed</th>
                 <th>Monthly Deduction</th>
                 <th>Total Months</th>
@@ -366,8 +366,8 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
           </table>
 
           <div class="footer">
-            <p>This report contains ${loanData.length} loan request records</p>
-            <p>Total loan amount requested: ₱${stats.totalAmount.toLocaleString()}</p>
+            <p>This report contains ${loanData.length} cash advance request records</p>
+            <p>Total cash advance amount requested: ₱${stats.totalAmount.toLocaleString()}</p>
             <p>© ${new Date().getFullYear()} SPC RFID Payroll System - All rights reserved</p>
           </div>
         </body>
@@ -418,9 +418,9 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Loan Reports</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Cash Advance Reports</h1>
             </div>
-            <p className="text-gray-600">Comprehensive loan request analytics and reporting</p>
+            <p className="text-gray-600">Comprehensive cash advance request analytics and reporting</p>
           </div>
 
           {/* Filters */}
@@ -599,7 +599,7 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold text-gray-800">Loan Request Records</h2>
+              <h2 className="text-xl font-bold text-gray-800">Cash Advance Request Records</h2>
             </div>
           </div>
 
@@ -608,7 +608,7 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
               <div className="flex items-center justify-center mb-4">
                 <div className="w-8 h-8 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
               </div>
-              <div className="text-gray-600 font-medium text-lg">Loading loan data...</div>
+              <div className="text-gray-600 font-medium text-lg">Loading cash advance data...</div>
             </div>
           ) : loanData.length === 0 ? (
             <div className="p-12 text-center">
@@ -619,8 +619,8 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
                   </svg>
                 </div>
                 <div className="text-center">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-1">No Loan Requests Found</h3>
-                  <p className="text-gray-500">No loan requests match your current filters</p>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-1">No Cash Advance Requests Found</h3>
+                  <p className="text-gray-500">No cash advance requests match your current filters</p>
                 </div>
               </div>
             </div>
@@ -719,6 +719,18 @@ export const LoanReport = ({ onBack }: LoanReportProps) => {
               </table>
             </div>
           )}
+          {/* Summary Footer */}
+          <div className="px-6 py-4 bg-white border-t border-gray-200 flex items-center justify-between text-sm text-gray-600">
+            <div>
+              Showing <span className="font-medium">{loanData.length}</span> loan records
+              {statusFilter !== "All" && (
+                <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">
+                  Status: {statusFilter}
+                </span>
+              )}
+            </div>
+            <div>Generated on {new Date().toLocaleDateString()}</div>
+          </div>
         </div>
       </main>
     </div>
